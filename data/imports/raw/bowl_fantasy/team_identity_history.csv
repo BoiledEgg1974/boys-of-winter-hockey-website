@@ -1,43 +1,17 @@
 team_fhm_id,start_year,end_year,team_name,logo_file
-25,1979,1979,Quebec Nordiques,quebec_nordiques.png
-25,1980,1985,Atlanta Flames,atlanta_flames.png
-25,1986,2100,Canmore Eagles,canmore_eagles.png
-21,1979,1984,Miami Manatees,Miami_Manatees.png
-21,1985,2100,Florida Party Animals,fla-t21.png
-26,1979,1984,Dieppe Commandos,dieppe_commandos.png
-26,1985,1985,Inverness Loch Ness,Inverness_Loch_Ness.png
-26,1986,2100,Fort Wayne Komets,fort_wayne_komets.png
-5,1979,1983,Boston Bruins,boston_bruins.png
-5,1984,2100,Hamilton Steel,hamilton_steel.png
-19,1979,1979,Phoenix Coyotes,phoenix_coyotes.png
-19,1980,2100,Kenya Pride,kenya_pride.png
-11,1979,1980,Kansas City Devil Dogs,kansas_city_devil_dogs.png
-11,1981,1981,Florida PA,Florida PA.png
-11,1982,1983,Dublin Rams,Dublin_Rams.png
-11,1984,2100,Kunlun Red Star,kunlun_red_star.png
-14,1979,1983,London Capybaras,London_Capybaras.png
-14,1984,2100,London Black Knights,london_black_knights.png
-279,1979,1980,Glasgow Clan,glasgow_clan.png
-279,1981,1984,Maine Black Bears,maine_black_bears.png
-279,1985,2100,Maine Mariners,maine_mariners.png
-20,1979,1980,Ho Chi Minh City Hockey Club,ho_chi_minh_city_hockey_club.png
-20,1981,2100,Montreal Canadiens,montreal_canadiens.png
-12,1979,1984,Dallas Stars,Dallas_Stars.png
-12,1985,1986,Portland Buckaroos,portland_buckaroos.png
-12,1987,2100,Helsinki Jokerit,helsinki_jokerit.png
-280,1979,1984,Moscow CSKA Red Army,Moscow_CSKA_Red_Army.png
-280,1985,2100,Vancouver Giants,vcr-t280.png
-16,1979,1981,Windy City Wolves,Windy_City_Wolves.png
-16,1982,2100,Victoria Royals,vic-t16.png
-0,1979,2100,Wichita Thunder,wic-t0.png
-3,1979,2100,Toronto Maple Leafs,tor-t3.png
-8,1979,2100,Chicago Black Hawks,chicago_blackhawks.png
-9,1979,2100,Halifax Privateers,halifax_privateers.png
-10,1979,2100,Moncton Wildcats,moncton_wildcats.png
-15,1979,2100,Pittsburgh Penguins,pittsburgh_penguins.png
-17,1979,2100,Tokyo Katanas,tok-t17.png
-18,1979,2100,Toronto Six,six-t18.png
-22,1979,2100,Bangkok Roosters,bangkok_roosters.png
-23,1979,2100,Edmonton Oilers,edm-t23.png
-24,1979,2100,Trois-Rivières Lions,trl-t24.png
-278,1979,2100,Indianapolis Racers,indianapolis_racers.png
+0,1979,2100,Phoenix Freedom,bangkok_roosters.png
+1,1979,2100,Fort Worth Roughnecks,Prince_Albert_Stoners.png
+2,1979,2100,Los Angeles Armadillos,Seattle_Reign_Kings.png
+3,1979,2100,Toronto Explosion,toronto_six.png
+4,1979,2100,Charlotte Hooks,florida_party_animals.png
+5,1979,2100,Columbus Night Train,Columbus_Chill.png
+6,1979,2100,Ottawa Golden Panthers,Rideau__St_Lawrence_Kings.png
+7,1979,2100,Denver North Stars,Maine_Mist.png
+8,1979,2100,Houston Rebels,New_Brunswick_Poseidon.png
+9,1979,2100,Brooklyn Flying Tigers,Seoul_Tigers.png
+10,1979,2100,New York Timberwolves,buffalo_sabres.png
+11,1979,2100,San Jose Turtles,vancouver_canucks.png
+12,1979,2100,Detroit Wreckers,Sudbury_Blueberry_Bulldogs.png
+13,1979,2100,Omaha Flyers,Winnipeg_Trash_Pandas.png
+14,1979,2100,San Diego Emeralds,Stockholm_Sentinels.png
+15,1979,2100,Tucson Leafs,winnipeg_jets.png

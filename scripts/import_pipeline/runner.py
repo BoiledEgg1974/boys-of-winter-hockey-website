@@ -1408,7 +1408,11 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
 
             configure_sqlite_for_bulk_import(db.engine, db_path=resolve_league_sqlite_path(slug))
         snapshot_overall_baselines_before_import(app)
-        from scripts.import_pipeline.fhm_loader import is_fhm_export_dir, run_fhm_import
+        from scripts.import_pipeline.fhm_loader import (
+            is_fhm_export_dir,
+            relegation_tier_league_ids,
+            run_fhm_import,
+        )
 
         if is_fhm_export_dir(raw):
             log.info("Detected FHM export layout (team_data.csv, semicolon CSVs).")
@@ -1418,7 +1422,11 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
             message = ""
             total = 0
             try:
-                counts = run_fhm_import(raw, app, league_filter=0)
+                tier_ids = relegation_tier_league_ids(raw) if slug == "bowl-fantasy" else None
+                league_filter: int | tuple[int, ...] = tier_ids if tier_ids else 0
+                if tier_ids:
+                    log.info("BOWL-Relegation import: loading tier leagues %s", tier_ids)
+                counts = run_fhm_import(raw, app, league_filter=league_filter)
                 overlay = raw / "team_standings.csv"
                 if overlay.is_file():
                     log.info("Applying team_standings.csv overlay after FHM import.")

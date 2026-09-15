@@ -36,6 +36,12 @@
     </div>
     <a class="link-more" href="{{ url_for('main.relegation_page') }}">Promotion / Relegation details</a>
   </section>
+  <section id="dash-injuries" class="card home-dashboard__card" aria-labelledby="home-injuries-h" data-module-key="league_injuries">
+    <h2 id="home-injuries-h" class="home-dashboard__h">Injury Report</h2>
+    <div id="home-injuries-body">
+      <p class="empty-state loading-with-puck">Loading…</p>
+    </div>
+  </section>
   {% endif %}
   <div id="dash-schedule" class="home-dash-schedule-ribbon" data-module-key="schedule">
     <div class="card card--team-schedule home-dash-schedule-ribbon__card" style="--schedule-accent: var(--accent);">
@@ -2038,35 +2044,63 @@
     var mv = overview.movement_watch || {};
     var danger = mv.relegation_danger;
     var promo = mv.promotion_watch;
+    var dangerRows = Array.isArray(danger) ? danger : (danger && danger.team ? [danger] : []);
+    var promoRows = Array.isArray(promo) ? promo : (promo && promo.team ? [promo] : []);
     var h = '';
     h += '<article class="home-relegation-card home-relegation-card--upper"><h3>' + escapeHtml(overview.upper_label || 'Upper League') + '</h3>';
-    if (danger && danger.team) {
-      h += '<p><strong>Relegation danger:</strong> ' + rowRelegationTeam(danger.team) + '</p>';
-      h += '<p class="muted">' + escapeHtml(String(danger.points || 0)) + ' pts';
-      if (danger.gap_to_safety != null) h += ' · ' + escapeHtml(String(danger.gap_to_safety)) + ' from safety';
-      h += '</p>';
+    if (dangerRows.length) {
+      dangerRows.forEach(function (row) {
+        if (!row || !row.team) return;
+        h += '<p><strong>Relegation danger:</strong> ' + rowRelegationTeam(row.team) + '</p>';
+        h += '<p class="muted">' + escapeHtml(String(row.points || 0)) + ' pts';
+        if (row.gap_to_safety != null) h += ' · ' + escapeHtml(String(row.gap_to_safety)) + ' from safety';
+        h += '</p>';
+      });
     } else {
       h += '<p class="muted">No upper standings yet.</p>';
     }
     h += '</article>';
     h += '<article class="home-relegation-card home-relegation-card--lower"><h3>' + escapeHtml(overview.lower_label || 'Lower League') + '</h3>';
-    if (promo && promo.team) {
-      h += '<p><strong>Promotion watch:</strong> ' + rowRelegationTeam(promo.team) + '</p>';
-      h += '<p class="muted">' + escapeHtml(promo.note || '') + '</p>';
+    if (promoRows.length) {
+      promoRows.forEach(function (row) {
+        if (!row || !row.team) return;
+        h += '<p><strong>Promotion watch:</strong> ' + rowRelegationTeam(row.team) + '</p>';
+        h += '<p class="muted">' + escapeHtml(row.note || '') + '</p>';
+      });
     } else {
       h += '<p class="muted">No lower standings yet.</p>';
     }
     h += '</article>';
     h += '<article class="home-relegation-card home-relegation-card--watch"><h3>Movement Watch</h3>';
-    h += '<p class="muted">Last Upper drops · Lower champion rises after playoffs.</p>';
+    h += '<p class="muted">Bottom 2 Upper drop · Top 2 Lower rise after playoffs.</p>';
     h += '<p><a href="' + escapeAttr(withRoot('/relegation')) + '">View promotion / relegation board</a></p>';
     h += '</article>';
+    el.innerHTML = h;
+  }
+
+  function paintInjuryReport(rows) {
+    var el = document.getElementById('home-injuries-body');
+    if (!el) return;
+    if (!rows || !rows.length) {
+      el.innerHTML = '<p class="empty-state">No active injuries reported.</p>';
+      return;
+    }
+    var h = '<ul class="home-injuries-list">';
+    rows.slice(0, 24).forEach(function (row) {
+      var href = row.team_slug ? withRoot('/teams/' + encodeURIComponent(row.team_slug)) : '#';
+      h += '<li><a href="' + escapeAttr(href) + '"><strong>' + escapeHtml(row.team_abbr || row.team_name || 'Team') + '</strong></a> ';
+      h += escapeHtml(row.player_name || 'Player') + ' — ' + escapeHtml(row.injury_name || 'Injury');
+      if (row.recovery_days != null) h += ' <span class="muted">(' + escapeHtml(String(row.recovery_days)) + 'd)</span>';
+      h += '</li>';
+    });
+    h += '</ul>';
     el.innerHTML = h;
   }
 
   function applyHomeSummaryData(data) {
     if (!data) return;
     paintRelegationOverview(data.relegation_overview);
+    paintInjuryReport(data.league_injuries);
     var noteEl = document.getElementById('home-dashboard-season-note');
         if (noteEl) {
           if (data.dashboard_uses_prior_season_data) {

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import current_app, url_for
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.logo_urls import team_logo_url_for_team
@@ -525,6 +525,20 @@ def game_preview_payload(game_id: int) -> dict[str, Any] | None:
     away_card = _team_card(session, sid, away, game, home)
     home_card = _team_card(session, sid, home, game, away)
 
+    from app.models import PlayerInjury
+    from app.services.injuries import injury_payload_for_team
+
+    home_injuries = injury_payload_for_team(session, int(home.id))
+    away_injuries = injury_payload_for_team(session, int(away.id))
+    has_injury_data = bool(
+        home_injuries
+        or away_injuries
+        or session.scalar(select(func.count()).select_from(PlayerInjury))
+    )
+    injuries_note = None
+    if not has_injury_data:
+        injuries_note = "Injury reports are not included in current league data imports."
+
     return {
         "game_id": game.id,
         "status": game.status,
@@ -542,5 +556,7 @@ def game_preview_payload(game_id: int) -> dict[str, Any] | None:
         "recent_meetings": meetings,
         "away": away_card,
         "home": home_card,
-        "injuries_note": "Injury reports are not included in current league data imports.",
+        "home_injuries": home_injuries,
+        "away_injuries": away_injuries,
+        "injuries_note": injuries_note,
     }

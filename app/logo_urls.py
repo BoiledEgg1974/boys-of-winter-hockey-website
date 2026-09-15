@@ -5,33 +5,25 @@ from pathlib import Path
 
 from flask import current_app, has_app_context, url_for
 
-# BOWL-Relegation: roster slug -> logo filename under ``logos/teams/bowl_fantasy/``.
+# BOWL-Relegation (BLUP + BLOW): roster slug -> logo filename under ``logos/teams/bowl_fantasy/``.
 # Keep in sync with ``data/imports/raw/bowl_fantasy/team_identity_history.csv``.
 FANTASY_ROSTER_LOGO_FILES: dict[str, str] = {
-    "bgk-t22": "bangkok_roosters.png",
-    "can-t25": "canmore_eagles.png",
-    "chi-t8": "chicago_blackhawks.png",
-    "edm-t23": "edm-t23.png",
-    "fla-t21": "fla-t21.png",
-    "fw-t26": "fort_wayne_komets.png",
-    "hal-t9": "halifax_privateers.png",
-    "ham-t5": "hamilton_steel.png",
-    "ind-t278": "indianapolis_racers.png",
-    "ken-t19": "kenya_pride.png",
-    "kun-t11": "kunlun_red_star.png",
-    "lon-t14": "london_black_knights.png",
-    "me-t279": "maine_mariners.png",
-    "mon-t10": "moncton_wildcats.png",
-    "mtl-t20": "montreal_canadiens.png",
-    "pit-t15": "pittsburgh_penguins.png",
-    "hel-t12": "helsinki_jokerit.png",
-    "six-t18": "six-t18.png",
-    "tok-t17": "tok-t17.png",
-    "tor-t3": "tor-t3.png",
-    "trl-t24": "trl-t24.png",
-    "vcr-t280": "vcr-t280.png",
-    "vic-t16": "vic-t16.png",
-    "wic-t0": "wic-t0.png",
+    "bro-t9": "Seoul_Tigers.png",
+    "cha-t4": "florida_party_animals.png",
+    "col-t5": "Columbus_Chill.png",
+    "den-t7": "Maine_Mist.png",
+    "det-t12": "Sudbury_Blueberry_Bulldogs.png",
+    "eme-t14": "Stockholm_Sentinels.png",
+    "for-t1": "Prince_Albert_Stoners.png",
+    "hou-t8": "New_Brunswick_Poseidon.png",
+    "los-t2": "Seattle_Reign_Kings.png",
+    "new-t10": "buffalo_sabres.png",
+    "oma-t13": "Winnipeg_Trash_Pandas.png",
+    "ott-t6": "Rideau__St_Lawrence_Kings.png",
+    "pho-t0": "bangkok_roosters.png",
+    "san-t11": "vancouver_canucks.png",
+    "tor-t3": "toronto_six.png",
+    "tuc-t15": "winnipeg_jets.png",
 }
 
 # When the PNG stem differs from the DB slug, probe the canonical filename second.

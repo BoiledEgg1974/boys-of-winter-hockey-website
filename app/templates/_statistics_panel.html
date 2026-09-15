@@ -31,48 +31,49 @@
 {% macro fmt_adv_gr(v) -%}
 {%- if v is none -%}—{%- else -%}{{ '%.1f'|format(v) }}{%- endif -%}
 {%- endmacro %}
+{% set _rel_scope = relegation_scope if relegation_enabled is defined and relegation_enabled and relegation_scope is defined and relegation_scope != 'combined' else none %}
 {% macro sk_url(sk) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none)) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sk, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), scope=_rel_scope) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
-{{ url_for('main.statistics', segment=segment, sort=sk, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), expanded=1) }}
+{{ url_for('main.statistics', segment=segment, sort=sk, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.statistics', segment=segment, sort=sk, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none)) }}
+{{ url_for('main.statistics', segment=segment, sort=sk, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if show_goalies else none), scope=_rel_scope) }}
 {% endif %}
 {% endif %}
 {%- endmacro %}
 {% macro g_url(gs) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=segment, sort=sort, g_sort=gs, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, scope=_rel_scope) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
-{{ url_for('main.statistics', segment=segment, sort=sort, g_sort=gs, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, expanded=1) }}
+{{ url_for('main.statistics', segment=segment, sort=sort, g_sort=gs, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.statistics', segment=segment, sort=sort, g_sort=gs, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=1) }}
+{{ url_for('main.statistics', segment=segment, sort=sort, g_sort=gs, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=1, scope=_rel_scope) }}
 {% endif %}
 {% endif %}
 {%- endmacro %}
 {% macro base_url(seg, gl) -%}
 {% if team_statistics %}
 {% if stats_expanded %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), expanded=1) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none)) }}
+{{ url_for('main.team_page', slug=team_statistics.slug, panel='statistics', _anchor='team-page-stats', segment=seg, sort=sort, g_sort=g_sort, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), scope=_rel_scope) }}
 {% endif %}
 {% else %}
 {% if stats_expanded %}
-{{ url_for('main.statistics', segment=seg, sort=sort, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), expanded=1) }}
+{{ url_for('main.statistics', segment=seg, sort=sort, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), scope=_rel_scope, expanded=1) }}
 {% else %}
-{{ url_for('main.statistics', segment=seg, sort=sort, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none)) }}
+{{ url_for('main.statistics', segment=seg, sort=sort, g_sort=g_sort, team_id=team_id or none, pos=(pos_filter if pos_filter != 'all' else none), goalies=(1 if gl else none), scope=_rel_scope) }}
 {% endif %}
 {% endif %}
 {%- endmacro %}

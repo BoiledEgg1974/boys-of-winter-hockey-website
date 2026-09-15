@@ -39,6 +39,7 @@ class Team(db.Model):
     fhm_division_id: Mapped[int | None] = mapped_column(Integer)
 
     players: Mapped[list["Player"]] = relationship(back_populates="current_team")
+    player_injuries: Mapped[list["PlayerInjury"]] = relationship(back_populates="team")
     home_games: Mapped[list["Game"]] = relationship(
         foreign_keys="Game.home_team_id", back_populates="home_team"
     )
@@ -107,6 +108,7 @@ class Player(db.Model):
     hall_of_fame_entry: Mapped["HallOfFameMember | None"] = relationship(
         back_populates="player", uselist=False
     )
+    injuries: Mapped[list["PlayerInjury"]] = relationship(back_populates="player")
 
 
 class LeagueMeta(db.Model):
@@ -118,6 +120,34 @@ class LeagueMeta(db.Model):
     fhm_league_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     abbreviation: Mapped[str | None] = mapped_column(String(16))
+
+
+class InjuryType(db.Model):
+    """Injury catalog from injuries_data.csv (FHM)."""
+
+    __tablename__ = "injury_types"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fhm_injury_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    min_days: Mapped[int | None] = mapped_column(Integer)
+    max_days: Mapped[int | None] = mapped_column(Integer)
+
+
+class PlayerInjury(db.Model):
+    """Active player injuries from player_injuries.csv (FHM snapshot)."""
+
+    __tablename__ = "player_injuries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), nullable=False, index=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
+    injury_type_id: Mapped[int | None] = mapped_column(ForeignKey("injury_types.id"))
+    recovery_days: Mapped[int | None] = mapped_column(Integer)
+
+    player: Mapped["Player"] = relationship(back_populates="injuries")
+    team: Mapped["Team | None"] = relationship(back_populates="player_injuries")
+    injury_type: Mapped["InjuryType | None"] = relationship()
 
 
 class TeamSeasonAggregate(db.Model):

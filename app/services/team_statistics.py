@@ -86,7 +86,13 @@ RATE_COUNT_KEYS = frozenset(
 )
 
 
-def rank_maps_for_segment(session: Session, season_id: int, segment: str) -> dict[int, dict[str, int]]:
+def rank_maps_for_segment(
+    session: Session,
+    season_id: int,
+    segment: str,
+    *,
+    team_ids: frozenset[int] | None = None,
+) -> dict[int, dict[str, int]]:
     """League-wide dense ranks per stat key for TeamSeasonAggregate rows in one segment."""
     aggs = session.scalars(
         select(TeamSeasonAggregate).where(
@@ -94,6 +100,8 @@ def rank_maps_for_segment(session: Session, season_id: int, segment: str) -> dic
             TeamSeasonAggregate.stat_segment == segment,
         )
     ).all()
+    if team_ids is not None:
+        aggs = [a for a in aggs if int(a.team_id) in team_ids]
     if not aggs:
         return {}
 
@@ -854,6 +862,7 @@ def build_team_statistics_chart_archive(
     default_season_id: int | None = None,
     default_segment: str = "rs",
     season_label: str | None = None,
+    scoped_team_ids: frozenset[int] | None = None,
 ) -> dict[str, Any]:
     archive = build_team_analytics_chart_archive(
         session,
@@ -903,6 +912,11 @@ def build_team_statistics_chart_archive(
         {"key": "per_game", "label": "Per game"},
         {"key": "per_60", "label": "Per 60"},
     ]
+    if scoped_team_ids is not None:
+        for ds in archive.get("datasets", {}).values():
+            ds["teams"] = [
+                t for t in ds.get("teams", []) if int(t.get("team_id", -1)) in scoped_team_ids
+            ]
     return _append_record_years_to_chart_archive(session, archive)
 
 
@@ -918,6 +932,7 @@ def build_team_statistics_page_payload(
     selected_season_key: str | None = None,
     history_year: int | None = None,
     history_year_label: str | None = None,
+    scoped_team_ids: frozenset[int] | None = None,
 ) -> dict[str, Any]:
     from app.services.season_team_logo_bundle import get_season_team_logo_bundle
 
@@ -942,7 +957,9 @@ def build_team_statistics_page_payload(
 
     stat_rows = team_aggregate_rows(season, standings_rows, segment)
     standings_by_team = {int(st.team_id): st for st in standings_rows}
-    rank_maps = rank_maps_for_segment(session, int(season.id), segment)
+    rank_maps = rank_maps_for_segment(
+        session, int(season.id), segment, team_ids=scoped_team_ids
+    )
     situational = (
         _situational_goal_totals(session, int(season.id), segment, strength)
         if strength != "all"

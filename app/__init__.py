@@ -498,10 +498,27 @@ def create_app(config_class: type = Config) -> Flask:
 
         slug_early = str(app.config.get("LEAGUE_SLUG") or "").strip()
         racing_layout = is_racing_league(slug_early)
+        nav_teams_upper: list = []
+        nav_teams_lower: list = []
         try:
             teams = get_nav_teams_for_layout(app) if not racing_layout else []
+            if slug_early == "bowl-fantasy" and teams:
+                from app.services.relegation import (
+                    filter_teams_by_scope,
+                    get_tier_config,
+                    relegation_features_enabled,
+                )
+
+                if relegation_features_enabled(slug_early):
+                    raw_dir = Path(str(app.config.get("RAW_IMPORT_DIR") or ""))
+                    tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+                    teams = filter_teams_by_scope(teams, "combined", tier_cfg)
+                    nav_teams_upper = filter_teams_by_scope(teams, "upper", tier_cfg)
+                    nav_teams_lower = filter_teams_by_scope(teams, "lower", tier_cfg)
         except Exception:
             teams = []
+            nav_teams_upper = []
+            nav_teams_lower = []
 
         def team_logo_url(team: Team) -> str:
             return team_logo_url_for_team(team)
@@ -637,6 +654,8 @@ def create_app(config_class: type = Config) -> Flask:
 
         return dict(
             nav_teams=teams,
+            nav_teams_upper=nav_teams_upper,
+            nav_teams_lower=nav_teams_lower,
             relegation_under_construction=relegation_under_construction(slug_layout),
             header_team_logo_season=header_team_logo_season,
             team_logo_url=team_logo_url,

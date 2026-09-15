@@ -2,6 +2,7 @@
 {% block title %}STATISTICS — Boys of Winter Hockey League{% endblock %}
 {% block content %}
 <div class="stats-page">
+  {% include 'includes/relegation_scope_tabs.html' %}
   {% with team_statistics=none %}
   {% include "_statistics_panel.html" %}
   {% endwith %}

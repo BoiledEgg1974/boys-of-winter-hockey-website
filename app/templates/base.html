@@ -110,6 +110,8 @@
             <a href="{{ url_for('main.standings', scope='lower') }}">Lower</a>
             {% endif %}
             <a href="{{ url_for('main.relegation_page') }}">Promotion/Relegation</a>
+            <a href="{{ url_for('main.statistics') }}">Player Statistics</a>
+            <a href="{{ url_for('main.team_statistics_page') }}">Team Statistics</a>
             <a href="{{ url_for('main.all_time_records') }}">Combined Records</a>
           </div>
           {% endif %}
@@ -125,6 +127,24 @@
             <span class="nav-teams-dropdown">
               <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
               <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
+                {% if current_league_slug == 'bowl-fantasy' and nav_teams_upper and nav_teams_lower %}
+                <p class="nav-teams-dropdown__tier-label">BOWL-Upper</p>
+                <div class="nav-teams-dropdown__row">
+                  {% for team in nav_teams_upper %}
+                  <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.full_display_name() }}">
+                    <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                  </a>
+                  {% endfor %}
+                </div>
+                <p class="nav-teams-dropdown__tier-label">BOWL-Lower</p>
+                <div class="nav-teams-dropdown__row">
+                  {% for team in nav_teams_lower %}
+                  <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.full_display_name() }}">
+                    <img class="nav-teams-dropdown__logo" src="{{ team_logo_url_for_season_context(team, header_team_logo_season) }}" alt="{{ team.name }} logo" width="36" height="36" loading="lazy" decoding="async">
+                  </a>
+                  {% endfor %}
+                </div>
+                {% else %}
                 {% set half = (nav_teams|length + 1) // 2 %}
                 <div class="nav-teams-dropdown__row">
                   {% for team in nav_teams[:half] %}
@@ -141,6 +161,7 @@
                   </a>
                   {% endfor %}
                 </div>
+                {% endif %}
                 {% endif %}
               </div>
             </span>

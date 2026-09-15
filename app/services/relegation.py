@@ -18,6 +18,7 @@ RelegationScope = Literal["combined", "upper", "lower"]
 RelegationTier = Literal["upper", "lower"]
 
 _MAIN_LEAGUE_EXCLUDE = ("minor", "ahl", "ihl", "junior", "college", "european", "prospect")
+MOVEMENT_TEAMS = 2
 
 
 @dataclass(frozen=True)
@@ -43,15 +44,28 @@ def relegation_features_enabled(league_slug: str | None = None) -> bool:
     slug = (league_slug or "").strip()
     if not is_relegation_league(slug):
         return False
+    import os
+
+    env_raw = os.environ.get("RELEGATION_SPLIT_ACTIVE", "").strip().lower()
+    if env_raw in ("0", "false", "no", "off"):
+        return False
+    if env_raw in ("1", "true", "yes", "on"):
+        return True
     try:
         flag = current_app.config.get("RELEGATION_SPLIT_ACTIVE")
-        if flag is not None:
-            return bool(flag)
+        if flag is True:
+            return True
     except RuntimeError:
         pass
-    from app.config import relegation_split_active
+    try:
+        from app.models import db
 
-    return relegation_split_active(slug)
+        cfg = get_tier_config(db.session)
+        if cfg.mode == "league_id" and cfg.upper_league_ids and cfg.lower_league_ids:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def relegation_under_construction(league_slug: str | None = None) -> bool:
@@ -88,7 +102,7 @@ def _is_main_bowl_league_meta(row: LeagueMeta) -> bool:
     if int(row.fhm_league_id) == 0:
         return True
     abbr = (row.abbreviation or "").upper()
-    if abbr in ("BOWL", "NHL"):
+    if abbr in ("BOWL", "NHL", "BLUP", "BLOW"):
         return True
     if "bowl" in name and "fantasy" in name:
         return True
@@ -155,6 +169,7 @@ def get_tier_config(session: Session, *, raw_import_dir: Path | None = None) -> 
             (m.name for m in main_metas if int(m.fhm_league_id) in lower_ids),
             "Lower League",
         )
+        tier_combined = tuple(sorted(upper_ids | lower_ids))
         return RelegationTierConfig(
             mode="league_id",
             upper_league_ids=frozenset(upper_ids),
@@ -163,7 +178,7 @@ def get_tier_config(session: Session, *, raw_import_dir: Path | None = None) -> 
             lower_conference_ids=frozenset(),
             upper_label=upper_label,
             lower_label=lower_label,
-            combined_league_ids=combined_ids,
+            combined_league_ids=tier_combined or combined_ids,
         )
 
     # Conference fallback: two conferences among main-league teams (current BOWL-Relegation export).
@@ -252,9 +267,25 @@ def filter_teams_by_scope(
     scope: RelegationScope,
     config: RelegationTierConfig,
 ) -> list[Team]:
+    main = filter_teams_to_main_tiers(teams, config)
     if scope == "combined":
-        return teams
-    return [t for t in teams if team_matches_scope(t, scope, config)]
+        return main
+    return [t for t in main if team_matches_scope(t, scope, config)]
+
+
+def filter_teams_to_main_tiers(
+    teams: list[Team],
+    config: RelegationTierConfig,
+) -> list[Team]:
+    """Keep only Upper/Lower main-tier clubs (exclude AHL/minors in DB)."""
+    if config.mode == "league_id":
+        allowed = set(config.upper_league_ids) | set(config.lower_league_ids)
+        return [
+            t
+            for t in teams
+            if t.fhm_league_id is not None and int(t.fhm_league_id) in allowed
+        ]
+    return [t for t in teams if team_tier(t, config) is not None]
 
 
 def filter_standings_by_scope(
@@ -393,8 +424,8 @@ def build_movement_watch(
 ) -> dict[str, object]:
     """Danger zone (Upper last) and promotion watch (Lower leader/champion)."""
     empty: dict[str, object] = {
-        "relegation_danger": None,
-        "promotion_watch": None,
+        "relegation_danger": [],
+        "promotion_watch": [],
         "upper_standings_top": [],
         "lower_standings_top": [],
     }
@@ -419,30 +450,34 @@ def build_movement_watch(
         reverse=True,
     )
 
-    relegation_danger = None
+    relegation_danger: list[dict[str, object]] = []
     if upper_rows:
-        last = upper_rows[-1]
-        safety = upper_rows[-2] if len(upper_rows) >= 2 else None
-        gap = None
-        if safety is not None:
-            gap = int(safety.pts or 0) - int(last.pts or 0)
-        relegation_danger = {
-            "team": last.team,
-            "points": int(last.pts or 0),
-            "rank": len(upper_rows),
-            "gap_to_safety": gap,
-            "remaining_games": _count_remaining_rs_games(session, season_id, int(last.team_id)),
-        }
+        safety_idx = max(0, len(upper_rows) - MOVEMENT_TEAMS - 1)
+        safety_pts = int(upper_rows[safety_idx].pts or 0) if upper_rows else 0
+        for st in upper_rows[-MOVEMENT_TEAMS:]:
+            gap = safety_pts - int(st.pts or 0) if len(upper_rows) > MOVEMENT_TEAMS else None
+            relegation_danger.append(
+                {
+                    "team": st.team,
+                    "points": int(st.pts or 0),
+                    "rank": upper_rows.index(st) + 1,
+                    "gap_to_safety": gap,
+                    "remaining_games": _count_remaining_rs_games(session, season_id, int(st.team_id)),
+                }
+            )
 
-    promotion_st = _lower_playoff_leader(session, season_id, lower_rows, config)
-    promotion_watch = None
-    if promotion_st and promotion_st.team:
-        promotion_watch = {
-            "team": promotion_st.team,
-            "points": int(promotion_st.pts or 0),
-            "rank": lower_rows.index(promotion_st) + 1 if promotion_st in lower_rows else 1,
-            "note": "Playoff bracket leader" if lower_rows else "Standings leader",
-        }
+    promotion_watch: list[dict[str, object]] = []
+    for st in lower_rows[:MOVEMENT_TEAMS]:
+        if not st.team:
+            continue
+        promotion_watch.append(
+            {
+                "team": st.team,
+                "points": int(st.pts or 0),
+                "rank": lower_rows.index(st) + 1,
+                "note": "Promotion zone (RS standings)",
+            }
+        )
 
     def _mini(st: TeamStanding) -> dict[str, object]:
         return {
@@ -473,6 +508,20 @@ def _team_card(team: Team | None, logo_url_fn) -> dict[str, str] | None:
     }
 
 
+def _serialize_movement_team_row(row: object, *, logo_url_fn) -> dict[str, object] | None:
+    if not isinstance(row, dict):
+        return None
+    team = row.get("team")
+    return {
+        "team": _team_card(team if isinstance(team, Team) else None, logo_url_fn),
+        "points": row.get("points"),
+        "rank": row.get("rank"),
+        "gap_to_safety": row.get("gap_to_safety"),
+        "remaining_games": row.get("remaining_games"),
+        "note": row.get("note"),
+    }
+
+
 def serialize_movement_watch(
     movement: dict[str, object],
     *,
@@ -480,25 +529,22 @@ def serialize_movement_watch(
 ) -> dict[str, object]:
     danger = movement.get("relegation_danger")
     promo = movement.get("promotion_watch")
-    out_danger = None
     if isinstance(danger, dict):
-        team = danger.get("team")
-        out_danger = {
-            "team": _team_card(team if isinstance(team, Team) else None, logo_url_fn),
-            "points": danger.get("points"),
-            "rank": danger.get("rank"),
-            "gap_to_safety": danger.get("gap_to_safety"),
-            "remaining_games": danger.get("remaining_games"),
-        }
-    out_promo = None
+        out_danger = [_serialize_movement_team_row(danger, logo_url_fn=logo_url_fn)]
+    elif isinstance(danger, list):
+        out_danger = [
+            row for row in (_serialize_movement_team_row(d, logo_url_fn=logo_url_fn) for d in danger) if row
+        ]
+    else:
+        out_danger = []
     if isinstance(promo, dict):
-        team = promo.get("team")
-        out_promo = {
-            "team": _team_card(team if isinstance(team, Team) else None, logo_url_fn),
-            "points": promo.get("points"),
-            "rank": promo.get("rank"),
-            "note": promo.get("note"),
-        }
+        out_promo = [_serialize_movement_team_row(promo, logo_url_fn=logo_url_fn)]
+    elif isinstance(promo, list):
+        out_promo = [
+            row for row in (_serialize_movement_team_row(p, logo_url_fn=logo_url_fn) for p in promo) if row
+        ]
+    else:
+        out_promo = []
 
     def _mini(rows: object) -> list[dict[str, object]]:
         if not isinstance(rows, list):
@@ -542,8 +588,8 @@ def build_relegation_overview_payload(
         "mode": config.mode,
         "movement_watch": movement,
         "rules": {
-            "relegation": "Last place in the Upper League moves down after playoffs.",
-            "promotion": "Lower League playoff champion moves up after playoffs.",
+            "relegation": f"Bottom {MOVEMENT_TEAMS} in the Upper League move down after playoffs.",
+            "promotion": f"Top {MOVEMENT_TEAMS} in the Lower League move up after playoffs.",
         },
     }
     if logo_url_fn is not None:

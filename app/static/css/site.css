@@ -154,6 +154,39 @@ html[data-league="fantasy"][data-theme="dark"] {
   margin: 0;
   font-size: 0.88rem;
 }
+.home-injuries-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+.home-injuries-list li + li {
+  margin-top: 0.35rem;
+}
+.nav-teams-dropdown__tier-label {
+  margin: 0.35rem 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+}
+.team-injuries-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.team-depth-injury {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--relegation-danger, #b91c1c);
+}
+.team-depth-player.is-injured {
+  opacity: 0.92;
+}
 .standings-badge--tier {
   display: inline-flex;
   align-items: center;

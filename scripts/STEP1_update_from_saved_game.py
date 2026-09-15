@@ -48,7 +48,7 @@ PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
 DEFAULT_SOURCES: dict[str, str] = {
     "bowl-historical": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Historical.lg\import_export\csv",
-    "bowl-fantasy": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Fantasy.lg\import_export\csv",
+    "bowl-fantasy": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 12\saved_games\BOWL-Relegation.lg\import_export\csv",
     "bowl-cap": r"C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Soft Cap.lg\import_export\csv",
 }
 
@@ -65,7 +65,7 @@ class LeagueCopyTarget:
 
 LEAGUES: tuple[LeagueCopyTarget, ...] = (
     LeagueCopyTarget("BOWL-Historical", "bowl-historical", "bowl_historical"),
-    LeagueCopyTarget("BOWL-Fantasy", "bowl-fantasy", "bowl_fantasy"),
+    LeagueCopyTarget("BOWL-Relegation", "bowl-fantasy", "bowl_fantasy"),
     LeagueCopyTarget("BOWL-Cap", "bowl-cap", "bowl_cap"),
 )
 
@@ -216,7 +216,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Copy saved-game CSVs, import leagues, and optionally push.")
     parser.add_argument("--base", type=str, default=None, help="Base export folder containing league subfolders.")
     parser.add_argument("--historical", type=str, default=None, help="Override source folder for BOWL-Historical.")
-    parser.add_argument("--fantasy", type=str, default=None, help="Override source folder for BOWL-Fantasy.")
+    parser.add_argument("--fantasy", type=str, default=None, help="Override source folder for BOWL-Relegation.")
     parser.add_argument("--cap", type=str, default=None, help="Override source folder for BOWL-Cap.")
     parser.add_argument(
         "--allow-stale",

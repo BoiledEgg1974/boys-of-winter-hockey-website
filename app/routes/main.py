@@ -941,6 +941,16 @@ def team_statistics_page():
     if viewing_catalog_year:
         strength = "all"
 
+    scoped_team_ids = None
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import team_ids_for_scope
+
+        scoped_team_ids = team_ids_for_scope(
+            db.session,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+
     page_payload = build_team_statistics_page_payload(
         db.session,
         season=season,
@@ -952,6 +962,7 @@ def team_statistics_page():
         selected_season_key=selected_season_key,
         history_year=history_year,
         history_year_label=history_year_label,
+        scoped_team_ids=scoped_team_ids,
     )
     from app.services.seasons import season_display_label
 
@@ -965,6 +976,7 @@ def team_statistics_page():
         default_season_id=chart_default_id,
         default_segment=segment,
         season_label=season_display_label(season),
+        scoped_team_ids=scoped_team_ids,
     )
 
     return render_template(
@@ -1105,6 +1117,39 @@ def advanced_stats_page():
         default_season_id=chart_default_season_id,
         default_segment=segment,
     )
+    relegation_ctx = _relegation_template_context("main.advanced_stats_page")
+    scoped_team_ids = None
+    if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
+        from app.services.relegation import team_ids_for_scope
+
+        scoped_team_ids = team_ids_for_scope(
+            db.session,
+            relegation_ctx["relegation_scope"],  # type: ignore[arg-type]
+            relegation_ctx["relegation_config"],  # type: ignore[arg-type]
+        )
+        if scoped_team_ids is not None:
+            for key in (
+                "skaters",
+                "goalies",
+                "teams",
+                "points_above_ppg",
+                "luck",
+                "discipline",
+                "shot_quality",
+            ):
+                rows = hub.get(key) or []
+                if isinstance(rows, list):
+                    hub[key] = [
+                        r
+                        for r in rows
+                        if isinstance(r, dict) and int(r.get("team_id", -1)) in scoped_team_ids
+                    ]
+            for ds in chart_archive.get("datasets", {}).values():
+                ds["teams"] = [
+                    t
+                    for t in ds.get("teams", [])
+                    if int(t.get("team_id", -1)) in scoped_team_ids
+                ]
     tabs = (
         {"key": "skaters", "label": "Skaters"},
         {"key": "goalies", "label": "Goalies"},
@@ -1133,6 +1178,7 @@ def advanced_stats_page():
         line_min_gp=min_combined_gp,
         line_min_toi=min_combined_toi_minutes,
         active_tab=active_tab,
+        **relegation_ctx,
     )
 
 
@@ -1382,11 +1428,27 @@ def _build_statistics_view_vars(
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     league_slug_cfg = str(current_app.config.get("LEAGUE_SLUG") or "")
     bowl_fhm_for_fantasy: tuple[int, ...] | None = None
+    scope_team_ids: frozenset[int] | None = None
     if league_slug_cfg in ("bowl-fantasy", "bowl-historical", "bowl-cap"):
         bowl_fhm_for_fantasy = bowl_nhl_league_ids(db.session)
         if not bowl_fhm_for_fantasy:
             bowl_fhm_for_fantasy = (0,)
         teams = [t for t in teams if t.fhm_league_id in bowl_fhm_for_fantasy]
+    if league_slug_cfg == "bowl-fantasy":
+        from app.services.relegation import (
+            filter_teams_by_scope,
+            get_tier_config,
+            normalize_relegation_scope,
+            relegation_features_enabled,
+            team_ids_for_scope,
+        )
+
+        if relegation_features_enabled(league_slug_cfg):
+            raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+            rel_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+            rel_scope = normalize_relegation_scope(request.args.get("scope"))
+            teams = filter_teams_by_scope(teams, rel_scope, rel_cfg)
+            scope_team_ids = team_ids_for_scope(db.session, rel_scope, rel_cfg)
     teams_by_id = {t.id: t for t in teams}
     if not canonical_season:
         return {
@@ -1503,6 +1565,8 @@ def _build_statistics_view_vars(
         sk_q = sk_q.join(Team, PlayerSkaterStat.team_id == Team.id).where(
             Team.fhm_league_id.in_(bowl_fhm_for_fantasy)
         )
+    if scope_team_ids is not None:
+        sk_q = sk_q.where(PlayerSkaterStat.team_id.in_(scope_team_ids))
     if team_id:
         sk_q = sk_q.where(PlayerSkaterStat.team_id == team_id)
 
@@ -1587,6 +1651,8 @@ def _build_statistics_view_vars(
         gq = gq.join(Team, PlayerGoalieStat.team_id == Team.id).where(
             Team.fhm_league_id.in_(bowl_fhm_for_fantasy)
         )
+    if scope_team_ids is not None:
+        gq = gq.where(PlayerGoalieStat.team_id.in_(scope_team_ids))
     if team_id:
         gq = gq.where(PlayerGoalieStat.team_id == team_id)
     g_sort = request.args.get("g_sort", "wins")
@@ -1700,6 +1766,10 @@ def _build_statistics_view_vars(
     }
     if locked_team_id is None:
         _stat_params["team_id"] = team_id
+    if league_slug_cfg == "bowl-fantasy":
+        rel_scope_param = (request.args.get("scope") or "").strip().lower()
+        if rel_scope_param in ("upper", "lower"):
+            _stat_params["scope"] = rel_scope_param
     _stat_params = {k: v for k, v in _stat_params.items() if v is not None}
     if locked_team_slug:
         statistics_expand_url = url_for(
@@ -1745,7 +1815,11 @@ def _build_statistics_view_vars(
 
 @main_bp.get("/statistics")
 def statistics():
-    return render_template("statistics.html", **_build_statistics_view_vars())
+    return render_template(
+        "statistics.html",
+        **_relegation_template_context("main.statistics"),
+        **_build_statistics_view_vars(),
+    )
 
 
 @main_bp.get("/schedule")
@@ -5592,12 +5666,22 @@ def team_page(slug: str):
         "team_shot_quality_selected_key": team_shot_quality_selected_key,
         **honors_bundle,
     }
+    from app.services.injuries import injuries_by_player_id, injury_payload_for_team
+
+    tmpl_kwargs["team_injuries"] = injury_payload_for_team(db.session, team.id)
     depth_ova_ids: set[int] = set()
     for _col in ("goalies", "defensemen", "left_wings", "centers", "right_wings"):
         for _row in depth_chart.get(_col) or []:
             _pid = _row.get("pid")
             if _pid is not None:
                 depth_ova_ids.add(int(_pid))
+    if depth_ova_ids:
+        _inj_by_player = injuries_by_player_id(db.session, depth_ova_ids)
+        for _col in ("goalies", "defensemen", "left_wings", "centers", "right_wings"):
+            for _row in depth_chart.get(_col) or []:
+                _pid = _row.get("pid")
+                if _pid is not None:
+                    _row["injury"] = _inj_by_player.get(int(_pid))
     prospect_ova_ids = {
         int(row["player"].id)
         for row in team_prospect_rows

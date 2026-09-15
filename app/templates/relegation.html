@@ -25,8 +25,8 @@
 <section class="card relegation-rules">
   <h2>How movement works</h2>
   <ul>
-    <li><strong>Relegation:</strong> Last place in the {{ tier_config.upper_label }} drops to the {{ tier_config.lower_label }} after playoffs.</li>
-    <li><strong>Promotion:</strong> {{ tier_config.lower_label }} playoff champion moves up to the {{ tier_config.upper_label }}.</li>
+    <li><strong>Relegation:</strong> Bottom 2 in the {{ tier_config.upper_label }} move down to the {{ tier_config.lower_label }} after playoffs.</li>
+    <li><strong>Promotion:</strong> Top 2 in the {{ tier_config.lower_label }} move up to the {{ tier_config.upper_label }} after playoffs.</li>
     <li><strong>Combined stats:</strong> Player pool, draft, and all-time records stay league-wide.</li>
   </ul>
 </section>
@@ -34,8 +34,14 @@
 <div class="relegation-grid">
   <section class="card relegation-card relegation-card--upper">
     <h2>{{ tier_config.upper_label }}</h2>
-    <p class="muted">Relegation danger — last place</p>
-    {% set danger = movement_watch.relegation_danger %}
+    <p class="muted">Relegation danger — bottom 2</p>
+    {% if movement_watch.relegation_danger is mapping %}
+    {% set danger_rows = [movement_watch.relegation_danger] %}
+    {% else %}
+    {% set danger_rows = movement_watch.relegation_danger or [] %}
+    {% endif %}
+    {% if danger_rows %}
+    {% for danger in danger_rows %}
     {% if danger and danger.team %}
     <div class="relegation-team-spotlight relegation-team-spotlight--danger">
       {{ team_lockup_full_name(danger.team, season=season) }}
@@ -45,6 +51,8 @@
         {% if danger.remaining_games %} · {{ danger.remaining_games }} GP left{% endif %}
       </p>
     </div>
+    {% endif %}
+    {% endfor %}
     {% else %}
     <p class="empty-state">No upper-league standings yet.</p>
     {% endif %}
@@ -61,15 +69,23 @@
 
   <section class="card relegation-card relegation-card--lower">
     <h2>{{ tier_config.lower_label }}</h2>
-    <p class="muted">Promotion watch</p>
-    {% set promo = movement_watch.promotion_watch %}
+    <p class="muted">Promotion watch — top 2</p>
+    {% if movement_watch.promotion_watch is mapping %}
+    {% set promo_rows = [movement_watch.promotion_watch] %}
+    {% else %}
+    {% set promo_rows = movement_watch.promotion_watch or [] %}
+    {% endif %}
+    {% if promo_rows %}
+    {% for promo in promo_rows %}
     {% if promo and promo.team %}
     <div class="relegation-team-spotlight relegation-team-spotlight--promo">
       {{ team_lockup_full_name(promo.team, season=season) }}
       <p class="relegation-team-spotlight__meta">
-        {{ promo.points }} pts · {{ promo.note }}
+        {{ promo.points }} pts · rank {{ promo.rank }} · {{ promo.note }}
       </p>
     </div>
+    {% endif %}
+    {% endfor %}
     {% else %}
     <p class="empty-state">No lower-league standings yet.</p>
     {% endif %}

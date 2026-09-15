@@ -33,7 +33,8 @@ class RelegationTierResolverTests(unittest.TestCase):
 
     def test_split_inactive_by_default(self) -> None:
         self.assertFalse(relegation_split_active("bowl-fantasy"))
-        self.assertTrue(relegation_under_construction("bowl-fantasy"))
+        with patch("app.services.relegation.relegation_features_enabled", return_value=False):
+            self.assertTrue(relegation_under_construction("bowl-fantasy"))
 
     def test_conference_fallback_maps_wales_and_campbell(self) -> None:
         session = MagicMock()
@@ -104,15 +105,17 @@ class RelegationRouteTests(unittest.TestCase):
 
     def test_standings_hides_scope_tabs_while_under_construction(self) -> None:
         app = create_app(make_league_config("bowl-fantasy"))
-        with app.test_client() as client:
-            html = client.get("/standings").get_data(as_text=True)
+        with patch("app.services.relegation.relegation_features_enabled", return_value=False):
+            with app.test_client() as client:
+                html = client.get("/standings").get_data(as_text=True)
         self.assertIn("under construction", html.lower())
         self.assertNotIn("relegation-scope-tabs", html)
 
     def test_relegation_page_available_on_fantasy(self) -> None:
         app = create_app(make_league_config("bowl-fantasy"))
-        with app.test_client() as client:
-            resp = client.get("/relegation")
+        with patch("app.services.relegation.relegation_features_enabled", return_value=False):
+            with app.test_client() as client:
+                resp = client.get("/relegation")
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"UNDER CONSTRUCTION", resp.data)
 

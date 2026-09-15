@@ -23,13 +23,40 @@ GOALIE_SOURCES_RS: tuple[str, ...] = ("rs", "retired_rs")
 GOALIE_SOURCES_PO: tuple[str, ...] = ("po", "retired_po")
 
 
+def bowl_relegation_tier_league_ids(session: Session) -> tuple[int, ...]:
+    """FHM league ids for BOWL-Upper + BOWL-Lower only (excludes AHL/minors)."""
+    rows = session.scalars(select(LeagueMeta)).all()
+    upper_ids: set[int] = set()
+    lower_ids: set[int] = set()
+    for m in rows:
+        name = (m.name or "").lower()
+        lid = int(m.fhm_league_id)
+        if any(k in name for k in ("upper", "premier", "top tier", "top league")):
+            upper_ids.add(lid)
+        elif any(k in name for k in ("lower", "relegat", "second tier", "second league")):
+            lower_ids.add(lid)
+    if upper_ids and lower_ids:
+        return tuple(sorted(upper_ids | lower_ids))
+    return ()
+
+
 def bowl_nhl_league_ids(session: Session) -> tuple[int, ...]:
     """FHM league ids for the main BOWL / NHL sim league only (excludes minors, juniors, etc.)."""
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    except RuntimeError:
+        slug = ""
+    if slug == "bowl-fantasy":
+        tier_ids = bowl_relegation_tier_league_ids(session)
+        if tier_ids:
+            return tier_ids
     rows = session.scalars(
         select(LeagueMeta.fhm_league_id).where(
             or_(
                 LeagueMeta.fhm_league_id == 0,
-                LeagueMeta.abbreviation.in_(("BOWL", "NHL")),
+                LeagueMeta.abbreviation.in_(("BOWL", "NHL", "BLUP", "BLOW")),
                 LeagueMeta.name.ilike("%BOWL%"),
                 LeagueMeta.name.ilike("%NHL%"),
             )

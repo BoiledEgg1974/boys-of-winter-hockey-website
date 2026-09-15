@@ -15,11 +15,13 @@ from app.models import (
     GameGoalieStat,
     GameRecordBaseline,
     GameSkaterStat,
+    InjuryType,
     LeagueMeta,
     Player,
     PlayerContract,
     PlayerGoalieStat,
     PlayerGoalieCareerLine,
+    PlayerInjury,
     PlayerSkaterCareerLine,
     PenaltyEvent,
     PlayerSkaterStat,
@@ -43,6 +45,41 @@ from scripts.import_pipeline.encoding_utils import (
 from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry, write_with_sqlite_retry
 
 log = logging.getLogger("bowl.fhm")
+
+LeagueFilter = int | tuple[int, ...] | list[int]
+
+
+def _league_id_set(league_filter: LeagueFilter) -> frozenset[int]:
+    if isinstance(league_filter, int):
+        return frozenset({league_filter})
+    return frozenset(int(x) for x in league_filter)
+
+
+def _primary_league_id(league_filter: LeagueFilter) -> int:
+    return min(_league_id_set(league_filter))
+
+
+def relegation_tier_league_ids(raw_dir: Path) -> tuple[int, ...] | None:
+    """When ``league_data.csv`` defines upper + lower tiers, return their FHM league ids."""
+    path = raw_dir / "league_data.csv"
+    if not path.is_file():
+        return None
+    upper_ids: set[int] = set()
+    lower_ids: set[int] = set()
+    df = read_csv_normalized(path)
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        lid = to_int(cell_val(r, "leagueid", "league_id"))
+        name = (cell_val(r, "name") or "").lower()
+        if lid is None or not name:
+            continue
+        if any(k in name for k in ("upper", "premier", "top tier", "top league")):
+            upper_ids.add(int(lid))
+        elif any(k in name for k in ("lower", "relegat", "second tier", "second league")):
+            lower_ids.add(int(lid))
+    if upper_ids and lower_ids:
+        return tuple(sorted(upper_ids | lower_ids))
+    return None
 
 
 def _fhm_ability_potential_float(val: object) -> float | None:
@@ -152,16 +189,17 @@ def resolve_division_name(
     return None
 
 
-def import_league_meta(raw_dir: Path, league_filter: int) -> int:
+def import_league_meta(raw_dir: Path, league_filter: LeagueFilter) -> int:
     path = raw_dir / "league_data.csv"
     if not path.exists():
         return 0
+    allowed = _league_id_set(league_filter)
     n = 0
     df = read_csv_normalized(path)
     for _, row in df.iterrows():
         r = row.to_dict()
         lid = to_int(cell_val(r, "leagueid", "league_id"))
-        if lid != league_filter:
+        if lid not in allowed:
             continue
         name = cell_val(r, "name") or "League"
         abbr = cell_val(r, "abbr")
@@ -180,7 +218,7 @@ def import_league_meta(raw_dir: Path, league_filter: int) -> int:
     return n
 
 
-def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool, int | None]:
+def ensure_season(raw_dir: Path, league_filter: LeagueFilter) -> tuple[Season, bool, int | None]:
     """Upsert the single FHM mount season row and return whether ``start_year``/``end_year`` changed.
 
     Schedule dates are mapped to a **July–June** league start year so January games attach to
@@ -192,12 +230,14 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool, int 
     when an existing season row's years change (used to archive analytics before wipe).
     """
     path = raw_dir / "schedules.csv"
+    allowed = _league_id_set(league_filter)
+    primary_lid = _primary_league_id(league_filter)
     league_start_years: list[int] = []
     if path.exists():
         df = read_csv_normalized(path)
         for _, row in df.iterrows():
             r = row.to_dict()
-            if to_int(cell_val(r, "league_id", "leagueid")) != league_filter:
+            if to_int(cell_val(r, "league_id", "leagueid")) not in allowed:
                 continue
             ds = cell_val(r, "date")
             parsed = parse_fhm_date(ds)
@@ -211,16 +251,18 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool, int 
     if y1 <= y0:
         y1 = y0 + 1
     lm = db.session.scalars(
-        select(LeagueMeta).where(LeagueMeta.fhm_league_id == league_filter).limit(1)
+        select(LeagueMeta).where(LeagueMeta.fhm_league_id == primary_lid).limit(1)
     ).first()
     override_path = raw_dir / "season_label.txt"
     if override_path.is_file():
         label = override_path.read_text(encoding="utf-8").strip().split("\n")[0].strip()
     else:
         label = f"{y0}–{str(y1)[-2:]} Season"
-        if lm:
+        if len(allowed) > 1:
+            label = f"{label} (BOWL-Relegation)"
+        elif lm:
             label = f"{label} ({lm.name})"
-    sid = f"fhm-league-{league_filter}"
+    sid = f"fhm-league-{primary_lid}" if len(allowed) == 1 else "fhm-relegation-combined"
     for ex in db.session.scalars(select(Season)).all():
         ex.is_current = False
     s = db.session.scalars(select(Season).where(Season.fhm_season_id == sid).limit(1)).first()
@@ -245,17 +287,19 @@ def ensure_season(raw_dir: Path, league_filter: int) -> tuple[Season, bool, int 
     return s, league_year_changed, previous_start_year
 
 
-def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[int, int]:
+def import_fhm_teams(raw_dir: Path, league_filter: LeagueFilter, div_map: dict) -> dict[int, int]:
     """Returns map fhm_team_id -> internal Team.id"""
     path = team_data_csv_path(raw_dir)
     if path is None:
         log.warning("Skipping FHM teams: no team_data.csv / Team_Data.csv in %s", raw_dir)
         return {}
+    allowed = _league_id_set(league_filter)
     df = read_csv_normalized(path)
     fhm_to_id: dict[int, int] = {}
     for _, row in df.iterrows():
         r = row.to_dict()
-        if to_int(cell_val(r, "leagueid", "league_id")) != league_filter:
+        row_lid = to_int(cell_val(r, "leagueid", "league_id"))
+        if row_lid not in allowed:
             continue
         tid = to_int(cell_val(r, "teamid"))
         if tid is None:
@@ -285,7 +329,7 @@ def import_fhm_teams(raw_dir: Path, league_filter: int, div_map: dict) -> dict[i
         t.primary_color = pc
         t.secondary_color = sc
         t.text_color = tc
-        t.fhm_league_id = league_filter
+        t.fhm_league_id = row_lid
         t.fhm_conference_id = cid
         t.fhm_division_id = did
         fhm_to_id[tid] = t.id
@@ -385,15 +429,19 @@ def import_ratings(raw_dir: Path, players_fhm: dict[int, int]) -> int:
     return n
 
 
-def import_standings(raw_dir: Path, season: Season, teams_fhm: dict[int, int], div_map, league_filter: int) -> int:
+def import_standings(
+    raw_dir: Path, season: Season, teams_fhm: dict[int, int], div_map, league_filter: LeagueFilter
+) -> int:
     path = raw_dir / "team_records.csv"
     if not path.exists():
         return 0
+    allowed = _league_id_set(league_filter)
     df = read_csv_normalized(path)
     n = 0
     for _, row in df.iterrows():
         r = row.to_dict()
-        if to_int(cell_val(r, "league_id", "leagueid")) != league_filter:
+        row_lid = to_int(cell_val(r, "league_id", "leagueid"))
+        if row_lid not in allowed:
             continue
         tid = to_int(cell_val(r, "team_id", "teamid"))
         if tid is None or tid not in teams_fhm:
@@ -428,7 +476,8 @@ def import_standings(raw_dir: Path, season: Season, teams_fhm: dict[int, int], d
         st.ga = to_int(cell_val(r, "goals_against"), 0) or 0
         st.win_pct = to_float(cell_val(r, "pct"))
         did = team.fhm_division_id
-        st.division = resolve_division_name(div_map, league_filter, team.fhm_conference_id, did)
+        lid_for_div = int(row_lid if row_lid is not None else (team.fhm_league_id or 0))
+        st.division = resolve_division_name(div_map, lid_for_div, team.fhm_conference_id, did)
         st.conference = None
         n += 1
     commit_with_sqlite_retry(db.session)
@@ -439,7 +488,7 @@ def import_team_season_stats(
     raw_dir: Path,
     season: Season,
     teams_fhm: dict[int, int],
-    league_filter: int,
+    league_filter: LeagueFilter,
     *,
     filename: str = "team_stats.csv",
     stat_segment: str = "rs",
@@ -555,13 +604,15 @@ def import_games(
     raw_dir: Path,
     season: Season,
     teams_fhm: dict[int, int],
-    league_filter: int,
+    league_filter: LeagueFilter,
     app=None,
 ) -> dict[str, int]:
     """Returns fhm_game_id -> internal game id"""
     path = raw_dir / "schedules.csv"
     if not path.exists():
         return {}
+    allowed = _league_id_set(league_filter)
+    active_fhm_by_league: dict[int, set[str]] = {lid: set() for lid in allowed}
     df = read_csv_normalized(path)
 
     def _sum_int_cells(row_dict: dict, *keys: str) -> int | None:
@@ -578,7 +629,8 @@ def import_games(
     newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
-        if to_int(cell_val(r, "league_id", "leagueid")) != league_filter:
+        row_lid = to_int(cell_val(r, "league_id", "leagueid"))
+        if row_lid not in allowed:
             continue
         gid = cell_val(r, "game_id", "gameid")
         if not gid:
@@ -620,10 +672,13 @@ def import_games(
         g.went_to_overtime = to_bool(cell_val(r, "overtime")) or cell_val(r, "overtime") == "1"
         g.went_to_shootout = to_bool(cell_val(r, "shootout")) or cell_val(r, "shootout") == "1"
         g.game_type = cell_val(r, "type")
-        g.fhm_league_id = league_filter
+        g.fhm_league_id = row_lid
         fhm_to_gid[gid] = g.id
+        if row_lid is not None:
+            active_fhm_by_league.setdefault(int(row_lid), set()).add(str(gid))
     commit_with_sqlite_retry(db.session)
-    _prune_stale_fhm_schedule_games(season, league_filter, set(fhm_to_gid.keys()))
+    for lid in allowed:
+        _prune_stale_fhm_schedule_games(season, lid, active_fhm_by_league.get(lid, set()))
     commit_with_sqlite_retry(db.session)
     if newly_final_game_ids:
         try:
@@ -1427,7 +1482,7 @@ def import_player_jersey_numbers(raw_dir: Path, players_fhm: dict[int, int]) -> 
     return n
 
 
-def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]:
+def run_fhm_import(raw_dir: Path, app, league_filter: LeagueFilter = 0) -> dict[str, int]:
     """Import FHM-style CSV set. Requires fresh schema (stat_segment, etc.)."""
     counts: dict[str, int] = {}
 
@@ -1580,7 +1635,70 @@ def run_fhm_import(raw_dir: Path, app, league_filter: int = 0) -> dict[str, int]
         counts["players_from_draft_csvs_only"] = d_extra
         counts["players"] = len(players_fhm)
     counts["draft"] = import_drafts_fhm(raw_dir, players_fhm, teams_fhm)
+    counts["injuries"] = import_injuries(raw_dir, players_fhm, teams_fhm, league_filter)
     return counts
+
+
+def import_injuries(
+    raw_dir: Path,
+    players_fhm: dict[int, int],
+    teams_fhm: dict[int, int],
+    league_filter: LeagueFilter,
+) -> int:
+    """Import injury catalog + active player injuries (replace-all snapshot)."""
+    allowed_teams = set(teams_fhm.keys())
+    type_path = raw_dir / "injuries_data.csv"
+    active_path = raw_dir / "player_injuries.csv"
+    if not type_path.is_file() and not active_path.is_file():
+        return 0
+
+    db.session.execute(delete(PlayerInjury))
+    db.session.execute(delete(InjuryType))
+    commit_with_sqlite_retry(db.session)
+
+    fhm_injury_to_id: dict[int, int] = {}
+    if type_path.is_file():
+        df = read_csv_normalized(type_path)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            iid = to_int(cell_val(r, "injury_id", "injuryid"))
+            if iid is None:
+                continue
+            it = InjuryType(
+                fhm_injury_id=int(iid),
+                name=cell_val(r, "name") or f"Injury {iid}",
+                min_days=to_int(cell_val(r, "min_days", "mindays")),
+                max_days=to_int(cell_val(r, "max_days", "maxdays")),
+            )
+            db.session.add(it)
+            db.session.flush()
+            fhm_injury_to_id[int(iid)] = it.id
+
+    n = 0
+    if active_path.is_file():
+        df = read_csv_normalized(active_path)
+        for _, row in df.iterrows():
+            r = row.to_dict()
+            pid = to_int(cell_val(r, "playerid", "player_id"))
+            tm_fhm = to_int(cell_val(r, "team_id", "teamid", "team id"))
+            if pid is None or pid not in players_fhm:
+                continue
+            if tm_fhm is not None and tm_fhm not in allowed_teams:
+                continue
+            inj_fhm = to_int(cell_val(r, "injury_id", "injuryid", "injury id"))
+            recovery = to_int(cell_val(r, "recovery_time", "recovery time", "recoverytime"))
+            team_id = teams_fhm.get(tm_fhm) if tm_fhm is not None else None
+            db.session.add(
+                PlayerInjury(
+                    player_id=players_fhm[pid],
+                    team_id=team_id,
+                    injury_type_id=fhm_injury_to_id.get(int(inj_fhm)) if inj_fhm is not None else None,
+                    recovery_days=recovery,
+                )
+            )
+            n += 1
+    commit_with_sqlite_retry(db.session)
+    return n
 
 
 def is_fhm_export_dir(raw_dir: Path) -> bool:

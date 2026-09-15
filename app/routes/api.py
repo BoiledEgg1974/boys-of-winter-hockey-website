@@ -2006,6 +2006,18 @@ def _build_homepage_summary_payload(
                 logo_url_fn=lambda t: dashboard_team_logo_url(t, logo_sy),
             )
 
+    league_injuries: list[dict[str, object]] = []
+    if league_slug == "bowl-fantasy":
+        from app.services.injuries import injury_payload_league_wide
+        from app.services.relegation import filter_teams_to_main_tiers, get_tier_config
+
+        raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+        tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+        main_team_ids = frozenset(
+            int(t.id) for t in filter_teams_to_main_tiers(list(db.session.scalars(select(Team)).all()), tier_cfg)
+        )
+        league_injuries = injury_payload_league_wide(db.session, main_team_ids)
+
     summary_body: dict[str, object] = {
         "league_calendar_date": league_cal.isoformat(),
         "league_season_label": season_display_label(canonical_season),
@@ -2040,6 +2052,7 @@ def _build_homepage_summary_payload(
         "league": league_info,
         "segment": segment,
         "relegation_overview": relegation_overview,
+        "league_injuries": league_injuries,
     }
     summary_body["ticker_items"] = build_homepage_ticker_items(summary_body)
     return summary_body

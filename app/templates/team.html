@@ -552,6 +552,19 @@
   {% endif %}
 </div>
 {% elif active_panel == 'depth' %}
+{% if team_injuries %}
+<div class="card team-injuries-card">
+  <h2>Injured Players</h2>
+  <ul class="team-injuries-list">
+    {% for inj in team_injuries %}
+    <li>
+      <a href="{{ url_for('main.player_page', player_id=inj.player_id) }}">{{ inj.player_name }}</a>
+      — {{ inj.injury_name }}{% if inj.recovery_days is not none %} ({{ inj.recovery_days }} days){% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 <div class="card">
   <h2>Depth Chart</h2>
   <div class="table-wrap">
@@ -570,7 +583,7 @@
           <td>
             <div class="team-depth-cell">
             {% if g %}
-            <a class="team-depth-player is-{{ g.roster_status or 'non-roster' }}" href="{{ url_for('main.player_page', player_id=g.pid) }}">{{ g.name }}</a>
+            <a class="team-depth-player is-{{ g.roster_status or 'non-roster' }}{% if g.injury %} is-injured{% endif %}" href="{{ url_for('main.player_page', player_id=g.pid) }}">{{ g.name }}{% if g.injury %} <span class="team-depth-injury" title="{{ g.injury.injury_name }}">{{ g.injury.recovery_days }}d</span>{% endif %}</a>
             <span class="team-depth-ratings">{% if g.abi is not none %}<span class="team-depth-rating" style="{{ g.abi|rating_pill_style }}">{{ '%.1f'|format(g.abi) }}</span>{% endif %}{% if g.pot is not none %}<span class="team-depth-rating" style="{{ g.pot|rating_pill_style }}">{{ '%.1f'|format(g.pot) }}</span>{% endif %}{{ depth_ova_badge(g.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
@@ -578,7 +591,7 @@
           <td>
             <div class="team-depth-cell">
             {% if d %}
-            <a class="team-depth-player is-{{ d.roster_status or 'non-roster' }}" href="{{ url_for('main.player_page', player_id=d.pid) }}">{{ d.name }}</a>
+            <a class="team-depth-player is-{{ d.roster_status or 'non-roster' }}{% if d.injury %} is-injured{% endif %}" href="{{ url_for('main.player_page', player_id=d.pid) }}">{{ d.name }}{% if d.injury %} <span class="team-depth-injury" title="{{ d.injury.injury_name }}">{{ d.injury.recovery_days }}d</span>{% endif %}</a>
             <span class="team-depth-ratings">{% if d.abi is not none %}<span class="team-depth-rating" style="{{ d.abi|rating_pill_style }}">{{ '%.1f'|format(d.abi) }}</span>{% endif %}{% if d.pot is not none %}<span class="team-depth-rating" style="{{ d.pot|rating_pill_style }}">{{ '%.1f'|format(d.pot) }}</span>{% endif %}{{ depth_ova_badge(d.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
@@ -586,7 +599,7 @@
           <td>
             <div class="team-depth-cell">
             {% if lw %}
-            <a class="team-depth-player is-{{ lw.roster_status or 'non-roster' }}" href="{{ url_for('main.player_page', player_id=lw.pid) }}">{{ lw.name }}</a>
+            <a class="team-depth-player is-{{ lw.roster_status or 'non-roster' }}{% if lw.injury %} is-injured{% endif %}" href="{{ url_for('main.player_page', player_id=lw.pid) }}">{{ lw.name }}{% if lw.injury %} <span class="team-depth-injury" title="{{ lw.injury.injury_name }}">{{ lw.injury.recovery_days }}d</span>{% endif %}</a>
             <span class="team-depth-ratings">{% if lw.abi is not none %}<span class="team-depth-rating" style="{{ lw.abi|rating_pill_style }}">{{ '%.1f'|format(lw.abi) }}</span>{% endif %}{% if lw.pot is not none %}<span class="team-depth-rating" style="{{ lw.pot|rating_pill_style }}">{{ '%.1f'|format(lw.pot) }}</span>{% endif %}{{ depth_ova_badge(lw.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
@@ -594,7 +607,7 @@
           <td>
             <div class="team-depth-cell">
             {% if c %}
-            <a class="team-depth-player is-{{ c.roster_status or 'non-roster' }}" href="{{ url_for('main.player_page', player_id=c.pid) }}">{{ c.name }}</a>
+            <a class="team-depth-player is-{{ c.roster_status or 'non-roster' }}{% if c.injury %} is-injured{% endif %}" href="{{ url_for('main.player_page', player_id=c.pid) }}">{{ c.name }}{% if c.injury %} <span class="team-depth-injury" title="{{ c.injury.injury_name }}">{{ c.injury.recovery_days }}d</span>{% endif %}</a>
             <span class="team-depth-ratings">{% if c.abi is not none %}<span class="team-depth-rating" style="{{ c.abi|rating_pill_style }}">{{ '%.1f'|format(c.abi) }}</span>{% endif %}{% if c.pot is not none %}<span class="team-depth-rating" style="{{ c.pot|rating_pill_style }}">{{ '%.1f'|format(c.pot) }}</span>{% endif %}{{ depth_ova_badge(c.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>
@@ -602,7 +615,7 @@
           <td>
             <div class="team-depth-cell">
             {% if rw %}
-            <a class="team-depth-player is-{{ rw.roster_status or 'non-roster' }}" href="{{ url_for('main.player_page', player_id=rw.pid) }}">{{ rw.name }}</a>
+            <a class="team-depth-player is-{{ rw.roster_status or 'non-roster' }}{% if rw.injury %} is-injured{% endif %}" href="{{ url_for('main.player_page', player_id=rw.pid) }}">{{ rw.name }}{% if rw.injury %} <span class="team-depth-injury" title="{{ rw.injury.injury_name }}">{{ rw.injury.recovery_days }}d</span>{% endif %}</a>
             <span class="team-depth-ratings">{% if rw.abi is not none %}<span class="team-depth-rating" style="{{ rw.abi|rating_pill_style }}">{{ '%.1f'|format(rw.abi) }}</span>{% endif %}{% if rw.pot is not none %}<span class="team-depth-rating" style="{{ rw.pot|rating_pill_style }}">{{ '%.1f'|format(rw.pot) }}</span>{% endif %}{{ depth_ova_badge(rw.pid) }}</span>
             {% else %}<span class="team-depth-empty">—</span>{% endif %}
             </div>

@@ -526,13 +526,33 @@ def _find_team_unlock(
     team_id: int,
     storage_key: str,
 ) -> GmAchievementUnlock | None:
-    return session.scalar(
+    exact = session.scalar(
         select(GmAchievementUnlock).where(
             GmAchievementUnlock.league_slug == league_slug,
             GmAchievementUnlock.team_id == int(team_id),
             GmAchievementUnlock.achievement_key == storage_key,
         ).limit(1)
     )
+    if exact is not None:
+        return exact
+    catalog_key = catalog_key_from_storage(storage_key)
+    if catalog_key not in CATALOG_BY_KEY:
+        return None
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(
+                GmAchievementUnlock.league_slug == league_slug,
+                GmAchievementUnlock.team_id == int(team_id),
+                GmAchievementUnlock.claimed_at.is_(None),
+            )
+        ).all()
+    )
+    matches = [
+        row for row in rows if catalog_key_from_storage(row.achievement_key) == catalog_key
+    ]
+    if not matches:
+        return None
+    return sorted(matches, key=_unlock_row_order)[0]
 
 
 def start_achievement_scratch(
@@ -679,6 +699,33 @@ def storage_key_for(
     if spec.repeatable and season_label:
         return f"{spec.key}:{season_label}"
     return spec.key
+
+
+def _unlock_row_order(row: GmAchievementUnlock) -> tuple[datetime, int]:
+    return (row.unlocked_at or datetime.max, int(getattr(row, "id", 0) or 0))
+
+
+def unlock_for_achievement_card(
+    spec: AchievementDef,
+    *,
+    unlocks_by_key: dict[str, GmAchievementUnlock],
+    prior: list[GmAchievementUnlock],
+    store: str,
+) -> GmAchievementUnlock | None:
+    """Bind the Achievements card to a real unlock, even when the period suffix differs.
+
+    Monthly keys use the FHM calendar (``the_bender:2001-12``). The page used to
+    look up today's real month, which hid the ticket after unlock.
+    """
+    unclaimed = [row for row in prior if row.claimed_at is None]
+    if unclaimed:
+        return sorted(unclaimed, key=_unlock_row_order)[0]
+    exact = unlocks_by_key.get(store) or unlocks_by_key.get(spec.key)
+    if exact is not None:
+        return exact
+    if prior:
+        return sorted(prior, key=_unlock_row_order, reverse=True)[0]
+    return None
 
 
 def expand_legacy_pairs(pairs: set[tuple[int, str]], season_label: str) -> set[tuple[int, str]]:
@@ -4042,12 +4089,14 @@ def build_achievements_page_payload(
     for spec in catalog_for_league(league_slug):
         period = current_period if spec.repeat_scope == "month" else None
         store = storage_key_for(spec, season_label or "", period)
-        unlock = unlocks.get(store) or unlocks.get(spec.key)
         prior = [
             row
             for row in unlock_rows
             if catalog_key_from_storage(row.achievement_key) == spec.key
         ]
+        unlock = unlock_for_achievement_card(
+            spec, unlocks_by_key=unlocks, prior=prior, store=store
+        )
         prog = progress.get(spec.key)
         status = "locked"
         blurb = ""

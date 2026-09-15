@@ -82,6 +82,7 @@ from app.services.gm_achievements import (
     storage_key_for,
     sync_achievement_ap_ledger,
     team_achievement_badges,
+    unlock_for_achievement_card,
     unclaimed_unlock_count,
     unlock_source_ref,
 )
@@ -1820,6 +1821,96 @@ class EvaluatorWatermarkTests(unittest.TestCase):
                     rival_html = render_template("gm_achievement_rival.html", **rival)
                 self.assertIn(team.full_display_name(), rival_html)
                 self.assertIn("Who unlocked this first", rival_html)
+
+    def test_unlock_for_card_prefers_unclaimed_fhm_month_key(self) -> None:
+        spec = CATALOG_BY_KEY["the_bender"]
+        unclaimed = SimpleNamespace(
+            achievement_key="the_bender:2001-12",
+            claimed_at=None,
+            unlocked_at=datetime(2026, 9, 15, 3, 44, 7),
+            id=2,
+        )
+        claimed = SimpleNamespace(
+            achievement_key="the_bender:2001-11",
+            claimed_at=datetime(2026, 9, 14, 12, 0, 0),
+            unlocked_at=datetime(2026, 9, 14, 11, 0, 0),
+            id=1,
+        )
+        picked = unlock_for_achievement_card(
+            spec,
+            unlocks_by_key={"the_bender:2026-09": claimed},
+            prior=[claimed, unclaimed],
+            store="the_bender:2026-09",
+        )
+        self.assertIs(picked, unclaimed)
+
+    def test_page_payload_scratchable_as_soon_as_monthly_unlock_exists(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        with self.app.app_context():
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            user = User(
+                email="gm-ach-bender-ticket@example.invalid",
+                password_hash="x",
+                discord_name="Bender Ticket",
+            )
+            db.session.add(user)
+            db.session.flush()
+            uid = int(user.id)
+            db.session.add(
+                GmLeagueMembership(
+                    league_slug="bowl-cap",
+                    user_id=uid,
+                    team_id=tid,
+                    status="active",
+                )
+            )
+            store_key = "the_bender:1999-01"
+            source_ref = "gm_ach:bowl-cap:test-bender-ticket"
+            db.session.add(
+                GmAchievementUnlock(
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    user_id=uid,
+                    achievement_key=store_key,
+                    source_ref=source_ref,
+                    season_label="2001-02",
+                    meta_json='{"period": "1999-01", "games": 4, "detail": "Undefeated in 1999-01 (4 GP)"}',
+                    ap_delta=0,
+                    unlocked_at=datetime(1999, 1, 15),
+                )
+            )
+            db.session.commit()
+            mem = db.session.scalar(
+                select(GmLeagueMembership).where(GmLeagueMembership.user_id == uid).limit(1)
+            )
+            try:
+                payload = build_achievements_page_payload(
+                    db.session, league_slug="bowl-cap", membership=mem
+                )
+                card = next(c for c in payload["items"] if c["key"] == "the_bender")
+                self.assertEqual(card["status"], "completed")
+                self.assertTrue(card["claimable"])
+                self.assertEqual(card["storage_key"], store_key)
+                with self.app.test_request_context("/achievements"):
+                    html = render_template("gm_achievements.html", membership=mem, **payload)
+                self.assertIn(f'data-storage-key="{store_key}"', html)
+                self.assertIn("Ticket ready", html)
+                started = start_achievement_scratch(
+                    db.session,
+                    league_slug="bowl-cap",
+                    team_id=tid,
+                    storage_key="the_bender:2026-09",
+                )
+                self.assertTrue(started["ok"])
+                self.assertTrue(started["claimable"])
+                self.assertEqual(started["storage_key"], store_key)
+            finally:
+                db.session.execute(delete(GmAchievementUnlock).where(GmAchievementUnlock.source_ref == source_ref))
+                db.session.execute(delete(GmLeagueMembership).where(GmLeagueMembership.user_id == uid))
+                db.session.execute(delete(User).where(User.id == uid))
+                db.session.commit()
 
 
 class AchievementUnlockSchemaTests(unittest.TestCase):

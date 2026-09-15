@@ -73,6 +73,10 @@
         </select>
       </label>
       <button type="submit">Apply</button>
+      {% if gm_membership or site_can_process_trades %}
+      <a class="button secondary prospects-rankings-page__csv-btn"
+         href="{{ url_for('main.draft_eligible_csv', sort=prospect_sort, order=prospect_order, q=q or none, position=position or none) }}">Download CSV</a>
+      {% endif %}
     </form>
     {% endif %}
   </div>

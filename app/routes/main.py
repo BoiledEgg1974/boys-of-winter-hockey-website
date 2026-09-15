@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import csv
+import io
 import re
 import unicodedata
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import case, cast, extract, Float, func, not_, nulls_last, or_, select
@@ -21,7 +22,13 @@ from app.config import (
     undrafted_prospects_age_filter_options,
     undrafted_prospects_max_age,
 )
-from app.auth_login import ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS, ADMIN_ROLE_SUPER, has_admin_role
+from app.auth_login import (
+    ADMIN_ROLE_LEAGUE,
+    ADMIN_ROLE_STATS,
+    ADMIN_ROLE_SUPER,
+    active_membership_for_league,
+    has_admin_role,
+)
 from app.models import (
     Draft,
     DraftPick,
@@ -3359,38 +3366,7 @@ def _draft_eligible_params_for_page(
     return page_params, "league defaults"
 
 
-@main_bp.get("/draft-eligible")
-def draft_eligible():
-    """Draft-eligible pool from the current league database and timeline rules."""
-    active_tab = (request.args.get("tab") or "eligible").strip().lower()
-    if active_tab not in ("eligible", "mock"):
-        active_tab = "eligible"
-    pos = request.args.get("position")
-    q = (request.args.get("q") or "").strip().lower()
-    expanded = request.args.get("expanded") == "1"
-    page_limit = 100
-    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    season = get_current_season()
-    season_timeline_year = draft_eligible_timeline_year_for_league(
-        league_slug,
-        int(season.start_year) if season and season.start_year else None,
-        int(season.end_year) if season and season.end_year else None,
-        date.today().year,
-    )
-    params, params_source = _draft_eligible_params_for_page(league_slug, season)
-    page_config = load_draft_eligible_page_config(
-        db.session,
-        league_slug,
-        season_timeline_year=season_timeline_year,
-    )
-    draft = featured_draft(db.session, league_slug)
-    picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
-    eligibility_summary = format_draft_eligible_summary(
-        page_config,
-        league_slug=league_slug,
-    )
-    eligibility_notes = []
-
+def _draft_eligible_sort_params() -> tuple[str, str, frozenset[str], frozenset[str]]:
     overview_headers = PROSPECT_OVERVIEW_HEADERS
     attr_sort_keys = frozenset(h[2] for h in overview_headers)
     valid_sorts = frozenset(
@@ -3405,7 +3381,22 @@ def draft_eligible():
         sort_col = "rank"
     if order not in ("asc", "desc"):
         order = "asc" if sort_col == "rank" else "desc"
+    return sort_col, order, valid_sorts, sort_default_desc
 
+
+def _build_draft_eligible_rows(
+    *,
+    league_slug: str,
+    season: Season | None,
+    params: DraftEligibilityParams,
+    q: str,
+    pos: str | None,
+    sort_col: str,
+    order: str,
+) -> list[dict]:
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
+    draft = featured_draft(db.session, league_slug)
+    picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
     eligible_pool = [
         p
         for p in eligible_players_ordered(
@@ -3438,7 +3429,6 @@ def draft_eligible():
 
     rev = order == "desc"
     if sort_col == "rank":
-        # Preserve eligibility board order unless explicitly reversed.
         if rev:
             items.reverse()
     elif sort_col == "player":
@@ -3450,17 +3440,124 @@ def draft_eligible():
 
         items.sort(key=num_key, reverse=rev)
 
-    rows_out = [
+    return [
         {
             "rank": i,
             "player": it["pl"],
             "age": it["age"],
-            "attrs": it["attrs_display"],
+            "attrs": it["attrs"],
+            "attrs_display": it["attrs_display"],
             "abi": it["abi"],
             "pot": it["pot"],
             "projection": it["projection"],
         }
         for i, it in enumerate(items, start=1)
+    ]
+
+
+def _draft_eligible_csv_row(pl: Player, row: dict, overview_headers) -> dict[str, object]:
+    projection = row.get("projection") or {}
+    ovr = compute_player_overall_100(
+        row.get("abi"),
+        row.get("pot"),
+        get_player_ratings_row(pl.fhm_player_id),
+        is_goalie=player_is_goalie_for_overall(pl),
+    )
+    out: dict[str, object] = {
+        "rank": row["rank"],
+        "player_id": pl.id,
+        "fhm_player_id": pl.fhm_player_id or "",
+        "player_name": pl.full_name or "",
+        "position": player_positions_display_label(pl) or "",
+        "nationality": (pl.nationality or "").strip(),
+        "age": row["age"] if row["age"] is not None else "",
+        "abi": row["abi"] if row["abi"] is not None else "",
+        "pot": row["pot"] if row["pot"] is not None else "",
+        "ovr": round(float(ovr), 1) if ovr is not None else "",
+        "bowl_star_pct": projection.get("star_pct") if projection.get("star_pct") is not None else "",
+        "bowl_lg_pct": projection.get("bowl_pct") if projection.get("bowl_pct") is not None else "",
+        "bowle_dy_m1": projection.get("bowle_dy_m1") if projection.get("bowle_dy_m1") is not None else "",
+        "bowle_dy": projection.get("bowle_dy") if projection.get("bowle_dy") is not None else "",
+    }
+    attrs = row.get("attrs") or {}
+    for _full, abbr, key in overview_headers:
+        val = attrs.get(key)
+        out[key] = val if val is not None else ""
+    return out
+
+
+def _can_export_draft_eligible_csv(league_slug: str) -> bool:
+    if not current_user.is_authenticated:
+        return False
+    if active_membership_for_league(current_user, league_slug):
+        return True
+    return has_admin_role(current_user)
+
+
+@main_bp.get("/draft-eligible")
+def draft_eligible():
+    """Draft-eligible pool from the current league database and timeline rules."""
+    active_tab = (request.args.get("tab") or "eligible").strip().lower()
+    if active_tab not in ("eligible", "mock"):
+        active_tab = "eligible"
+    pos = request.args.get("position")
+    q = (request.args.get("q") or "").strip().lower()
+    expanded = request.args.get("expanded") == "1"
+    page_limit = 100
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    season = get_current_season()
+    season_timeline_year = draft_eligible_timeline_year_for_league(
+        league_slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        date.today().year,
+    )
+    params, params_source = _draft_eligible_params_for_page(league_slug, season)
+    page_config = load_draft_eligible_page_config(
+        db.session,
+        league_slug,
+        season_timeline_year=season_timeline_year,
+    )
+    draft = featured_draft(db.session, league_slug)
+    eligibility_summary = format_draft_eligible_summary(
+        page_config,
+        league_slug=league_slug,
+    )
+    eligibility_notes = []
+
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
+    sort_col, order, _valid_sorts, sort_default_desc = _draft_eligible_sort_params()
+    picked: set[int] = picked_player_ids(db.session, draft.id) if draft else set()
+    eligible_pool = [
+        p
+        for p in eligible_players_ordered(
+            db.session,
+            league_slug,
+            params,
+            site_session=db.session,
+        )
+        if int(p.id) not in picked
+    ]
+    built_rows = _build_draft_eligible_rows(
+        league_slug=league_slug,
+        season=season,
+        params=params,
+        q=q,
+        pos=pos,
+        sort_col=sort_col,
+        order=order,
+    )
+    rows_out = [
+        {
+            "rank": row["rank"],
+            "player": row["player"],
+            "age": row["age"],
+            "attrs": row["attrs_display"],
+            "abi": row["abi"],
+            "pot": row["pot"],
+            "projection": row["projection"],
+        }
+        for row in built_rows
     ]
     total = len(rows_out)
     display_rows = rows_out if expanded or total <= page_limit else rows_out[:page_limit]
@@ -3500,6 +3597,61 @@ def draft_eligible():
         active_draft=draft,
         league_display=league_display_name(league_slug),
         mock_draft_rows=mock_draft_rows,
+    )
+
+
+@main_bp.get("/draft-eligible.csv")
+def draft_eligible_csv():
+    """GM/admin CSV export of the full draft-eligible list (respects page filters and sort)."""
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not _can_export_draft_eligible_csv(league_slug):
+        abort(403)
+
+    pos = (request.args.get("position") or "").strip() or None
+    q = (request.args.get("q") or "").strip().lower()
+    season = get_current_season()
+    params, _params_source = _draft_eligible_params_for_page(league_slug, season)
+    sort_col, order, _valid_sorts, _sort_default_desc = _draft_eligible_sort_params()
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
+    rows = _build_draft_eligible_rows(
+        league_slug=league_slug,
+        season=season,
+        params=params,
+        q=q,
+        pos=pos,
+        sort_col=sort_col,
+        order=order,
+    )
+
+    fieldnames = [
+        "rank",
+        "player_id",
+        "fhm_player_id",
+        "player_name",
+        "position",
+        "nationality",
+        "age",
+        "abi",
+        "pot",
+        "ovr",
+        "bowl_star_pct",
+        "bowl_lg_pct",
+        "bowle_dy_m1",
+        "bowle_dy",
+        *[key for _full, _abbr, key in overview_headers],
+    ]
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(_draft_eligible_csv_row(row["player"], row, overview_headers))
+
+    timeline_year = int(params.timeline_year)
+    filename = f"draft-eligible-{league_slug}-{timeline_year}.csv"
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

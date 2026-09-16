@@ -135,6 +135,32 @@ class NotifyWritesSidecarTest(unittest.TestCase):
         self.assertEqual(recorded[0][1][0]["source_id"], "season:league:rs:goals:player:2:55")
 
 
+class DeployMassBreakSuppressTest(unittest.TestCase):
+    def test_deploy_skips_mass_record_break_enqueue(self) -> None:
+        from app.services.record_broken_discord import (
+            MAX_RECORD_BREAKS_DISCORD_ENQUEUE,
+            enqueue_record_broken_events_from_deploy,
+        )
+
+        events = [
+            {"source_id": f"break-{i}", "payload": {"title": f"Record {i}"}}
+            for i in range(MAX_RECORD_BREAKS_DISCORD_ENQUEUE + 1)
+        ]
+        with patch(
+            "app.services.record_broken_discord.enqueue_record_broken_event",
+            return_value=True,
+        ) as enqueue:
+            stats = enqueue_record_broken_events_from_deploy(
+                MagicMock(),
+                league_slug="bowl-fantasy",
+                events=events,
+            )
+        enqueue.assert_not_called()
+        self.assertEqual(stats["events"], len(events))
+        self.assertEqual(stats["queued"], 0)
+        self.assertEqual(stats["suppressed"], len(events))
+
+
 class LiveStateDiffTest(unittest.TestCase):
     def test_snapshot_diff_builds_events(self) -> None:
         key = "season:league:rs:goals"

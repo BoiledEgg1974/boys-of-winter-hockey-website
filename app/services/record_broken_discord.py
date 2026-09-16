@@ -35,6 +35,8 @@ from app.services.team_season_records import build_team_season_records_bundle
 _log = logging.getLogger(__name__)
 
 RECORD_BROKEN_EVENT_KEY = "record_broken"
+# Full roster / DB replacement can diff hundreds of stale snapshots; do not spam Discord.
+MAX_RECORD_BREAKS_DISCORD_ENQUEUE = 25
 
 _SKATER_ALL_TIME_STATS: tuple[tuple[str, str], ...] = (
     ("goals", "Goals"),
@@ -656,6 +658,22 @@ def _refresh_record_payload_urls(league_slug: str, payload: dict[str, Any]) -> d
     return out
 
 
+def _record_broken_delivery_channel(site_session: Session, league_slug: str) -> str:
+    from app.services.discord_events import (
+        _route_map,
+        delivery_discord_channel_ids,
+        ensure_discord_routes,
+    )
+
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return ""
+    ensure_discord_routes(site_session, slug)
+    route = _route_map(site_session, slug).get(RECORD_BROKEN_EVENT_KEY)
+    ids = delivery_discord_channel_ids(route, RECORD_BROKEN_EVENT_KEY)
+    return ids[0] if ids else ""
+
+
 def enqueue_record_broken_event(
     site_session: Session,
     *,
@@ -666,6 +684,22 @@ def enqueue_record_broken_event(
     if not is_discord_event_route_active(
         site_session, league_slug=league_slug, event_key=RECORD_BROKEN_EVENT_KEY
     ):
+        return False
+    from app.services.discord_events import record_broken_channel_conflict
+
+    slug = str(league_slug or "").strip()
+    channel_id = _record_broken_delivery_channel(site_session, slug)
+    conflict = record_broken_channel_conflict(
+        site_session, league_slug=slug, channel_id=channel_id
+    )
+    if conflict:
+        _log.error(
+            "%s record_broken route channel %s is also configured for %s; "
+            "skipping Discord enqueue until Discord Integration is corrected.",
+            slug,
+            channel_id,
+            conflict,
+        )
         return False
     row = enqueue_discord_event(
         site_session,
@@ -686,13 +720,26 @@ def enqueue_record_broken_events_from_deploy(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, int]:
     """Enqueue sidecar / reconstructed record-break events against live Discord routes."""
-    stats = {"events": 0, "queued": 0}
+    stats = {"events": 0, "queued": 0, "suppressed": 0}
+    normalized: list[tuple[str, dict[str, Any]]] = []
     for raw in events or []:
         source_id = str(raw.get("source_id") or "").strip()
         payload = raw.get("payload")
         if not source_id or not isinstance(payload, dict):
             continue
-        stats["events"] += 1
+        normalized.append((source_id, payload))
+    stats["events"] = len(normalized)
+    if stats["events"] > MAX_RECORD_BREAKS_DISCORD_ENQUEUE:
+        stats["suppressed"] = stats["events"]
+        _log.warning(
+            "%s: suppressing %s record-broken Discord event(s) (>%s); "
+            "likely a roster/DB reset after deploy rather than real in-season breaks.",
+            league_slug,
+            stats["events"],
+            MAX_RECORD_BREAKS_DISCORD_ENQUEUE,
+        )
+        return stats
+    for source_id, payload in normalized:
         if enqueue_record_broken_event(
             site_session,
             league_slug=league_slug,
@@ -889,17 +936,26 @@ def notify_record_breaks_after_import(
         return stats
 
     if notify:
-        for old, new in detect_snapshot_breaks(previous, current):
-            payload = _payload_from_holders(league_slug=slug, old=old, new=new)
-            source_id = _source_id_for_holder(new)
-            pending_events.append({"source_id": source_id, "payload": payload})
-            if enqueue_record_broken_event(
-                site_session,
-                league_slug=slug,
-                payload=payload,
-                source_id=source_id,
-            ):
-                stats["queued"] += 1
+        snapshot_breaks = list(detect_snapshot_breaks(previous, current))
+        if len(snapshot_breaks) > MAX_RECORD_BREAKS_DISCORD_ENQUEUE:
+            _log.warning(
+                "%s: %s record snapshot change(s) look like a roster/DB reset; "
+                "refreshing snapshots without Discord notify.",
+                slug,
+                len(snapshot_breaks),
+            )
+        else:
+            for old, new in snapshot_breaks:
+                payload = _payload_from_holders(league_slug=slug, old=old, new=new)
+                source_id = _source_id_for_holder(new)
+                pending_events.append({"source_id": source_id, "payload": payload})
+                if enqueue_record_broken_event(
+                    site_session,
+                    league_slug=slug,
+                    payload=payload,
+                    source_id=source_id,
+                ):
+                    stats["queued"] += 1
 
     for holder in current.values():
         _upsert_snapshot(league_session, holder)

@@ -346,6 +346,30 @@ def event_key_allows_channel_fanout(event_key: str) -> bool:
     return str(event_key or "").strip() in DISCORD_CHANNEL_FANOUT_EVENT_KEYS
 
 
+def record_broken_channel_conflict(
+    session,
+    *,
+    league_slug: str,
+    channel_id: str,
+) -> str | None:
+    """If ``channel_id`` is another league's primary broken-records route, return that slug."""
+    cid = str(channel_id or "").strip()
+    slug = str(league_slug or "").strip()
+    if not cid or not slug:
+        return None
+    rows = session.scalars(
+        select(DiscordChannelRoute).where(
+            DiscordChannelRoute.event_key == "record_broken",
+            DiscordChannelRoute.discord_channel_id == cid,
+        )
+    ).all()
+    for row in rows:
+        other = str(row.league_slug or "").strip()
+        if other and other != slug:
+            return other
+    return None
+
+
 def delivery_discord_channel_ids(
     route: DiscordChannelRoute | None, event_key: str
 ) -> list[str]:

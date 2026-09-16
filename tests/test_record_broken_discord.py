@@ -275,6 +275,33 @@ class GameRecordBreakCollectionTest(unittest.TestCase):
         self.assertEqual(drain_stashed_game_record_breaks(), [])
 
 
+class RecordBrokenChannelConflictTest(unittest.TestCase):
+    def test_enqueue_skips_when_channel_belongs_to_other_league(self) -> None:
+        from app.services.record_broken_discord import enqueue_record_broken_event
+
+        session = MagicMock()
+        with patch(
+            "app.services.record_broken_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.record_broken_discord._record_broken_delivery_channel",
+            return_value="222222222222222222",
+        ), patch(
+            "app.services.discord_events.record_broken_channel_conflict",
+            return_value="bowl-historical",
+        ), patch(
+            "app.services.record_broken_discord.enqueue_discord_event",
+        ) as enqueue:
+            ok = enqueue_record_broken_event(
+                session,
+                league_slug="bowl-fantasy",
+                payload={"title": "x"},
+                source_id="season:league:rs:goals:player:2:55.0",
+            )
+        self.assertFalse(ok)
+        enqueue.assert_not_called()
+
+
 class NotifyIdempotencyTest(unittest.TestCase):
     def test_enqueue_uses_source_idempotency(self) -> None:
         from app.services.record_broken_discord import enqueue_record_broken_event
@@ -283,6 +310,12 @@ class NotifyIdempotencyTest(unittest.TestCase):
         with patch(
             "app.services.record_broken_discord.is_discord_event_route_active",
             return_value=True,
+        ), patch(
+            "app.services.record_broken_discord._record_broken_delivery_channel",
+            return_value="111111111111111111",
+        ), patch(
+            "app.services.discord_events.record_broken_channel_conflict",
+            return_value=None,
         ), patch(
             "app.services.record_broken_discord.enqueue_discord_event",
             return_value=object(),

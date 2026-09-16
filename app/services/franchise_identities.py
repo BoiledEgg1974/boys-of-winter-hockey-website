@@ -74,6 +74,18 @@ def _csv_identity_row_count(csv_path: Path) -> int:
         return sum(1 for _ in csv.DictReader(fh))
 
 
+def _csv_identity_fhm_ids(csv_path: Path) -> set[str]:
+    ids: set[str] = set()
+    if not csv_path.is_file():
+        return ids
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as fh:
+        for row in csv.DictReader(fh):
+            fhm = norm_fhm_team_id(row.get("team_fhm_id"))
+            if fhm is not None:
+                ids.add(fhm)
+    return ids
+
+
 def franchise_identities_need_csv_seed(session: Session, csv_path: Path) -> bool:
     """True when the league DB is empty or the CSV has rows not yet upserted."""
     if not csv_path.is_file():
@@ -81,7 +93,19 @@ def franchise_identities_need_csv_seed(session: Session, csv_path: Path) -> bool
     db_count = int(session.scalar(select(func.count()).select_from(FranchiseTeamIdentity)) or 0)
     if db_count == 0:
         return True
-    return _csv_identity_row_count(csv_path) > db_count
+    if _csv_identity_row_count(csv_path) > db_count:
+        return True
+    csv_fhm_ids = _csv_identity_fhm_ids(csv_path)
+    if not csv_fhm_ids:
+        return False
+    db_fhm_ids = {
+        str(v)
+        for v in session.scalars(
+            select(FranchiseTeamIdentity.team_fhm_id).where(FranchiseTeamIdentity.team_fhm_id.is_not(None))
+        ).all()
+        if str(v).strip()
+    }
+    return bool(csv_fhm_ids - db_fhm_ids)
 
 
 def sync_franchise_identities_from_csv_if_needed(

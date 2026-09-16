@@ -624,6 +624,10 @@ def build_season_team_logo_bundle(app: Flask) -> SeasonTeamLogoBundle:
         if team is None:
             return url_for("static", filename="logos/teams/placeholder.svg")
         slug = str(app.config.get("LEAGUE_SLUG") or "")
+        # BOWL-Relegation roster PNGs are keyed by DB slug; prefer them over FHM-id era
+        # overrides so stale ``fhm_team_id`` values cannot cross-wire logos after a roster swap.
+        if slug == "bowl-fantasy" and team_has_dedicated_league_logo(team):
+            return team_logo_url_for_team(team)
         sy: int | None
         if isinstance(season, int):
             sy = int(season)

@@ -65,6 +65,37 @@ class FantasyTeamLogoTests(unittest.TestCase):
             self.skipTest("bow.db roster slugs differ from BOWL-Relegation manifest (re-import pending)")
         self.assertEqual(set(FANTASY_ROSTER_LOGO_FILES), slugs)
 
+    def test_relegation_logos_prefer_roster_slug_over_wrong_fhm_id(self) -> None:
+        """Stale ``fhm_team_id`` values must not cross-wire era overrides onto roster logos."""
+        app = create_app(make_league_config("bowl-fantasy"))
+        cases = (
+            ("van-t1", "VAN", "388", "vancouver_canucks.png"),
+            ("nbp-t12", "NBP", "387", "New_Brunswick_Poseidon.png"),
+            ("pas-t388", "PAS", "1", "Prince_Albert_Stoners.png"),
+            ("sbb-t387", "SBB", "12", "Sudbury_Blueberry_Bulldogs.png"),
+        )
+        with app.app_context():
+            with app.test_request_context(
+                path="/", base_url="http://127.0.0.1/bowl-fantasy/"
+            ):
+                bundle = get_season_team_logo_bundle(app)
+                for slug, abbr, wrong_fhm, filename in cases:
+                    team = type(
+                        "Team",
+                        (),
+                        {
+                            "slug": slug,
+                            "name": slug,
+                            "abbreviation": abbr,
+                            "fhm_team_id": wrong_fhm,
+                        },
+                    )()
+                    era_url = bundle.team_logo_url_for_season_context(team, 2025)
+                    roster_url = team_logo_url_for_team(team)
+                    self.assertIn(filename, era_url, msg=f"{slug} era logo")
+                    self.assertIn(filename, roster_url, msg=f"{slug} roster logo")
+                    self.assertNotIn("placeholder", era_url, msg=f"{slug} era logo")
+
     def test_columbus_and_ottawa_logo_aliases(self) -> None:
         app = create_app(make_league_config("bowl-fantasy"))
         cases = (

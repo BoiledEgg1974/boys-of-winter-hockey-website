@@ -80,8 +80,34 @@ def _team_logo_stems(team) -> list[str]:
     return stems
 
 
+def _fantasy_manifest_logo_file(team) -> Path | None:
+    """Resolve a BOWL-Relegation roster logo from ``FANTASY_ROSTER_LOGO_FILES`` when present on disk."""
+    if str(current_app.config.get("LEAGUE_SLUG") or "") != "bowl-fantasy":
+        return None
+    slug = str(getattr(team, "slug", "") or "").strip()
+    filename = FANTASY_ROSTER_LOGO_FILES.get(slug)
+    if not filename:
+        return None
+    static_root = Path(current_app.static_folder or "")
+    league_rel = str(current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")).strip("/\\") or "logos/teams"
+    league_dir = static_root / league_rel
+    exact = league_dir / filename
+    if exact.is_file():
+        return exact
+    want = filename.lower()
+    try:
+        for candidate in league_dir.iterdir():
+            if candidate.is_file() and candidate.name.lower() == want:
+                return candidate
+    except OSError:
+        return None
+    return None
+
+
 def team_has_dedicated_league_logo(team) -> bool:
     """True when a non-placeholder logo file exists for this roster team in the league folder."""
+    if _fantasy_manifest_logo_file(team) is not None:
+        return True
     static_root = Path(current_app.static_folder or "")
     league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")
     league_rel = str(league_rel).strip("/\\") or "logos/teams"
@@ -110,6 +136,11 @@ def team_logo_url_for_team(team) -> str:
                     return get_season_team_logo_bundle().team_logo_url_for_season_context(team, sy)
             except Exception:
                 pass
+
+    manifest_logo = _fantasy_manifest_logo_file(team)
+    if manifest_logo is not None:
+        rel = manifest_logo.relative_to(Path(current_app.static_folder or "")).as_posix()
+        return url_for("static", filename=rel)
 
     static_root = Path(current_app.static_folder or "")
     league_rel = current_app.config.get("TEAM_LOGOS_REL_DIR", "logos/teams")

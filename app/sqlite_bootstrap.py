@@ -125,6 +125,9 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
 
     if is_racing_league(str(app.config.get("LEAGUE_SLUG") or "")):
         return
+    from app.models import db
+
+    db.create_all()
     from app.db_utils import (
         ensure_advanced_stats_columns_sqlite,
         ensure_franchise_team_identities_sqlite,
@@ -158,7 +161,6 @@ def apply_league_sqlite_migrations(app: Flask) -> None:
         migrate_team_season_aggregates_sqlite,
         repair_fhm_team_city_from_name,
     )
-    from app.models import db
 
     migrate_team_season_aggregates_sqlite(db.engine)
     repair_fhm_team_city_from_name(db.engine)

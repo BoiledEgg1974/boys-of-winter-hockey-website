@@ -68,8 +68,8 @@ class FantasyTeamLogoTests(unittest.TestCase):
     def test_columbus_and_ottawa_logo_aliases(self) -> None:
         app = create_app(make_league_config("bowl-fantasy"))
         cases = (
-            ("col-t5", "COL", "5", "Columbus_Chill.png"),
-            ("ott-t6", "OTT", "6", "Rideau__St_Lawrence_Kings.png"),
+            ("col-t8", "COL", "8", "Columbus_Chill.png"),
+            ("rsl-t5", "RSL", "5", "Rideau__St_Lawrence_Kings.png"),
         )
         with app.app_context():
             with app.test_request_context(

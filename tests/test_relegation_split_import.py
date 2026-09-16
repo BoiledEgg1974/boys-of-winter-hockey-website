@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -106,7 +107,7 @@ class InjuryImportTests(unittest.TestCase):
             )
             with app.app_context():
                 db.create_all()
-                suffix = "x9z8"
+                suffix = uuid.uuid4().hex[:8]
                 team = Team(
                     fhm_team_id=f"inj-test-{suffix}",
                     slug=f"inj-test-t{suffix}",
@@ -124,7 +125,7 @@ class InjuryImportTests(unittest.TestCase):
                 db.session.commit()
                 players_fhm = {101: player.id}
                 teams_fhm = {99: team.id}
-                n = import_injuries(raw, players_fhm, teams_fhm, league_filter=(0, 1))
+                n = import_injuries(raw, players_fhm, teams_fhm)
                 self.assertEqual(n, 1)
                 row = db.session.scalars(db.select(PlayerInjury)).first()
                 self.assertIsNotNone(row)
@@ -134,6 +135,22 @@ class InjuryImportTests(unittest.TestCase):
                 self.assertIsNotNone(it)
                 assert it is not None
                 self.assertEqual(it.name, "Sprained Knee")
+
+    def test_import_injuries_skipped_for_non_relegation_leagues(self) -> None:
+        app = create_app(make_league_config("bowl-historical"))
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = Path(tmp)
+            (raw / "injuries_data.csv").write_text(
+                "Injury Id;Name;Min Days;Max Days\n5;Sprained Knee;7;14\n",
+                encoding="utf-8",
+            )
+            (raw / "player_injuries.csv").write_text(
+                "PlayerId;Team Id;Franchise Id;Injury Id;Recovery Time\n101;99;99;5;10\n",
+                encoding="utf-8",
+            )
+            with app.app_context():
+                n = import_injuries(raw, {101: 1}, {99: 1})
+                self.assertEqual(n, 0)
 
 
 class RelegationAutoEnableTests(unittest.TestCase):

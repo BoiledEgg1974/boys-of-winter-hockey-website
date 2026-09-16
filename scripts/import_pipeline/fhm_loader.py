@@ -6,7 +6,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 
 from app.models import (
     Draft,
@@ -335,6 +335,43 @@ def import_fhm_teams(raw_dir: Path, league_filter: LeagueFilter, div_map: dict) 
         fhm_to_id[tid] = t.id
     commit_with_sqlite_retry(db.session)
     return fhm_to_id
+
+
+def _prune_stale_fhm_teams(league_filter: LeagueFilter, active_fhm_ids: set[int]) -> int:
+    """Drop tier-league teams missing from the latest FHM export (relegation roster churn)."""
+    allowed = _league_id_set(league_filter)
+    if len(allowed) <= 1:
+        return 0
+    active_keys = {str(i) for i in active_fhm_ids}
+    stale_team_ids: list[int] = []
+    for team in db.session.scalars(select(Team)).all():
+        if team.fhm_league_id not in allowed:
+            continue
+        fid = str(team.fhm_team_id or "").strip()
+        if not fid or fid in active_keys:
+            continue
+        stale_team_ids.append(int(team.id))
+    if not stale_team_ids:
+        return 0
+    stale_game_ids = list(
+        db.session.scalars(
+            select(Game.id).where(
+                or_(
+                    Game.home_team_id.in_(stale_team_ids),
+                    Game.away_team_id.in_(stale_team_ids),
+                )
+            )
+        ).all()
+    )
+    if stale_game_ids:
+        _delete_games_cascade(stale_game_ids)
+    for team_id in stale_team_ids:
+        team = db.session.get(Team, team_id)
+        if team is not None:
+            db.session.delete(team)
+    commit_with_sqlite_retry(db.session)
+    log.info("Pruned %s stale FHM team(s) from tier leagues %s.", len(stale_team_ids), sorted(allowed))
+    return len(stale_team_ids)
 
 
 def import_players(raw_dir: Path, teams_fhm: dict[int, int]) -> dict[int, int]:
@@ -1567,6 +1604,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: LeagueFilter = 0) -> dict[
     )
     games_fhm = import_games(raw_dir, season, teams_fhm, league_filter, app=app)
     counts["games"] = len(games_fhm)
+    counts["teams_pruned"] = _prune_stale_fhm_teams(league_filter, set(teams_fhm.keys()))
 
     # _clear_game_details / _delete_games_cascade self-promote baselines before deleting.
     _clear_game_details()
@@ -1635,7 +1673,7 @@ def run_fhm_import(raw_dir: Path, app, league_filter: LeagueFilter = 0) -> dict[
         counts["players_from_draft_csvs_only"] = d_extra
         counts["players"] = len(players_fhm)
     counts["draft"] = import_drafts_fhm(raw_dir, players_fhm, teams_fhm)
-    counts["injuries"] = import_injuries(raw_dir, players_fhm, teams_fhm, league_filter)
+    counts["injuries"] = import_injuries(raw_dir, players_fhm, teams_fhm)
     return counts
 
 
@@ -1643,9 +1681,17 @@ def import_injuries(
     raw_dir: Path,
     players_fhm: dict[int, int],
     teams_fhm: dict[int, int],
-    league_filter: LeagueFilter,
 ) -> int:
-    """Import injury catalog + active player injuries (replace-all snapshot)."""
+    """Import injury catalog + active player injuries (replace-all snapshot).
+
+    Only BOWL-Relegation (``bowl-fantasy`` / FHM12) exports injury CSVs today.
+    BOWL-Historical and BOWL-Cap are skipped until their saved games move to FHM12.
+    """
+    from app.services.injuries import injuries_supported_for_league
+
+    if not injuries_supported_for_league():
+        return 0
+
     allowed_teams = set(teams_fhm.keys())
     type_path = raw_dir / "injuries_data.csv"
     active_path = raw_dir / "player_injuries.csv"

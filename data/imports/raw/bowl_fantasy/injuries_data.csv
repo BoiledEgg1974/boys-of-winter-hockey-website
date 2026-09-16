@@ -1,0 +1,358 @@
+Injury Id;Name;Min Days;Max Days
+0;Bruised Cheekbone;3;5
+1;Fractured Cheekbone;21;31
+2;Swollen Ear;3;5
+3;Blurred Vision;3;6
+4;Eye Irritation;3;6
+5;Scratched Cornea;7;14
+6;Fractured Eye Socket;90;160
+7;Migraines;3;10
+8;Grade I Concussion;15;28
+9;Grade II Concussion;30;120
+10;Grade IIIa Concussion;60;180
+11;Grade IIIb Concussion;180;360
+12;Concussion-like Symptoms;14;28
+13;Fractured Skull;150;300
+14;Bruised Jaw;3;5
+15;Fractured Jaw;30;45
+16;Cold;3;5
+17;Bronchitis;4;10
+18;Strep Throat;3;6
+19;Flu;3;6
+20;Bruised Neck;3;14
+21;Neck Stiffness;3;7
+22;Pinched Nerve (neck);16;21
+23;Broken Nose;3;8
+24;Bruised Elbow;3;12
+25;Fractured Ulna;31;42
+26;Tender Elbow;3;12
+27;Hyperextended Elbow;6;12
+28;Bone Chips (elbow);30;60
+29;Fractured Elbow;45;120
+30;Bruised Finger;3;5
+31;Jammed Finger;3;6
+32;Dislocated Finger;3;7
+33;Fractured Finger;28;90
+34;Bruised Hand;3;5
+35;Fractured Hand;30;60
+36;Broken Hand;30;90
+37;Broken Kneecap;120;210
+38;Broken Bone In Elbow;90;210
+39;Elbow Strain;15;45
+40;Ruptured Ulnar Collateral Ligament;120;200
+41;Strained Bicep Tendon;15;30
+42;Ruptured Bicep Tendon;180;200
+43;Strained Tricep Tendon;15;21
+44;Ruptured Tricep Tendon;160;180
+45;Biceps Strain;15;21
+46;Torn Biceps;60;90
+47;Strained Triceps;15;21
+48;Torn Triceps;60;90
+49;Rotator Cuff Strain;15;21
+50;Torn Rotator Cuff;90;120
+51;Tender Shoulder;4;10
+52;Dislocated Shoulder;21;31
+53;Bruised Wrist;3;10
+54;Fractured Wrist;30;65
+55;Back Spasms;3;10
+56;Herniated Disc (back);15;45
+57;Ruptured Disc (back);180;270
+58;Bruised Hip;3;7
+59;Fractured Hip;130;180
+60;Mild Abdominal Strain;3;8
+61;Torn Abdominal Muscle;30;120
+62;Strained Back;15;25
+63;Torn Back Muscle;90;155
+64;Strained Rib Cage Muscle;15;21
+65;Torn Rib Cage Muscle;75;90
+66;Strained Groin;15;21
+67;Torn Groin;40;90
+68;Hip Flexor Strain;3;14
+69;Torn Hip Flexor Tendon;36;50
+70;Bruised Ribs;3;8
+71;Fractured Rib;20;30
+72;Bruised Ankle;3;6
+73;Sprained Ankle;7;30
+74;Fractured Ankle;90;140
+75;Bruised Foot;3;10
+76;Fractured Foot;17;35
+77;Bruised Heel;3;6
+78;Sore Knee;3;9
+79;Hyperextended Knee;15;28
+80;Fractured Knee;100;160
+81;Strained Achilles Tendon;15;21
+82;Ruptured Achilles Tendon;60;180
+83;Strained Anterior Cruciate Ligament;21;42
+84;Torn Anterior Cruciate Ligament;130;220
+85;Strained Posterior Cruciate Ligament;14;31
+86;Torn Posterior Cruciate Ligament;180;240
+87;Strained Medial Collateral Ligament;21;42
+88;Ruptured Medial Collateral Ligament;180;240
+89;Calf Strain;15;21
+90;Torn Calf Muscle;90;140
+91;Strained Hamstring;15;21
+92;Torn Hamstring;20;95
+93;Thigh Muscle Strain;3;7
+94;Torn Thigh Muscle;105;115
+95;Torn Ankle Ligaments;22;155
+96;Torn Meniscus;24;100
+97;Sports Hernia;15;30
+98;Torn Labrum;60;90
+99;Pulled Abdominal Muscle;3;10
+100;Abdominal Soreness;3;5
+101;Strained Abdominal Muscle;15;21
+102;Acromioclavicular Joint Irritation;15;30
+103;Sore Achilles Tendon;4;10
+104;Hip Adductor Strain;3;7
+105;Allergic Reaction;7;14
+106;Sore Ankle;3;7
+107;Appendectomy;15;21
+108;Arthritic Elbow;15;30
+109;Sore Back;3;7
+110;Back Soreness;3;14
+111;Chronic Back Soreness;15;21
+112;Recurring Back Spasms;15;21
+113;Back Stiffness;3;14
+114;Back Tightness;3;14
+115;Bone Bruise (knee);15;31
+116;Bone Bruise (wrist);15;25
+117;Bone Chips (elbow);90;180
+118;Bone Edema (wrist);55;65
+119;Bone Spur (elbow);15;45
+120;Broken Hamate Bone;48;80
+121;Elbow Contusion;5;12
+122;Bruised Back;3;7
+123;Bruised Calf;3;5
+124;Bruised Collarbone;9;14
+125;Bruised Forearm;3;7
+126;Bruised Forehead;3;5
+127;Bruised Finger;3;5
+128;Bruised Knee;3;10
+129;Knee Contusion;4;14
+130;Bruised Chest;3;6
+131;Bruised Shin;3;5
+132;Bruised Shoulder;3;7
+133;Bruised Thigh;3;8
+134;Bruised Thumb;3;7
+135;Thumb Contusion;3;10
+136;Bruised Toe;3;6
+137;Broken Toe;15;35
+138;Hand Contusion;3;8
+139;Foot Contusion;7;14
+140;Buerger's Disease;60;80
+141;Calf Cramp;3;5
+142;Calf Soreness;3;7
+143;Mild Calf Strain;3;7
+144;Colitis;30;60
+145;Conjunctivitis;4;7
+146;Dehydration;3;5
+147;Diverticulitis;3;5
+148;Dizziness And Nausea;7;14
+149;Earache;3;5
+150;Elbow Inflammation;15;21
+151;Sore Elbow;3;14
+152;Acute Elbow Soreness;30;42
+153;Elbow Tendinitis;15;31
+154;Eye Infection;4;7
+155;Fever;3;6
+156;Esophageal Spasms;18;24
+157;Finger Infection;15;21
+158;Food Poisoning;3;5
+159;Gastroenteritis;6;9
+160;Gout;3;7
+161;Heart Palpitations;15;40
+162;Intestinal Virus;15;18
+163;Inner Ear Infection;4;7
+164;Kidney Stones;3;5
+165;Nausea;3;5
+166;Pleurisy;5;10
+167;Sinus Infection;3;5
+168;Viral Infection;3;9
+169;Stomach Virus;3;8
+170;Upper Respiratory Infection;7;14
+171;Virus;3;10
+172;Thoracic Outlet Syndrome;70;90
+173;Torn Fingernail;3;5
+174;Finger Avulsion Fracture;15;20
+175;Flexor-pronator Strain;15;21
+176;Foot Soreness;2;7
+177;Strained Foot;7;14
+178;Forearm Cramp;3;6
+179;Forearm Inflammation;15;30
+180;Forearm Soreness;3;10
+181;Forearm Stiffness;3;9
+182;Strained Forearm;15;21
+183;Forearm Tendinitis;15;21
+184;Fractured Coracoid (shoulder);120;150
+185;Biceps Tendinitis;15;21
+186;Triceps Strain;15;21
+187;Fractured Fibula;80;110
+188;Fractured Shoulder Blade;38;60
+189;Fractured Thumb;15;31
+190;Fractured Tibia;50;100
+191;Gluteus Strain;7;14
+192;Groin Soreness;3;7
+193;Sore Groin;3;7
+194;Mild Groin Strain;3;8
+195;Groin Tightness;3;6
+196;Hamstring Cramp;3;6
+197;Hamstring Soreness;3;7
+198;Sore Hamstring;3;7
+199;Hamstring Spasms;3;7
+200;Hamstring Strain;15;21
+201;Mild Hamstring Strain;7;15
+202;Hamstring Tendinitis;15;21
+203;Hamstring Tightness;3;7
+204;Hand Soreness;3;10
+205;Exhaustion;3;7
+206;Heel Soreness;3;5
+207;Herniated Disc (neck);15;83
+208;High Ankle Sprain;15;31
+209;Hip Soreness;3;7
+210;Mild Hip Strain;3;12
+211;Hip Strain;15;45
+212;Hyperextended Ankle;6;12
+213;Inflamed Facet Joints (neck);20;35
+214;Intercostal Strain;15;31
+215;Knee Inflammation;15;30
+216;Knee Soreness;3;9
+217;Knee Tendinitis;15;35
+218;Lacerated Chin;3;5
+219;Lacerated Finger;3;14
+220;Lacerated Hand;3;14
+221;Lacerated Shin;3;7
+222;Latissimus Dorsi Strain;15;21
+223;Neck Spasms;5;9
+224;Strained Oblique;15;21
+225;Second Degree Oblique Strain;3;7
+226;Patellar Tendinitis;7;14
+227;Plantar Fascitis;15;45
+228;Post-concussion Syndrome;120;365
+229;Posterior Cruciate Ligament Strain (knee);29;45
+230;Quadriceps Soreness;3;10
+231;Quadriceps Strain;15;21
+232;Radial Nerve (elbow) Compression;90;120
+233;Rotator Cuff Inflammation;30;60
+234;Rotator Cuff Tendinitis;18;24
+235;Ruptured Tendon (finger);60;90
+236;Ruptured Tendon (foot);90;120
+237;Separated Shoulder;18;31
+238;Shin Splints;3;5
+239;Shoulder Bursitis;26;50
+240;Shoulder Impingement;21;31
+241;Mild Shoulder Inflammation;5;14
+242;Shoulder Inflammation;16;31
+243;Shoulder Soreness;5;14
+244;Mild Shoulder Strain;3;13
+245;Strained Shoulder;22;30
+246;Shoulder Subluxation;7;14
+247;Shoulder Tendinitis;5;10
+248;Sprained Acromioclavicular Joint;30;60
+249;Sprained Elbow;15;31
+250;Sprained Finger;15;30
+251;Sprained Knee;15;30
+252;Sprained Thumb;15;21
+253;Sprained Ulnar Collateral Ligament (elbow);22;34
+254;Sprained Wrist;15;21
+255;Sore Thumb;3;5
+256;Torn Elbow Ligament;120;180
+257;Torn UCL;150;210
+258;Partially Torn UCL;120;200
+259;Torn Flexor Tendon;90;120
+260;Partially Torn Labrum;36;90
+261;Torn Plantar Fascia Tendon;59;79
+262;Torn Posterior Cruciate Ligament (knee);75;100
+263;Torn Quadriceps;23;70
+264;Torn Thumb Ligament;16;42
+265;Partially Torn Ulnar Collateral Ligament (elbow);120;180
+266;Triceps Tendinitis;15;40
+267;Twisted Ankle;5;14
+268;Ulnar Nerve Irritation;21;40
+269;Wrist Soreness;5;14
+270;Wrist Tendinitis;15;21
+271;Lacerated Forearm Tendon (minor);3;7
+272;Lacerated Forearm Tendon;60;90
+273;Minor Calf Laceration;3;5
+274;Calf Laceration;15;31
+275;Severe Calf Laceration;60;90
+276;Lacerated Spleen;28;56
+277;Minor Ankle Laceration;3;5
+278;Ankle Laceration;3;14
+279;Neck Laceration;20;60
+280;Minor Neck Laceration;2;14
+281;Severe Neck Laceration;60;120
+282;Skate Bite;3;5
+283;Staph Infection In Foot;15;28
+284;Staph Infection In Hand;15;28
+285;Gunk (hockey Gear Rash);3;5
+286;Acute Gunk (hockey Gear Rash);7;14
+287;Severe Gunk (hockey Gear Rash);15;31
+288;Corneal Abrasion;4;12
+289;Severe Blunt Trauma To The Eye;21;120
+290;Massive Eye Trauma;120;210
+291;Mild Blunt Trauma To The Eye;6;14
+292;Minor Facial Cut;3;5
+293;Minor Facial Cut;3;5
+294;Medium Facial Cut;3;5
+295;Medium Facial Cut;3;7
+296;Serious Facial Cut;6;12
+297;Severe Facial Cut;15;25
+298;3rd Degree MCL Sprain;28;42
+299;2nd Degree MCL Sprain;15;25
+300;1st Degree MCL Sprain;7;14
+301;Lacerated Kidney;28;60
+302;Broken Collarbone;28;55
+303;Broken Thigh;90;120
+304;Broken Pelvis;30;90
+305;Bruised Kidney;15;30
+306;Chest Bruise;2;5
+307;Fractured Vertebrae In Neck;40;120
+308;Bruised Spine;15;30
+309;Tooth Knocked Out;3;5
+310;Teeth Knocked Out;3;7
+311;Dislocated Jaw;5;12
+312;Fractured Ribs;15;30
+313;Torn Acetabular Labrum;90;120
+314;Hip Pointer;3;8
+315;Lower Leg Contusion;3;5
+316;Medial Epicondylitis;3;5
+317;Olecranon Bursitis;3;5
+318;Stinger;3;5
+319;Pneumonia;15;21
+320;Mononucleosis;15;60
+321;Hand Laceration;7;14
+322;Coccyx Bruise;3;5
+323;Coccyx Strain;3;7
+324;Coccyx Dislocation;15;30
+325;Coccyx Fracture;28;42
+326;Minor Whiplash;3;7
+327;Moderate Whiplash;8;14
+328;Major Whiplash;15;28
+329;Black Eye;3;5
+330;Bruised Testicles;3;6
+331;Ruptured Testicle;15;28
+332;Cut Ear;3;5
+333;Severe Ear Cut;15;30
+334;Detached Retina;40;70
+335;Mumps;4;14
+336;Fractured Larynx;120;180
+337;Blood Clots;30;180
+338;Irregular Heartbeat;30;60
+339;Infected Blister;3;7
+340;Infected Insect Bite;3;5
+341;Animal Bite;3;9
+342;Sunburn;3;5
+343;Root Canal;3;5
+344;MRSA Infection;15;31
+345;Laryngitis;3;5
+346;Abscessed Tooth;3;5
+347;Carbon Monoxide Poisoning;7;14
+348;First-degree Burns;3;6
+349;Second-degree Burns;7;21
+350;Third-degree Burns;60;240
+351;Bladder Infection;3;7
+352;Strained Pectoral Muscle;13;19
+353;Torn Pectoral Cage Muscle;60;80
+354;Ruptured Eardrum;21;28
+355;Personal Reasons;0;0
+356;Cancer;0;0

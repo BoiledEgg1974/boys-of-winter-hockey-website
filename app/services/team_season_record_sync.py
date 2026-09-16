@@ -119,26 +119,26 @@ def _conf_div_names(conf_id: int | None, div_id: int | None) -> tuple[str | None
 
 def _load_team_meta_from_csv(raw_dir: Path | None) -> dict[str, tuple[int | None, int | None]]:
     """Map FHM team id -> (conference_id, division_id) from ``team_data.csv``."""
+    from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_int
+
     out: dict[str, tuple[int | None, int | None]] = {}
     if raw_dir is None:
         return out
     path = raw_dir / "team_data.csv"
     if not path.is_file():
         return out
-    with open(path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f, delimiter=";"):
-            tid = (row.get("TeamId") or "").strip()
-            if not tid:
-                continue
-            try:
-                conf = int((row.get("Conference Id") or "").strip() or "0")
-            except ValueError:
-                conf = None
-            try:
-                div = int((row.get("Division Id") or "").strip() or "0")
-            except ValueError:
-                div = None
-            out[tid] = (conf, div)
+    df = read_csv_normalized(path)
+    for _, row in df.iterrows():
+        r = row.to_dict()
+        tid_raw = cell_val(r, "teamid", "team_id")
+        if tid_raw is None:
+            continue
+        tid = str(tid_raw).strip()
+        if not tid:
+            continue
+        conf = to_int(cell_val(r, "conference_id", "conferenceid"))
+        div = to_int(cell_val(r, "division_id", "divisionid"))
+        out[tid] = (conf, div)
     return out
 
 

@@ -1,4 +1,4 @@
-"""Active player injuries imported from FHM player_injuries.csv."""
+"""Active player injuries imported from FHM player_injuries.csv (BOWL-Relegation / FHM12 only)."""
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -6,8 +6,27 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import Player, PlayerInjury, Team
 
+# Only BOWL-Relegation (FHM12) ships injury CSV exports today.
+INJURY_LEAGUE_SLUG = "bowl-fantasy"
+
+
+def injuries_supported_for_league(league_slug: str | None = None) -> bool:
+    """True when this league mount should read or display FHM injury data."""
+    if league_slug is not None:
+        return str(league_slug).strip() == INJURY_LEAGUE_SLUG
+    try:
+        from flask import has_app_context, current_app
+
+        if has_app_context():
+            return str(current_app.config.get("LEAGUE_SLUG") or "").strip() == INJURY_LEAGUE_SLUG
+    except RuntimeError:
+        pass
+    return False
+
 
 def injuries_for_teams(session: Session, team_ids: set[int] | frozenset[int] | None = None) -> list[PlayerInjury]:
+    if not injuries_supported_for_league():
+        return []
     q = (
         select(PlayerInjury)
         .join(PlayerInjury.player)
@@ -35,7 +54,7 @@ def injury_payload_league_wide(session: Session, team_ids: frozenset[int] | None
 
 
 def injuries_by_player_id(session: Session, player_ids: set[int]) -> dict[int, dict[str, object]]:
-    if not player_ids:
+    if not player_ids or not injuries_supported_for_league():
         return {}
     rows = list(
         session.scalars(

@@ -1,0 +1,708 @@
+LeagueId;Year;Award Name;Award Description;PlayerId;Retired
+5;2011;Guldhjälmen;MVP;10134;0
+5;2014;Guldhjälmen;MVP;12093;0
+5;2019;Guldhjälmen;MVP;4612;0
+5;2020;Guldhjälmen;MVP;2376;0
+5;2021;Guldhjälmen;MVP;945;0
+5;2022;Guldhjälmen;MVP;14844;0
+5;2023;Guldhjälmen;MVP;13687;0
+5;2024;Guldhjälmen;MVP;10134;0
+5;2011;Stefan Liv Memorial Trophy;Playoff MVP;10134;0
+5;2012;Stefan Liv Memorial Trophy;Playoff MVP;10260;0
+5;2015;Stefan Liv Memorial Trophy;Playoff MVP;10180;0
+5;2016;Stefan Liv Memorial Trophy;Playoff MVP;10279;0
+5;2018;Stefan Liv Memorial Trophy;Playoff MVP;8970;0
+5;2020;Stefan Liv Memorial Trophy;Playoff MVP;6767;0
+5;2021;Stefan Liv Memorial Trophy;Playoff MVP;10151;0
+5;2024;Stefan Liv Memorial Trophy;Playoff MVP;16462;0
+5;2009;Honken Trophy;Best Goalie;528;0
+5;2013;Honken Trophy;Best Goalie;14317;0
+5;2014;Honken Trophy;Best Goalie;14289;0
+5;2018;Honken Trophy;Best Goalie;11952;0
+5;2021;Honken Trophy;Best Goalie;241;0
+5;2023;Honken Trophy;Best Goalie;12157;0
+5;2010;Salming Trophy;Best Defenceman;959;0
+5;2011;Salming Trophy;Best Defenceman;931;0
+5;2012;Salming Trophy;Best Defenceman;14773;0
+5;2014;Salming Trophy;Best Defenceman;12012;0
+5;2015;Salming Trophy;Best Defenceman;10250;0
+5;2016;Salming Trophy;Best Defenceman;10182;0
+5;2018;Salming Trophy;Best Defenceman;327;0
+5;2019;Salming Trophy;Best Defenceman;4612;0
+5;2022;Salming Trophy;Best Defenceman;14348;0
+5;2023;Salming Trophy;Best Defenceman;3639;0
+5;2005;Årets Junior;Best Rookie;26;0
+5;2008;Årets Junior;Best Rookie;349;0
+5;2009;Årets Junior;Best Rookie;528;0
+5;2010;Årets Junior;Best Rookie;931;0
+5;2011;Årets Junior;Best Rookie;10126;0
+5;2012;Årets Junior;Best Rookie;12159;0
+5;2013;Årets Junior;Best Rookie;14213;0
+5;2014;Årets Junior;Best Rookie;11988;0
+5;2015;Årets Junior;Best Rookie;1818;0
+5;2018;Årets Junior;Best Rookie;7380;0
+5;2019;Årets Junior;Best Rookie;14229;0
+5;2020;Årets Junior;Best Rookie;13805;0
+5;2021;Årets Junior;Best Rookie;13447;0
+5;2022;Årets Junior;Best Rookie;2531;0
+5;2023;Årets Junior;Best Rookie;2549;0
+5;2010;Håkan Loob Trophy;Most Goals;8380;0
+5;2018;Håkan Loob Trophy;Most Goals;7380;0
+5;2021;Håkan Loob Trophy;Most Goals;16243;0
+5;2022;Håkan Loob Trophy;Most Goals;14844;0
+5;2009;Svenska Spels Skyttetrofé;Most Points;923;0
+5;2012;Svenska Spels Skyttetrofé;Most Points;10256;0
+5;2015;Svenska Spels Skyttetrofé;Most Points;8970;0
+5;2018;Svenska Spels Skyttetrofé;Most Points;8970;0
+5;2019;Svenska Spels Skyttetrofé;Most Points;11966;0
+5;2020;Svenska Spels Skyttetrofé;Most Points;2376;0
+5;2021;Svenska Spels Skyttetrofé;Most Points;8970;0
+5;2022;Svenska Spels Skyttetrofé;Most Points;14844;0
+5;2023;Svenska Spels Skyttetrofé;Most Points;10260;0
+5;2011;Rinkens Riddare;Sportsmanship Award;10134;0
+5;2015;Rinkens Riddare;Sportsmanship Award;12042;0
+5;2018;Rinkens Riddare;Sportsmanship Award;12161;0
+5;2021;Rinkens Riddare;Sportsmanship Award;327;0
+5;2022;Rinkens Riddare;Sportsmanship Award;13687;0
+5;2024;Rinkens Riddare;Sportsmanship Award;10134;0
+5;2009;Most Valuable Player;Player's MVP Award;923;0
+5;2011;Most Valuable Player;Player's MVP Award;10134;0
+5;2012;Most Valuable Player;Player's MVP Award;10256;0
+5;2015;Most Valuable Player;Player's MVP Award;1254;0
+5;2019;Most Valuable Player;Player's MVP Award;4612;0
+5;2020;Most Valuable Player;Player's MVP Award;2376;0
+5;2021;Most Valuable Player;Player's MVP Award;16243;0
+5;2022;Most Valuable Player;Player's MVP Award;14844;0
+5;2023;Most Valuable Player;Player's MVP Award;14271;0
+5;2023;Postseason Allstar 1 D1;Postseason Allstar 1 D1;13687;0
+5;2023;Postseason Allstar 1 D2;Postseason Allstar 1 D2;14348;0
+5;2023;Postseason Allstar 1 LW;Postseason Allstar 1 LW;2203;0
+5;2023;Postseason Allstar 1 C;Postseason Allstar 1 C;10260;0
+5;2023;Postseason Allstar 1 RW;Postseason Allstar 1 RW;10272;0
+5;2023;Rookie Team G;Rookie Team G;14081;0
+5;2022;Forward of the Year;Forward of the Year;944;0
+5;2023;Forward of the Year;Forward of the Year;10260;0
+5;2024;Forward of the Year;Forward of the Year;3913;0
+5;2023;Eliteprospects.com Award;Best Prospect;2549;0
+5;2024;Eliteprospects.com Award;Best Prospect;3639;0
+5;2022;Guldpucken;Best Player from this Country;427;0
+5;2024;Guldpucken;Best Player from this Country;14361;0
+6;2009;Golden Stick Award;MVP;8371;0
+6;2010;Golden Stick Award;MVP;8371;0
+6;2011;Golden Stick Award;MVP;8371;0
+6;2014;Golden Stick Award;MVP;8371;0
+6;2017;Golden Stick Award;MVP;8213;0
+6;2019;Golden Stick Award;MVP;7775;0
+6;2023;Golden Stick Award;MVP;8213;0
+6;2024;Golden Stick Award;MVP;1737;0
+6;2018;Playoff MVP Award;Playoff MVP;13053;0
+6;2022;Playoff MVP Award;Playoff MVP;2365;0
+6;2023;Playoff MVP Award;Playoff MVP;2804;0
+6;2024;Playoff MVP Award;Playoff MVP;8371;0
+6;2015;Best Goaltender Award;Best Goalie;13053;0
+6;2018;Best Goaltender Award;Best Goalie;9020;0
+6;2023;Best Goaltender Award;Best Goalie;2924;0
+6;2024;Best Goaltender Award;Best Goalie;2924;0
+6;2018;Defenceman of the Year;Best Defenceman;483;0
+6;2019;Defenceman of the Year;Best Defenceman;9034;0
+6;2008;Aleksei Cherepanov Award;Best Rookie;8472;0
+6;2009;Aleksei Cherepanov Award;Best Rookie;8440;0
+6;2012;Aleksei Cherepanov Award;Best Rookie;12829;0
+6;2013;Aleksei Cherepanov Award;Best Rookie;13279;0
+6;2014;Aleksei Cherepanov Award;Best Rookie;12876;0
+6;2015;Aleksei Cherepanov Award;Best Rookie;12852;0
+6;2017;Aleksei Cherepanov Award;Best Rookie;4402;0
+6;2018;Aleksei Cherepanov Award;Best Rookie;5240;0
+6;2019;Aleksei Cherepanov Award;Best Rookie;4455;0
+6;2021;Aleksei Cherepanov Award;Best Rookie;1903;0
+6;2023;Aleksei Cherepanov Award;Best Rookie;2804;0
+6;2010;Top Sniper Award;Most Goals;8182;0
+6;2014;Top Sniper Award;Most Goals;3244;0
+6;2021;Top Sniper Award;Most Goals;11106;0
+6;2022;Top Sniper Award;Most Goals;7775;0
+6;2023;Top Sniper Award;Most Goals;1601;0
+6;2024;Top Sniper Award;Most Goals;1737;0
+6;2010;Top Scorer Award;Most Points;8371;0
+6;2011;Top Scorer Award;Most Points;8371;0
+6;2014;Top Scorer Award;Most Points;8371;0
+6;2018;Top Scorer Award;Most Points;8213;0
+6;2019;Top Scorer Award;Most Points;8385;0
+6;2022;Top Scorer Award;Most Points;7775;0
+6;2023;Top Scorer Award;Most Points;8213;0
+6;2024;Top Scorer Award;Most Points;1737;0
+6;2013;Best Plus-Minus Award;Highest Plus-Minus;7760;0
+6;2014;Best Plus-Minus Award;Highest Plus-Minus;8371;0
+6;2017;Best Plus-Minus Award;Highest Plus-Minus;12834;0
+6;2018;Best Plus-Minus Award;Highest Plus-Minus;13029;0
+6;2022;Best Plus-Minus Award;Highest Plus-Minus;1804;0
+6;2014;Gentleman Award;Sportsmanship Award;181;0
+6;2023;Top Scoring Defenceman;Top Scoring Defenceman;73;0
+6;2024;Top Scoring Defenceman;Top Scoring Defenceman;1783;0
+7;2020;MVP;MVP;2129;0
+7;2021;MVP;MVP;2181;0
+7;2022;MVP;MVP;8865;0
+7;2023;MVP;MVP;16813;0
+7;2024;MVP;MVP;8872;0
+7;2020;Goalie of the Year;Best Goalie;10253;0
+7;2021;Goalie of the Year;Best Goalie;8011;0
+7;2022;Goalie of the Year;Best Goalie;17092;0
+7;2023;Goalie of the Year;Best Goalie;12941;0
+7;2024;Goalie of the Year;Best Goalie;12941;0
+7;2020;Defenceman of the Year;Best Defenceman;14809;0
+7;2022;Defenceman of the Year;Best Defenceman;2942;0
+7;2023;Defenceman of the Year;Best Defenceman;16813;0
+7;2020;Rookie of the Year;Best Rookie;13907;0
+7;2022;Rookie of the Year;Best Rookie;12522;0
+7;2023;Rookie of the Year;Best Rookie;9540;0
+7;2024;Rookie of the Year;Best Rookie;8261;0
+7;2020;Points Award;Most Points;980;0
+7;2021;Points Award;Most Points;980;0
+7;2022;Points Award;Most Points;838;0
+7;2023;Points Award;Most Points;10303;0
+7;2022;Forward of the Year;Forward of the Year;8865;0
+7;2023;Forward of the Year;Forward of the Year;7716;0
+7;2024;Forward of the Year;Forward of the Year;8872;0
+8;2009;Lasse Oksanen Trophy;MVP;8404;0
+8;2011;Lasse Oksanen Trophy;MVP;7342;0
+8;2012;Lasse Oksanen Trophy;MVP;7331;0
+8;2013;Lasse Oksanen Trophy;MVP;7407;0
+8;2017;Lasse Oksanen Trophy;MVP;8932;0
+8;2018;Lasse Oksanen Trophy;MVP;16443;0
+8;2019;Lasse Oksanen Trophy;MVP;1602;0
+8;2020;Lasse Oksanen Trophy;MVP;17066;0
+8;2021;Lasse Oksanen Trophy;MVP;16410;0
+8;2022;Lasse Oksanen Trophy;MVP;14868;0
+8;2012;Jari Kurri Trophy ;Playoff MVP;7331;0
+8;2015;Jari Kurri Trophy ;Playoff MVP;16438;0
+8;2017;Jari Kurri Trophy ;Playoff MVP;8932;0
+8;2018;Jari Kurri Trophy ;Playoff MVP;7396;0
+8;2020;Jari Kurri Trophy ;Playoff MVP;11116;0
+8;2022;Jari Kurri Trophy ;Playoff MVP;7334;0
+8;2024;Jari Kurri Trophy ;Playoff MVP;13846;0
+8;2012;Urpo Ylönen Trophy;Best Goalie;7331;0
+8;2014;Urpo Ylönen Trophy;Best Goalie;9020;0
+8;2015;Urpo Ylönen Trophy;Best Goalie;11136;0
+8;2017;Urpo Ylönen Trophy;Best Goalie;15328;0
+8;2018;Urpo Ylönen Trophy;Best Goalie;15328;0
+8;2019;Urpo Ylönen Trophy;Best Goalie;4879;0
+8;2010;Pekka Rautakallio Trophy;Best Defenceman;7467;0
+8;2011;Pekka Rautakallio Trophy;Best Defenceman;7467;0
+8;2012;Pekka Rautakallio Trophy;Best Defenceman;1113;0
+8;2014;Pekka Rautakallio Trophy;Best Defenceman;11179;0
+8;2015;Pekka Rautakallio Trophy;Best Defenceman;7448;0
+8;2016;Pekka Rautakallio Trophy;Best Defenceman;8774;0
+8;2018;Pekka Rautakallio Trophy;Best Defenceman;16443;0
+8;2019;Pekka Rautakallio Trophy;Best Defenceman;3736;0
+8;2020;Pekka Rautakallio Trophy;Best Defenceman;17066;0
+8;2022;Pekka Rautakallio Trophy;Best Defenceman;11196;0
+8;2008;Jarmo Wasama Trophy ;Best Rookie;345;0
+8;2009;Jarmo Wasama Trophy ;Best Rookie;7368;0
+8;2010;Jarmo Wasama Trophy ;Best Rookie;7440;0
+8;2011;Jarmo Wasama Trophy ;Best Rookie;7442;0
+8;2012;Jarmo Wasama Trophy ;Best Rookie;9033;0
+8;2013;Jarmo Wasama Trophy ;Best Rookie;11153;0
+8;2014;Jarmo Wasama Trophy ;Best Rookie;11185;0
+8;2015;Jarmo Wasama Trophy ;Best Rookie;16438;0
+8;2017;Jarmo Wasama Trophy ;Best Rookie;16410;0
+8;2018;Jarmo Wasama Trophy ;Best Rookie;3369;0
+8;2020;Jarmo Wasama Trophy ;Best Rookie;16374;0
+8;2022;Jarmo Wasama Trophy ;Best Rookie;13882;0
+8;2024;Jarmo Wasama Trophy ;Best Rookie;10392;0
+8;2009;Aarne Honkavaara Trophy;Most Goals;8399;0
+8;2011;Aarne Honkavaara Trophy;Most Goals;7342;0
+8;2013;Aarne Honkavaara Trophy;Most Goals;9022;0
+8;2014;Aarne Honkavaara Trophy;Most Goals;9022;0
+8;2016;Aarne Honkavaara Trophy;Most Goals;7334;0
+8;2017;Aarne Honkavaara Trophy;Most Goals;8944;0
+8;2018;Aarne Honkavaara Trophy;Most Goals;2203;0
+8;2019;Aarne Honkavaara Trophy;Most Goals;15335;0
+8;2021;Aarne Honkavaara Trophy;Most Goals;15391;0
+8;2022;Aarne Honkavaara Trophy;Most Goals;14703;0
+8;2023;Aarne Honkavaara Trophy;Most Goals;11190;0
+8;2024;Aarne Honkavaara Trophy;Most Goals;8922;0
+8;2009;Veli-Pekka Ketola Trophy;Most Points;8404;0
+8;2011;Veli-Pekka Ketola Trophy;Most Points;8970;0
+8;2016;Veli-Pekka Ketola Trophy;Most Points;11312;0
+8;2017;Veli-Pekka Ketola Trophy;Most Points;14844;0
+8;2018;Veli-Pekka Ketola Trophy;Most Points;2203;0
+8;2019;Veli-Pekka Ketola Trophy;Most Points;1602;0
+8;2021;Veli-Pekka Ketola Trophy;Most Points;15391;0
+8;2022;Veli-Pekka Ketola Trophy;Most Points;14868;0
+8;2023;Veli-Pekka Ketola Trophy;Most Points;7937;0
+8;2010;Matti Keinonen Trophy;Highest Plus-Minus;7467;0
+8;2012;Matti Keinonen Trophy;Highest Plus-Minus;7401;0
+8;2013;Matti Keinonen Trophy;Highest Plus-Minus;8940;0
+8;2014;Matti Keinonen Trophy;Highest Plus-Minus;7427;0
+8;2015;Matti Keinonen Trophy;Highest Plus-Minus;15350;0
+8;2016;Matti Keinonen Trophy;Highest Plus-Minus;11335;0
+8;2017;Matti Keinonen Trophy;Highest Plus-Minus;8944;0
+8;2018;Matti Keinonen Trophy;Highest Plus-Minus;10174;0
+8;2020;Matti Keinonen Trophy;Highest Plus-Minus;8786;0
+8;2022;Matti Keinonen Trophy;Highest Plus-Minus;3366;0
+8;2009;Raimo Kilpiö Trophy;Sportsmanship Award;7368;0
+8;2020;Raimo Kilpiö Trophy;Sportsmanship Award;11329;0
+8;2022;Raimo Kilpiö Trophy;Sportsmanship Award;7464;0
+8;2023;Raimo Kilpiö Trophy;Sportsmanship Award;9043;0
+8;2024;Raimo Kilpiö Trophy;Sportsmanship Award;9027;0
+8;2009;Kultainen Kypärä;Player's MVP Award;8404;0
+8;2011;Kultainen Kypärä;Player's MVP Award;7342;0
+8;2013;Kultainen Kypärä;Player's MVP Award;7407;0
+8;2018;Kultainen Kypärä;Player's MVP Award;11239;0
+8;2019;Kultainen Kypärä;Player's MVP Award;1602;0
+8;2023;Postseason Allstar 1 LW;Postseason Allstar 1 LW;15391;0
+8;2023;Postseason Allstar 1 C;Postseason Allstar 1 C;7937;0
+8;2023;Postseason Allstar 1 RW;Postseason Allstar 1 RW;11190;0
+8;2024;Juha Rantasila Trophy;Most Goals by Defenceman;3946;0
+9;2007;MVP;MVP;7565;0
+9;2010;MVP;MVP;7540;0
+9;2016;MVP;MVP;987;0
+9;2018;MVP;MVP;11646;0
+9;2021;MVP;MVP;8182;0
+9;2022;MVP;MVP;8182;0
+9;2010;Jacques Plante Trophy;Best Goalie;7540;0
+9;2011;Jacques Plante Trophy;Best Goalie;7481;0
+9;2012;Jacques Plante Trophy;Best Goalie;7481;0
+9;2014;Jacques Plante Trophy;Best Goalie;7540;0
+9;2015;Jacques Plante Trophy;Best Goalie;10068;0
+9;2016;Jacques Plante Trophy;Best Goalie;7540;0
+9;2017;Jacques Plante Trophy;Best Goalie;10068;0
+9;2018;Jacques Plante Trophy;Best Goalie;7540;0
+9;2021;Jacques Plante Trophy;Best Goalie;7540;0
+9;2022;Jacques Plante Trophy;Best Goalie;1175;0
+9;2023;Jacques Plante Trophy;Best Goalie;7643;0
+9;2009;Rookie of the Year;Best Rookie;7572;0
+9;2010;Rookie of the Year;Best Rookie;7532;0
+9;2011;Rookie of the Year;Best Rookie;9073;0
+9;2012;Rookie of the Year;Best Rookie;1753;0
+9;2013;Rookie of the Year;Best Rookie;8662;0
+9;2014;Rookie of the Year;Best Rookie;14185;0
+9;2015;Rookie of the Year;Best Rookie;10051;0
+9;2016;Rookie of the Year;Best Rookie;9059;0
+9;2018;Rookie of the Year;Best Rookie;9101;0
+9;2012;PostFinance Top Scorer;Most Points;617;0
+9;2016;PostFinance Top Scorer;Most Points;987;0
+9;2018;PostFinance Top Scorer;Most Points;11646;0
+9;2020;PostFinance Top Scorer;Most Points;7760;0
+9;2021;PostFinance Top Scorer;Most Points;8182;0
+9;2022;PostFinance Top Scorer;Most Points;8182;0
+9;2023;PostFinance Top Scorer;Most Points;11988;0
+9;2024;PostFinance Top Scorer;Most Points;13998;0
+10;2010;Hobey Baker Award;MVP;949;0
+10;2011;Hobey Baker Award;MVP;4003;0
+10;2012;Hobey Baker Award;MVP;4071;0
+10;2014;Hobey Baker Award;MVP;16357;0
+10;2015;Hobey Baker Award;MVP;15413;0
+10;2020;Hobey Baker Award;MVP;13612;0
+10;2023;Hobey Baker Award;MVP;661;0
+10;2013;Mike Richter Award;Best Goalie;3444;0
+10;2014;Mike Richter Award;Best Goalie;3794;0
+10;2015;Mike Richter Award;Best Goalie;3760;0
+10;2019;Mike Richter Award;Best Goalie;3407;0
+10;2023;Tim Taylor Award;Best Rookie;661;0
+10;2023;First All-American LW;Postseason Allstar 1 LW;7902;0
+11;2004;Red Tilson Trophy;MVP;645;0
+11;2006;Red Tilson Trophy;MVP;828;0
+11;2009;Red Tilson Trophy;MVP;748;0
+11;2010;Red Tilson Trophy;MVP;1067;0
+11;2011;Red Tilson Trophy;MVP;1713;0
+11;2012;Red Tilson Trophy;MVP;1873;0
+11;2013;Red Tilson Trophy;MVP;1609;0
+11;2014;Red Tilson Trophy;MVP;14785;0
+11;2015;Red Tilson Trophy;MVP;16808;0
+11;2019;Red Tilson Trophy;MVP;5577;0
+11;2024;Red Tilson Trophy;MVP;2886;0
+11;2004;Wayne Gretzky 99 Award;Playoff MVP;645;0
+11;2008;Wayne Gretzky 99 Award;Playoff MVP;335;0
+11;2009;Wayne Gretzky 99 Award;Playoff MVP;358;0
+11;2011;Wayne Gretzky 99 Award;Playoff MVP;1886;0
+11;2012;Wayne Gretzky 99 Award;Playoff MVP;1711;0
+11;2013;Wayne Gretzky 99 Award;Playoff MVP;14915;0
+11;2014;Wayne Gretzky 99 Award;Playoff MVP;14785;0
+11;2015;Wayne Gretzky 99 Award;Playoff MVP;16808;0
+11;2016;Wayne Gretzky 99 Award;Playoff MVP;1691;0
+11;2024;Wayne Gretzky 99 Award;Playoff MVP;4883;0
+11;2011;OHL Goaltender of the Year;Best Goalie;1713;0
+11;2012;OHL Goaltender of the Year;Best Goalie;1595;0
+11;2013;OHL Goaltender of the Year;Best Goalie;14948;0
+11;2019;OHL Goaltender of the Year;Best Goalie;3953;0
+11;2007;Max Kaminsky Trophy;Best Defenceman;209;0
+11;2008;Max Kaminsky Trophy;Best Defenceman;1067;0
+11;2010;Max Kaminsky Trophy;Best Defenceman;1067;0
+11;2011;Max Kaminsky Trophy;Best Defenceman;1699;0
+11;2012;Max Kaminsky Trophy;Best Defenceman;1855;0
+11;2013;Max Kaminsky Trophy;Best Defenceman;1662;0
+11;2014;Max Kaminsky Trophy;Best Defenceman;1644;0
+11;2016;Max Kaminsky Trophy;Best Defenceman;14911;0
+11;2005;Emms Family Award;Best Rookie;828;0
+11;2006;Emms Family Award;Best Rookie;425;0
+11;2007;Emms Family Award;Best Rookie;335;0
+11;2008;Emms Family Award;Best Rookie;307;0
+11;2009;Emms Family Award;Best Rookie;1812;0
+11;2010;Emms Family Award;Best Rookie;1898;0
+11;2011;Emms Family Award;Best Rookie;1662;0
+11;2012;Emms Family Award;Best Rookie;14785;0
+11;2013;Emms Family Award;Best Rookie;16356;0
+11;2018;Emms Family Award;Best Rookie;13051;0
+11;2019;Emms Family Award;Best Rookie;13139;0
+11;2022;Emms Family Award;Best Rookie;2886;0
+11;2001;Eddie Powers Trophy;Most Points;770;0
+11;2004;Eddie Powers Trophy;Most Points;645;0
+11;2006;Eddie Powers Trophy;Most Points;425;0
+11;2008;Eddie Powers Trophy;Most Points;828;0
+11;2009;Eddie Powers Trophy;Most Points;748;0
+11;2010;Eddie Powers Trophy;Most Points;1872;0
+11;2011;Eddie Powers Trophy;Most Points;1842;0
+11;2012;Eddie Powers Trophy;Most Points;1873;0
+11;2013;Eddie Powers Trophy;Most Points;1609;0
+11;2014;Eddie Powers Trophy;Most Points;16358;0
+11;2015;Eddie Powers Trophy;Most Points;3829;0
+11;2017;Eddie Powers Trophy;Most Points;16793;0
+11;2019;Eddie Powers Trophy;Most Points;5577;0
+11;2024;Eddie Powers Trophy;Most Points;2886;0
+11;2013;Dave Pinkney Trophy;Least Goals Against;14914;0
+11;2014;Dave Pinkney Trophy;Least Goals Against;16534;0
+11;2017;Dave Pinkney Trophy;Least Goals Against;3399;0
+11;2009;William Hanley Trophy;Sportsmanship Award;1854;0
+11;2010;William Hanley Trophy;Sportsmanship Award;980;0
+11;2011;William Hanley Trophy;Sportsmanship Award;960;0
+11;2012;William Hanley Trophy;Sportsmanship Award;1693;0
+11;2013;William Hanley Trophy;Sportsmanship Award;14785;0
+11;2014;William Hanley Trophy;Sportsmanship Award;16358;0
+11;2015;William Hanley Trophy;Sportsmanship Award;14781;0
+11;2022;William Hanley Trophy;Sportsmanship Award;13702;0
+11;2008;Dan Snyder Trophy;Dedication Award;1293;0
+11;2009;Dan Snyder Trophy;Dedication Award;1417;0
+11;2013;Dan Snyder Trophy;Dedication Award;1846;0
+11;2014;Dan Snyder Trophy;Dedication Award;5470;0
+11;2016;Dan Snyder Trophy;Dedication Award;16819;0
+11;2017;Dan Snyder Trophy;Dedication Award;16819;0
+11;2019;Dan Snyder Trophy;Dedication Award;3385;0
+11;2008;Mickey Renaud Captains Trophy;Leadership Award;1293;0
+11;2010;Mickey Renaud Captains Trophy;Leadership Award;1067;0
+11;2011;Mickey Renaud Captains Trophy;Leadership Award;1567;0
+11;2012;Mickey Renaud Captains Trophy;Leadership Award;1770;0
+11;2014;Mickey Renaud Captains Trophy;Leadership Award;1652;0
+11;2016;Mickey Renaud Captains Trophy;Leadership Award;14946;0
+11;2017;Mickey Renaud Captains Trophy;Leadership Award;16780;0
+11;2023;Postseason Allstar 2 D1;Postseason Allstar 2 D1;5268;0
+11;2023;Rookie Team LW;Rookie Team LW;13240;0
+11;2022;Bobby Smith Trophy;Top Academic Player;9289;0
+11;2024;Bobby Smith Trophy;Top Academic Player;2886;0
+12;2009;Four Broncos Memorial Trophy;MVP;226;0
+12;2010;Four Broncos Memorial Trophy;MVP;1444;0
+12;2011;Four Broncos Memorial Trophy;MVP;2183;0
+12;2012;Four Broncos Memorial Trophy;MVP;2082;0
+12;2013;Four Broncos Memorial Trophy;MVP;2161;0
+12;2014;Four Broncos Memorial Trophy;MVP;7125;0
+12;2015;Four Broncos Memorial Trophy;MVP;2047;0
+12;2019;Four Broncos Memorial Trophy;MVP;10411;0
+12;2021;Four Broncos Memorial Trophy;MVP;14122;0
+12;2022;Four Broncos Memorial Trophy;MVP;13138;0
+12;2024;Four Broncos Memorial Trophy;MVP;670;0
+12;2004;WHL Playoff MVP;Playoff MVP;883;0
+12;2008;WHL Playoff MVP;Playoff MVP;586;0
+12;2011;WHL Playoff MVP;Playoff MVP;1936;0
+12;2012;WHL Playoff MVP;Playoff MVP;2158;0
+12;2014;WHL Playoff MVP;Playoff MVP;11021;0
+12;2016;WHL Playoff MVP;Playoff MVP;16354;0
+12;2021;WHL Playoff MVP;Playoff MVP;3336;0
+12;2006;Del Wilson Trophy;Best Goalie;678;0
+12;2010;Del Wilson Trophy;Best Goalie;1444;0
+12;2012;Del Wilson Trophy;Best Goalie;1914;0
+12;2014;Del Wilson Trophy;Best Goalie;6644;0
+12;2019;Del Wilson Trophy;Best Goalie;10431;0
+12;2020;Del Wilson Trophy;Best Goalie;10431;0
+12;2021;Del Wilson Trophy;Best Goalie;5978;0
+12;2008;Bill Hunter Trophy;Best Defenceman;64;0
+12;2010;Bill Hunter Trophy;Best Defenceman;1066;0
+12;2011;Bill Hunter Trophy;Best Defenceman;2142;0
+12;2013;Bill Hunter Trophy;Best Defenceman;2149;0
+12;2014;Bill Hunter Trophy;Best Defenceman;2210;0
+12;2007;Jim Piggott Trophy;Best Rookie;736;0
+12;2009;Jim Piggott Trophy;Best Rookie;950;0
+12;2010;Jim Piggott Trophy;Best Rookie;1982;0
+12;2011;Jim Piggott Trophy;Best Rookie;2161;0
+12;2012;Jim Piggott Trophy;Best Rookie;3817;0
+12;2017;Jim Piggott Trophy;Best Rookie;4823;0
+12;2021;Jim Piggott Trophy;Best Rookie;13138;0
+12;2023;Jim Piggott Trophy;Best Rookie;670;0
+12;2024;Jim Piggott Trophy;Best Rookie;3310;0
+12;2020;No Award;Most Goals;6839;0
+12;2010;Bob Clarke Trophy;Most Points;1311;0
+12;2011;Bob Clarke Trophy;Most Points;2183;0
+12;2012;Bob Clarke Trophy;Most Points;2075;0
+12;2014;Bob Clarke Trophy;Most Points;7125;0
+12;2015;Bob Clarke Trophy;Most Points;14710;0
+12;2019;Bob Clarke Trophy;Most Points;10411;0
+12;2021;Bob Clarke Trophy;Most Points;8937;0
+12;2022;Bob Clarke Trophy;Most Points;13138;0
+12;2005;WHL Plus-Minus Award;Highest Plus-Minus;14990;0
+12;2006;WHL Plus-Minus Award;Highest Plus-Minus;64;0
+12;2007;WHL Plus-Minus Award;Highest Plus-Minus;1274;0
+12;2008;WHL Plus-Minus Award;Highest Plus-Minus;671;0
+12;2010;WHL Plus-Minus Award;Highest Plus-Minus;1066;0
+12;2011;WHL Plus-Minus Award;Highest Plus-Minus;2201;0
+12;2011;WHL Plus-Minus Award;Highest Plus-Minus;2245;0
+12;2012;WHL Plus-Minus Award;Highest Plus-Minus;2140;0
+12;2014;WHL Plus-Minus Award;Highest Plus-Minus;7125;0
+12;2020;WHL Plus-Minus Award;Highest Plus-Minus;5890;0
+12;2021;WHL Plus-Minus Award;Highest Plus-Minus;12546;0
+12;2024;WHL Plus-Minus Award;Highest Plus-Minus;670;0
+12;2009;Brad Hornung Trophy;Sportsmanship Award;4523;0
+12;2011;Brad Hornung Trophy;Sportsmanship Award;2201;0
+12;2012;Brad Hornung Trophy;Sportsmanship Award;2242;0
+12;2013;Brad Hornung Trophy;Sportsmanship Award;2161;0
+12;2014;Brad Hornung Trophy;Sportsmanship Award;14648;0
+12;2021;Brad Hornung Trophy;Sportsmanship Award;14122;0
+12;2009;Doug Wickenheiser Trophy;Dedication Award;1082;0
+12;2011;Doug Wickenheiser Trophy;Dedication Award;2225;0
+12;2012;Doug Wickenheiser Trophy;Dedication Award;2209;0
+12;2015;Doug Wickenheiser Trophy;Dedication Award;14686;0
+12;2016;Doug Wickenheiser Trophy;Dedication Award;14686;0
+12;2022;Doug Wickenheiser Trophy;Dedication Award;14122;0
+13;2003;Michel Brière Trophy;MVP;174;0
+13;2004;Michel Brière Trophy;MVP;174;0
+13;2005;Michel Brière Trophy;MVP;8371;0
+13;2009;Michel Brière Trophy;MVP;1118;0
+13;2010;Michel Brière Trophy;MVP;928;0
+13;2011;Michel Brière Trophy;MVP;2359;0
+13;2012;Michel Brière Trophy;MVP;14852;0
+13;2013;Michel Brière Trophy;MVP;2419;0
+13;2014;Michel Brière Trophy;MVP;14857;0
+13;2017;Michel Brière Trophy;MVP;16476;0
+13;2018;Michel Brière Trophy;MVP;3322;0
+13;2019;Michel Brière Trophy;MVP;3322;0
+13;2004;Guy Lafleur Trophy;Playoff MVP;174;0
+13;2005;Guy Lafleur Trophy;Playoff MVP;8250;0
+13;2007;Guy Lafleur Trophy;Playoff MVP;296;0
+13;2010;Guy Lafleur Trophy;Playoff MVP;2377;0
+13;2011;Guy Lafleur Trophy;Playoff MVP;3173;0
+13;2012;Guy Lafleur Trophy;Playoff MVP;14852;0
+13;2013;Guy Lafleur Trophy;Playoff MVP;2269;0
+13;2014;Guy Lafleur Trophy;Playoff MVP;2327;0
+13;2016;Guy Lafleur Trophy;Playoff MVP;16557;0
+13;2017;Guy Lafleur Trophy;Playoff MVP;16979;0
+13;2023;Guy Lafleur Trophy;Playoff MVP;541;0
+13;2002;Jacques Plante Memorial Trophy;Best Goalie;2607;0
+13;2009;Jacques Plante Memorial Trophy;Best Goalie;982;0
+13;2012;Jacques Plante Memorial Trophy;Best Goalie;2421;0
+13;2013;Jacques Plante Memorial Trophy;Best Goalie;2337;0
+13;2014;Jacques Plante Memorial Trophy;Best Goalie;14849;0
+13;2006;Emile Bouchard Trophy;Best Defenceman;496;0
+13;2008;Emile Bouchard Trophy;Best Defenceman;472;0
+13;2010;Emile Bouchard Trophy;Best Defenceman;1056;0
+13;2011;Emile Bouchard Trophy;Best Defenceman;2347;0
+13;2013;Emile Bouchard Trophy;Best Defenceman;2950;0
+13;2014;Emile Bouchard Trophy;Best Defenceman;7800;0
+13;2016;Emile Bouchard Trophy;Best Defenceman;16557;0
+13;2017;Emile Bouchard Trophy;Best Defenceman;16674;0
+13;2023;Emile Bouchard Trophy;Best Defenceman;541;0
+13;2002;Sidney Crosby Trophy;Best Rookie;8161;0
+13;2003;Sidney Crosby Trophy;Best Rookie;174;0
+13;2007;Sidney Crosby Trophy;Best Rookie;1524;0
+13;2008;Sidney Crosby Trophy;Best Rookie;472;0
+13;2009;Sidney Crosby Trophy;Best Rookie;2497;0
+13;2010;Sidney Crosby Trophy;Best Rookie;2378;0
+13;2011;Sidney Crosby Trophy;Best Rookie;2365;0
+13;2012;Sidney Crosby Trophy;Best Rookie;12885;0
+13;2013;Sidney Crosby Trophy;Best Rookie;9946;0
+13;2014;Sidney Crosby Trophy;Best Rookie;14776;0
+13;2017;Sidney Crosby Trophy;Best Rookie;3322;0
+13;2024;Sidney Crosby Trophy;Best Rookie;705;0
+13;2008;Guy Carbonneau Trophy;Best Def. Forward;2541;0
+13;2009;Guy Carbonneau Trophy;Best Def. Forward;1062;0
+13;2010;Guy Carbonneau Trophy;Best Def. Forward;2306;0
+13;2012;Guy Carbonneau Trophy;Best Def. Forward;2352;0
+13;2013;Guy Carbonneau Trophy;Best Def. Forward;2352;0
+13;2014;Guy Carbonneau Trophy;Best Def. Forward;14858;0
+13;2015;Guy Carbonneau Trophy;Best Def. Forward;16861;0
+13;2016;Guy Carbonneau Trophy;Best Def. Forward;16917;0
+13;2017;Guy Carbonneau Trophy;Best Def. Forward;16625;0
+13;2020;Guy Carbonneau Trophy;Best Def. Forward;10490;0
+13;2024;Guy Carbonneau Trophy;Best Def. Forward;5842;0
+13;2003;Jean Béliveau Trophy;Most Points;174;0
+13;2004;Jean Béliveau Trophy;Most Points;174;0
+13;2005;Jean Béliveau Trophy;Most Points;8371;0
+13;2009;Jean Béliveau Trophy;Most Points;928;0
+13;2010;Jean Béliveau Trophy;Most Points;1376;0
+13;2011;Jean Béliveau Trophy;Most Points;2359;0
+13;2012;Jean Béliveau Trophy;Most Points;2912;0
+13;2013;Jean Béliveau Trophy;Most Points;2419;0
+13;2014;Jean Béliveau Trophy;Most Points;14857;0
+13;2015;Jean Béliveau Trophy;Most Points;14857;0
+13;2017;Jean Béliveau Trophy;Most Points;16476;0
+13;2019;Jean Béliveau Trophy;Most Points;3322;0
+13;2020;Robert Lebel Trophy;Least Goals Against;10547;0
+13;2024;Robert Lebel Trophy;Least Goals Against;1775;0
+13;2009;Frank J. Selke Trophy;Sportsmanship Award;1118;0
+13;2010;Frank J. Selke Trophy;Sportsmanship Award;1376;0
+13;2011;Frank J. Selke Trophy;Sportsmanship Award;2443;0
+13;2012;Frank J. Selke Trophy;Sportsmanship Award;2443;0
+13;2013;Frank J. Selke Trophy;Sportsmanship Award;2343;0
+13;2016;Frank J. Selke Trophy;Sportsmanship Award;16915;0
+13;2019;Frank J. Selke Trophy;Sportsmanship Award;3327;0
+13;2020;Frank J. Selke Trophy;Sportsmanship Award;10490;0
+13;2024;Frank J. Selke Trophy;Sportsmanship Award;9495;0
+13;2001;QMJHL Humanitarian of the Year;Dedication Award;9483;0
+13;2002;QMJHL Humanitarian of the Year;Dedication Award;3481;0
+13;2008;QMJHL Humanitarian of the Year;Dedication Award;1228;0
+13;2010;QMJHL Humanitarian of the Year;Dedication Award;4798;0
+13;2012;QMJHL Humanitarian of the Year;Dedication Award;2249;0
+13;2013;QMJHL Humanitarian of the Year;Dedication Award;2261;0
+13;2014;QMJHL Humanitarian of the Year;Dedication Award;14879;0
+13;2015;QMJHL Humanitarian of the Year;Dedication Award;16758;0
+13;2016;QMJHL Humanitarian of the Year;Dedication Award;16758;0
+13;2023;Postseason Allstar 1 D1;Postseason Allstar 1 D1;541;0
+13;2024;Raymond Lagacé Trophy;Defensive Rookie of the Year;1775;0
+13;2024;Michel Bergeron Trophy;Offensive Rookie of the Year;705;0
+14;2020;CCM Most Valuable Player;MVP;17250;0
+14;2021;CCM Most Valuable Player;MVP;16692;0
+14;2023;CCM Most Valuable Player;MVP;16710;0
+14;2024;CCM Most Valuable Player;MVP;16710;0
+14;2008;June M. Kelly Award;Playoff MVP;699;0
+14;2011;June M. Kelly Award;Playoff MVP;1486;0
+14;2016;June M. Kelly Award;Playoff MVP;15725;0
+14;2017;June M. Kelly Award;Playoff MVP;14868;0
+14;2018;June M. Kelly Award;Playoff MVP;2443;0
+14;2020;June M. Kelly Award;Playoff MVP;1701;0
+14;2021;June M. Kelly Award;Playoff MVP;159;0
+14;2018;Warrior Hockey Goaltender of the Year;Best Goalie;1713;0
+14;2019;Warrior Hockey Goaltender of the Year;Best Goalie;3632;0
+14;2020;Warrior Hockey Goaltender of the Year;Best Goalie;3806;0
+14;2023;Warrior Hockey Goaltender of the Year;Best Goalie;3177;0
+14;2024;Warrior Hockey Goaltender of the Year;Best Goalie;159;0
+14;2008;CCM Defenseman of the Year;Best Defenceman;1565;0
+14;2012;CCM Defenseman of the Year;Best Defenceman;2368;0
+14;2013;CCM Defenseman of the Year;Best Defenceman;15725;0
+14;2014;CCM Defenseman of the Year;Best Defenceman;1461;0
+14;2015;CCM Defenseman of the Year;Best Defenceman;4832;0
+14;2016;CCM Defenseman of the Year;Best Defenceman;15725;0
+14;2017;CCM Defenseman of the Year;Best Defenceman;15725;0
+14;2022;CCM Defenseman of the Year;Best Defenceman;16714;0
+14;2010;John A. Daley Award;Best Rookie;1287;0
+14;2011;John A. Daley Award;Best Rookie;1401;0
+14;2013;John A. Daley Award;Best Rookie;4138;0
+14;2016;John A. Daley Award;Best Rookie;4481;0
+14;2017;John A. Daley Award;Best Rookie;1602;0
+14;2018;John A. Daley Award;Best Rookie;1953;0
+14;2019;John A. Daley Award;Best Rookie;5564;0
+14;2020;John A. Daley Award;Best Rookie;16519;0
+14;2011;Leading Scorer Award;Most Points;1401;0
+14;2020;Leading Scorer Award;Most Points;16793;0
+14;2021;Leading Scorer Award;Most Points;16692;0
+14;2023;Leading Scorer Award;Most Points;16710;0
+14;2024;Leading Scorer Award;Most Points;16710;0
+14;2014;AMI Graphics Plus Performer Award;Highest Plus-Minus;1461;0
+14;2015;AMI Graphics Plus Performer Award;Highest Plus-Minus;2072;0
+14;2017;AMI Graphics Plus Performer Award;Highest Plus-Minus;2902;0
+14;2019;AMI Graphics Plus Performer Award;Highest Plus-Minus;5640;0
+14;2020;AMI Graphics Plus Performer Award;Highest Plus-Minus;3061;0
+14;2018;Sportsmanship Award;Sportsmanship Award;2443;0
+14;2020;Sportsmanship Award;Sportsmanship Award;16793;0
+14;2021;Sportsmanship Award;Sportsmanship Award;2443;0
+14;2022;Sportsmanship Award;Sportsmanship Award;2443;0
+14;2023;Sportsmanship Award;Sportsmanship Award;3693;0
+14;2017;Community Service Award;Dedication Award;2262;0
+14;2019;Community Service Award;Dedication Award;2372;0
+14;2023;Community Service Award;Dedication Award;3388;0
+14;2024;Community Service Award;Dedication Award;5629;0
+14;2023;Postseason Allstar 1 G;Postseason Allstar 1 G;3177;0
+14;2023;Postseason Allstar 1 D2;Postseason Allstar 1 D2;16946;0
+14;2023;Postseason Allstar 1 LW;Postseason Allstar 1 LW;3823;0
+14;2023;Postseason Allstar 1 C;Postseason Allstar 1 C;16596;0
+14;2023;Postseason Allstar 1 RW;Postseason Allstar 1 RW;16710;0
+14;2023;Postseason Allstar 2 D2;Postseason Allstar 2 D2;15725;0
+14;2023;Postseason Allstar 2 C;Postseason Allstar 2 C;1605;0
+14;2023;Postseason Allstar 2 RW;Postseason Allstar 2 RW;3401;0
+16;2006;MVP;MVP;7674;0
+16;2012;MVP;MVP;394;0
+16;2013;MVP;MVP;7876;0
+16;2014;MVP;MVP;9191;0
+16;2015;MVP;MVP;9191;0
+16;2022;MVP;MVP;2484;0
+16;2023;MVP;MVP;2332;0
+16;2010;Playoff MVP;Playoff MVP;8159;0
+16;2011;Playoff MVP;Playoff MVP;7736;0
+16;2012;Playoff MVP;Playoff MVP;7760;0
+16;2015;Playoff MVP;Playoff MVP;11490;0
+16;2016;Playoff MVP;Playoff MVP;9191;0
+16;2018;Playoff MVP;Playoff MVP;7643;0
+16;2023;Playoff MVP;Playoff MVP;9196;0
+16;2013;Goalie of the Year;Best Goalie;7861;0
+16;2016;Goalie of the Year;Best Goalie;9191;0
+16;2017;Goalie of the Year;Best Goalie;9191;0
+16;2018;Goalie of the Year;Best Goalie;2522;0
+16;2021;Goalie of the Year;Best Goalie;2332;0
+16;2023;Goalie of the Year;Best Goalie;9196;0
+16;2005;Defenceman of the Year;Best Defenceman;7655;0
+16;2007;Defenceman of the Year;Best Defenceman;921;0
+16;2011;Defenceman of the Year;Best Defenceman;7735;0
+16;2013;Defenceman of the Year;Best Defenceman;7876;0
+16;2014;Defenceman of the Year;Best Defenceman;1232;0
+16;2015;Defenceman of the Year;Best Defenceman;7757;0
+16;2016;Defenceman of the Year;Best Defenceman;7790;0
+16;2017;Defenceman of the Year;Best Defenceman;7667;0
+16;2022;Defenceman of the Year;Best Defenceman;4727;0
+16;2023;Defenceman of the Year;Best Defenceman;3778;0
+16;2002;Rookie of the Year;Best Rookie;7652;0
+16;2007;Rookie of the Year;Best Rookie;7075;0
+16;2008;Rookie of the Year;Best Rookie;8423;0
+16;2011;Rookie of the Year;Best Rookie;7774;0
+16;2012;Rookie of the Year;Best Rookie;15617;0
+16;2013;Rookie of the Year;Best Rookie;7861;0
+16;2014;Rookie of the Year;Best Rookie;11698;0
+16;2018;Rookie of the Year;Best Rookie;15905;0
+16;2019;Rookie of the Year;Best Rookie;13613;0
+16;2022;Rookie of the Year;Best Rookie;5535;0
+16;2023;Most Goals;Most Goals;6080;0
+16;2009;Points Award;Most Points;8182;0
+16;2012;Points Award;Most Points;8159;0
+16;2014;Points Award;Most Points;7713;0
+16;2015;Points Award;Most Points;8182;0
+16;2016;Points Award;Most Points;7674;0
+16;2017;Points Award;Most Points;7641;0
+16;2018;Points Award;Most Points;7641;0
+16;2019;Points Award;Most Points;7641;0
+16;2022;Points Award;Most Points;8159;0
+16;2023;Points Award;Most Points;2332;0
+16;2024;Points Award;Most Points;692;0
+16;2000;No Award;Sportsmanship Award;15103;0
+16;2005;No Award;Sportsmanship Award;7655;0
+16;2008;No Award;Sportsmanship Award;7786;0
+16;2009;No Award;Sportsmanship Award;8290;0
+16;2013;No Award;Sportsmanship Award;7674;0
+16;2014;No Award;Sportsmanship Award;7820;0
+16;2015;No Award;Sportsmanship Award;7857;0
+16;2010;No Award;Player's MVP Award;8159;0
+16;2012;No Award;Player's MVP Award;7760;0
+16;2015;No Award;Player's MVP Award;8182;0
+16;2016;No Award;Player's MVP Award;7791;0
+16;2017;No Award;Player's MVP Award;7641;0
+16;2018;No Award;Player's MVP Award;7641;0
+17;2011;Senator Joseph A. Sullivan Trophy;MVP;6461;0
+17;2015;Senator Joseph A. Sullivan Trophy;MVP;2257;0
+17;2017;Senator Joseph A. Sullivan Trophy;MVP;17250;0
+17;2023;Senator Joseph A. Sullivan Trophy;MVP;10417;0
+17;2024;Senator Joseph A. Sullivan Trophy;MVP;6869;0
+17;2010;Playoff MVP;Playoff MVP;4675;0
+17;2018;Playoff MVP;Playoff MVP;2321;0
+17;2022;Goaltender of the Year;Best Goalie;7525;0
+17;2009;Defenceman of the Year;Best Defenceman;6533;0
+17;2011;Defenceman of the Year;Best Defenceman;6533;0
+17;2017;Defenceman of the Year;Best Defenceman;2007;0
+17;2018;Defenceman of the Year;Best Defenceman;2007;0
+17;2019;Defenceman of the Year;Best Defenceman;2281;0
+17;2024;Defenceman of the Year;Best Defenceman;6869;0
+17;2010;Clare Drake Award;Best Rookie;4523;0
+17;2016;Clare Drake Award;Best Rookie;14848;0
+17;2023;Clare Drake Award;Best Rookie;2915;0
+17;2024;Clare Drake Award;Best Rookie;13146;0
+17;2015;Points Award;Most Points;2257;0
+17;2017;Points Award;Most Points;17250;0
+17;2019;Points Award;Most Points;16512;0
+17;2023;Points Award;Most Points;10417;0
+17;2019;R.W. Pugh Award;Sportsmanship Award;1945;0
+17;2023;First All-Canadian D;Postseason Allstar 1 D1;6869;0
+17;2023;First All-Canadian RW;Postseason Allstar 1 RW;10417;0
+17;2023;Second All-Canadian G;Postseason Allstar 2 G;2915;0
+17;2023;Rookie Team G;Rookie Team G;2915;0

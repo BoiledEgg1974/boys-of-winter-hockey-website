@@ -1,8 +1,19 @@
 LeagueId;Name;Abbr
-0;BOWL-Fantasy;BOWL
-3;Minor Leagues;Min
-5;European Leagues;EL
-6;Junior Leagues;JL
-7;College Leagues;CL
-9;American Hockey League;AHL
-12;International Hockey League;IHL
+0;BOWL-Upper;BLUP
+1;BOWL-Lower;BLOW
+2;American Hockey League;AHL
+3;International Hockey League;IHL
+4;Ontario Junior Hockey League;OJHL
+5;Swedish Hockey League;SHL
+6;Kontinental Hockey League;KHL
+7;Deutsche Eishockey Liga;DEL
+8;Liiga;SML
+9;National League;NL
+10;NCAA Division I Ice Hockey;NCAA
+11;Ontario Hockey League;OHL
+12;Western Hockey League;WHL
+13;Quebec Maritimes Junior Hockey League;QMJHL
+14;ECHL;ECHL
+15;United States Hockey League;USHL
+16;Tipsport extraliga;ELH
+17;U Sports Ice Hockey;UIH

@@ -525,15 +525,13 @@ def game_preview_payload(game_id: int) -> dict[str, Any] | None:
     away_card = _team_card(session, sid, away, game, home)
     home_card = _team_card(session, sid, home, game, away)
 
-    from app.models import PlayerInjury
-    from app.services.injuries import injury_payload_for_team
+    from app.services.injuries import injuries_supported_for_league, injury_payload_for_team
 
     home_injuries = injury_payload_for_team(session, int(home.id))
     away_injuries = injury_payload_for_team(session, int(away.id))
     has_injury_data = bool(
-        home_injuries
-        or away_injuries
-        or session.scalar(select(func.count()).select_from(PlayerInjury))
+        injuries_supported_for_league()
+        and (home_injuries or away_injuries)
     )
     injuries_note = None
     if not has_injury_data:

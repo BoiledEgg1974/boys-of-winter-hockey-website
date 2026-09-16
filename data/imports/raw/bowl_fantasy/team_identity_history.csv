@@ -1,17 +1,19 @@
 team_fhm_id,start_year,end_year,team_name,logo_file
-0,1979,2100,Phoenix Freedom,bangkok_roosters.png
-1,1979,2100,Fort Worth Roughnecks,Prince_Albert_Stoners.png
-2,1979,2100,Los Angeles Armadillos,Seattle_Reign_Kings.png
-3,1979,2100,Toronto Explosion,toronto_six.png
-4,1979,2100,Charlotte Hooks,florida_party_animals.png
-5,1979,2100,Columbus Night Train,Columbus_Chill.png
-6,1979,2100,Ottawa Golden Panthers,Rideau__St_Lawrence_Kings.png
-7,1979,2100,Denver North Stars,Maine_Mist.png
-8,1979,2100,Houston Rebels,New_Brunswick_Poseidon.png
-9,1979,2100,Brooklyn Flying Tigers,Seoul_Tigers.png
-10,1979,2100,New York Timberwolves,buffalo_sabres.png
-11,1979,2100,San Jose Turtles,vancouver_canucks.png
-12,1979,2100,Detroit Wreckers,Sudbury_Blueberry_Bulldogs.png
-13,1979,2100,Omaha Flyers,Winnipeg_Trash_Pandas.png
-14,1979,2100,San Diego Emeralds,Stockholm_Sentinels.png
-15,1979,2100,Tucson Leafs,winnipeg_jets.png
+0,1979,2100,Seattle Reign Kings,Seattle_Reign_Kings.png
+1,1979,2100,Vancouver Canucks,vancouver_canucks.png
+2,1979,2100,Bangkok Roosters,bangkok_roosters.png
+3,1979,2100,Toronto Six,toronto_six.png
+4,1979,2100,Buffalo Sabres,buffalo_sabres.png
+5,1979,2100,Rideau-St Lawrence Kings,Rideau__St_Lawrence_Kings.png
+6,1979,2100,Winnipeg Jets,winnipeg_jets.png
+7,1979,2100,Seoul Tigers,Seoul_Tigers.png
+8,1979,2100,Columbus Chill,Columbus_Chill.png
+9,1979,2100,Trois-Rivières Lions,trois-riveres_lions.png
+10,1979,2100,Stockholm Sentinels,Stockholm_Sentinels.png
+11,1979,2100,Winnipeg Trash Pandas,Winnipeg_Trash_Pandas.png
+12,1979,2100,New Brunswick Poseidon,New_Brunswick_Poseidon.png
+13,1979,2100,Florida Party Animals,florida_party_animals.png
+14,1979,2100,Maine Mist,Maine_Mist.png
+15,1979,2100,Savannah Ghost Pirates,savannah_ghost_pirates.png
+387,1979,2100,Sudbury Blueberry Bulldogs,Sudbury_Blueberry_Bulldogs.png
+388,1979,2100,Prince Albert Stoners,Prince_Albert_Stoners.png

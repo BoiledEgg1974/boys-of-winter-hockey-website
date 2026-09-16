@@ -2422,7 +2422,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16051;77;26;Nick;Schultz;;73;209;1982-8-25;Val Marie;SK;Canada;;;0;Left;0
 14058;164;164;Kim;Staal;;72;192;1978-3-10;Copenhagen;FRE;Denmark;;;0;Right;0
 16562;180;180;Derek;Roy;;69;187;1983-5-4;Ottawa;ON;Canada;;;0;Left;0
-14059;62;11;Viktor;Hübl;;72;178;1978-8-12;Chomutov;UST;Czech Republic;;;0;Left;0
+14059;11;11;Viktor;Hübl;;72;178;1978-8-12;Chomutov;UST;Czech Republic;;;0;Left;1
 16052;185;185;John;Scott;;80;260;1982-9-26;St. Catharines;ON;Canada;;;0;Left;0
 14999;159;159;Andrej;Nedorost;;73;199;1980-4-30;Trencín;TRE;Slovakia;;;0;Left;0
 15000;12;12;Brooks;Orpik;;74;220;1980-9-26;San Jose;CA;The United States;;;0;Left;1
@@ -6358,7 +6358,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14122;215;214;Joey;Tetarenko;;74;216;1978-3-3;Rosthem;SK;Canada;;;0;Right;0
 14123;70;19;Jesse;Wallin;;74;203;1978-3-10;Swift Current;SK;Canada;;;0;Left;0
 14124;219;217;Lance;Ward;;76;216;1978-6-2;Lac la Biche;AB;Canada;;;0;Left;0
-14125;16;16;Mike;Weaver;;70;185;1978-5-2;Brampton;ON;Canada;;;0;Right;0
+14125;57;16;Mike;Weaver;;70;185;1978-5-2;Brampton;ON;Canada;;;0;Right;0
 14126;25;25;Brian;Willsie;;73;196;1978-3-16;London;ON;Canada;;;0;Right;1
 14127;174;174;Dmitri;Yakushin;;72;200;1978-1-21;Kharkiv;KHA;Ukraine;;;0;Left;0
 14128;186;186;Jeff;Zehr;;76;216;1978-12-10;Woodstock;ON;Canada;;;0;Left;0
@@ -6892,7 +6892,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14737;174;174;Yevgeni;Pastukh;;71;179;1979-1-18;Kyiv;KYI;Ukraine;;;0;Right;0
 14738;186;186;Brent;McDonald;;71;185;1979-10-7;Pincher Creek;AB;Canada;;;0;Right;0
 14739;155;155;Andreas;Andersson;;73;192;1979-4-9;Motala;ÖST;Sweden;;;0;Left;0
-14740;57;16;André;Lakos;;79;238;1979-7-29;Vienna;WIE;Austria;;;0;Right;0
+14740;16;16;André;Lakos;;79;238;1979-7-29;Vienna;WIE;Austria;;;0;Right;0
 14741;186;186;Chris;Dyment;;75;207;1979-10-24;Smith Mills;MA;The United States;;;0;Right;1
 14742;155;155;Johan;Halvardsson;;76;205;1979-12-26;Jönköping;JöN;Sweden;;;0;Left;0
 14743;155;155;Sanny;Lindström;;73;192;1979-12-24;Huddinge;STO;Sweden;;;0;Left;0
@@ -8495,7 +8495,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 16709;156;156;Arttu;Luttinen;;72;196;1983-9-3;Helsinki;UUS;Finland;;;0;Left;0
 16710;179;179;Patrick;Wellar;;75;209;1983-12-4;Sedley;SK;Canada;;;0;Left;0
 16711;185;185;Geoff;Waugh;;76;216;1983-8-25;Oakbank;MB;Croatia;Canada;;0;Right;0
-16712;61;10;Brock;Radunske;;77;209;1983-4-5;Kitchener;ON;South Korea;Canada;;0;Left;1
+16712;10;10;Brock;Radunske;;77;209;1983-4-5;Kitchener;ON;South Korea;Canada;;0;Left;1
 16713;185;185;Jesse;Lane;;74;205;1983-3-2;Myers Corner;NY;The United States;;;0;Left;0
 16714;179;179;Derek;Krestanovic;;73;176;1983-5-31;St. Paul;AB;Canada;;;0;Left;0
 16715;185;185;Eric;Lundberg;;75;201;1983-4-13;North Stonington;CT;The United States;;;0;Right;0

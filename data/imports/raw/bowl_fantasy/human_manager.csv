@@ -1,3 +1,21 @@
 StaffId;TeamId;First Name;Last Name;Retired
 9973;-1;Richard;Commish;0
-9974;-1;GM;Average;0
+9974;2;GM;Roosters;0
+10004;4;GM;Sabres;0
+10005;8;GM;Chill;0
+10006;13;GM;Party Animals;0
+10007;14;GM;Mist;0
+10008;12;GM;Poseidon;0
+10009;388;GM;Stoners;0
+10010;5;GM;Kings;0
+10011;15;GM;Ghost Pirates;0
+10012;10;GM;Sentinels;0
+10013;387;GM;Blueberry Bulldogs;0
+10014;7;GM;Tigers;0
+10015;3;GM;Six;0
+10016;9;GM;Lions;0
+10017;1;GM;Canucks;0
+10018;6;GM;Jets;0
+10019;11;GM;Trash Pandas;0
+10020;0;GM;Reign Kings;0
+10021;-1;Unemployed;GM;0

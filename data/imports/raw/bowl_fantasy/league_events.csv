@@ -6,8 +6,8 @@ LeagueId;Date;Event
 0;2025-8-14;Prospect Tournament
 0;2025-9-20;Preseason Start
 0;2025-10-4;Opening Night
-0;2025-12-23;All-Star Announcement
-0;2025-12-24;All-Star Game
+0;2025-12-22;All-Star Announcement
+0;2025-12-23;All-Star Game
 0;2026-3-1;Trading Deadline
 0;2026-4-3;Award Nominees
 0;2026-4-4;BLUP Playoffs
@@ -20,11 +20,12 @@ LeagueId;Date;Event
 1;2025-7-1;Assign Scouts
 1;2025-7-1;Set Monthly Budget
 1;2025-7-7;Player Training Programs
+1;2025-8-14;Prospect Tournament
 1;2025-8-15;Initial Draft
 1;2025-9-20;Preseason Start
 1;2025-10-4;Opening Night
-1;2025-12-22;All-Star Announcement
-1;2025-12-23;All-Star Game
+1;2025-12-23;All-Star Announcement
+1;2025-12-24;All-Star Game
 1;2026-3-1;Trading Deadline
 1;2026-4-3;Award Nominees
 1;2026-4-4;BLOW Playoffs

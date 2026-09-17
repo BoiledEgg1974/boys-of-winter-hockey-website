@@ -1993,7 +1993,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7133;60;60;Antero;Lehtonen;;72;185;1954-4-12;Tampere;PIR;Finland;;;0;Left;0
 7408;85;85;Bob;Hess;;71;181;1955-5-19;Oxford;NS;Canada;;;0;Left;1
 7134;85;85;Reggie;Lemelin;;71;170;1954-11-19;Richmond;QC;Canada;;;0;Left;1
-3175;130;130;Don;Hall;;70;174;1930-4-2;Toronto;ON;The United States;Canada;;0;Left;0
+3175;132;130;Don;Hall;;70;174;1930-4-2;Toronto;ON;The United States;Canada;;0;Left;0
 7135;84;84;Roger;Lemelin;;75;215;1954-2-6;Iroquois Falls;ON;Canada;;;0;Right;0
 7136;85;85;Mario;Lessard;;69;190;1954-6-25;Fort-Coulonge;QC;Canada;;;0;Left;1
 7137;85;85;Jacques;Locas;;69;170;1954-1-7;Saint-Jacques;QC;Canada;;;0;Right;0
@@ -2025,7 +2025,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7418;84;84;Larry;Huras;;75;203;1955-7-8;Listowel;ON;Canada;;;0;Left;1
 7153;84;84;Gord;McTavish;;76;200;1954-6-3;Guelph;ON;Canada;;;0;Right;0
 7419;84;84;Doug;Jarvis;;69;170;1955-3-24;Brantford;ON;Canada;;;0;Left;1
-3207;130;130;Moe;Galand;;69;172;1930-8-23;Langley;BC;Canada;;;0;Right;0
+3207;132;130;Moe;Galand;;69;172;1930-8-23;Langley;BC;Canada;;;0;Right;0
 7154;87;87;Joe;Micheletti;;72;194;1954-10-24;Madison;MN;The United States;;;0;Left;0
 7155;87;87;Warren;Miller;Butch;72;180;1954-1-1;Winnebago;MN;The United States;;;0;Right;0
 7156;86;86;Eddie;Mio;;70;181;1954-1-31;Windsor;ON;Canada;;;0;Left;1

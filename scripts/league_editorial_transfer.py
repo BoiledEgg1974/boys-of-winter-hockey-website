@@ -25,6 +25,7 @@ OVR baselines, trade logs, and game_record_baselines use their own transfer scri
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import re
 import sqlite3
@@ -528,7 +529,12 @@ def export_league_editorial_json(db_path: Path, out_path: Path) -> dict[str, int
     bundle["row_counts"] = row_counts
     bundle["total_rows"] = int(sum(row_counts.values()))
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    # Compact JSON (no indent) plus a gzip sibling so deploy-db SFTP is not a silent 100MB+ stall.
+    payload = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False) + "\n"
+    out_path.write_text(payload, encoding="utf-8")
+    gz_path = Path(str(out_path) + ".gz")
+    with gzip.open(gz_path, "wt", encoding="utf-8", compresslevel=6) as fh:
+        fh.write(payload)
     return row_counts
 
 

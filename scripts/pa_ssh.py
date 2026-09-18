@@ -149,6 +149,10 @@ def connect_sftp(
 
         try:
             client.connect(**kw)
+            transport = client.get_transport()
+            if transport is not None:
+                # Keep the TCP session alive during long SFTP gets/puts (editorial JSON, DBs).
+                transport.set_keepalive(30)
             sftp = client.open_sftp()
             return client, sftp
         except PasswordRequiredException:
@@ -195,6 +199,71 @@ def connect_sftp(
                     f"  Expected keys are often under: {home_ssh}"
                 ) from err
             raise
+
+
+_SFTP_PROGRESS_MIN_BYTES = 512 * 1024
+_SFTP_PROGRESS_STEP_BYTES = 4 * 1024 * 1024
+
+
+def _fmt_size(n: int) -> str:
+    if n < 1024:
+        return f"{n} B"
+    if n < 1024 * 1024:
+        return f" {n / 1024:.1f} KB".strip()
+    return f"{n / (1024 * 1024):.1f} MB"
+
+
+def _sftp_progress_cb(prefix: str, total: int):
+    last = {"sent": 0}
+    step = max(_SFTP_PROGRESS_STEP_BYTES, (total // 8) if total else 0)
+
+    def cb(transferred: int, t2: int) -> None:
+        tot = int(t2 or total or 0)
+        cur = int(transferred)
+        if tot <= 0:
+            return
+        if cur < tot and cur - last["sent"] < step:
+            return
+        last["sent"] = cur
+        pct = min(100.0, 100.0 * cur / tot)
+        print(f"{prefix}{_fmt_size(cur)} / {_fmt_size(tot)} ({pct:.0f}%)", flush=True)
+
+    return cb
+
+
+def sftp_get(
+    sftp: paramiko.SFTPClient,
+    remote_path: str,
+    local_path: str | Path,
+    *,
+    dest_label: str | None = None,
+) -> int:
+    """Download ``remote_path`` and print size/progress for large files. Returns byte size."""
+    local = Path(local_path)
+    local.parent.mkdir(parents=True, exist_ok=True)
+    total = int(getattr(sftp.stat(remote_path), "st_size", 0) or 0)
+    shown = dest_label or str(local)
+    print(f"download {remote_path} -> {shown} ({_fmt_size(total)})", flush=True)
+    cb = _sftp_progress_cb("  ", total) if total >= _SFTP_PROGRESS_MIN_BYTES else None
+    sftp.get(remote_path, str(local), callback=cb)
+    return total
+
+
+def sftp_put(
+    sftp: paramiko.SFTPClient,
+    local_path: str | Path,
+    remote_path: str,
+    *,
+    dest_label: str | None = None,
+) -> int:
+    """Upload ``local_path`` and print size/progress for large files. Returns byte size."""
+    local = Path(local_path)
+    total = int(local.stat().st_size) if local.is_file() else 0
+    shown = dest_label or remote_path
+    print(f"upload {shown} ({_fmt_size(total)})", flush=True)
+    cb = _sftp_progress_cb("  ", total) if total >= _SFTP_PROGRESS_MIN_BYTES else None
+    sftp.put(str(local), remote_path, callback=cb)
+    return total
 
 
 def ensure_remote_dir(sftp: paramiko.SFTPClient, remote_dir: str) -> None:

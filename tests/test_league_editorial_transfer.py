@@ -1,6 +1,7 @@
 """Tests for scripts/league_editorial_transfer.py."""
 from __future__ import annotations
 
+import gzip
 import json
 import sqlite3
 import tempfile
@@ -76,6 +77,10 @@ class LeagueEditorialTransferTests(unittest.TestCase):
                 conn.close()
 
             counts = transfer.export_league_editorial_json(live, out)
+            gz = Path(str(out) + ".gz")
+            self.assertTrue(gz.is_file(), "export should write a gzip sibling for deploy-db")
+            with gzip.open(gz, "rt", encoding="utf-8") as fh:
+                self.assertEqual(json.load(fh), json.loads(out.read_text(encoding="utf-8")))
             self.assertGreaterEqual(counts["team_retired_numbers"], 1)
             self.assertGreaterEqual(counts["record_stat_adjustments"], 1)
             self.assertGreaterEqual(counts["hall_of_fame_members"], 1)

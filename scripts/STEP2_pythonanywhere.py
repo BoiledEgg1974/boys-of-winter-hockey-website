@@ -42,9 +42,11 @@ or use ssh-agent; you cannot remove encryption from an existing key without the 
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
@@ -141,7 +143,7 @@ def _ensure_deploy_dependencies() -> None:
 _ensure_deploy_dependencies()
 
 try:
-    from pa_ssh import connect_sftp, ensure_remote_dir, remote_mtime
+    from pa_ssh import connect_sftp, ensure_remote_dir, remote_mtime, sftp_get, sftp_put
 except ImportError as e:
     print("Failed to load pa_ssh after installing dependencies.", file=sys.stderr)
     raise SystemExit(1) from e
@@ -753,6 +755,23 @@ def _deploy_league_editorial_json_name(slug: str) -> str:
     return f".deploy_league_editorial_{slug}.json"
 
 
+def download_live_json(sftp, remote_json: str, local_json: Path, local_root: Path) -> None:
+    """Download live capture JSON, preferring a gzip sibling when the server wrote one."""
+    rel = local_json.relative_to(local_root).as_posix()
+    gz_remote = f"{remote_json}.gz"
+    try:
+        sftp.stat(gz_remote)
+    except OSError:
+        sftp_get(sftp, remote_json, local_json, dest_label=rel)
+        return
+    local_gz = Path(str(local_json) + ".gz")
+    sftp_get(sftp, gz_remote, local_gz, dest_label=f"{rel}.gz")
+    print(f"decompress {rel}.gz -> {rel}", flush=True)
+    with gzip.open(local_gz, "rb") as src, local_json.open("wb") as dest:
+        shutil.copyfileobj(src, dest)
+    local_gz.unlink(missing_ok=True)
+
+
 _EDITORIAL_CAPTURE_LIST_KEYS = (
     "record_stat_adjustments",
     "team_honors_meta",
@@ -781,8 +800,10 @@ def validate_deploy_capture_json(path: Path, kind: str, *, slug: str) -> int:
     label = f"{slug} {kind}"
     if not path.is_file():
         raise ValueError(f"{label} capture missing — refusing upload ({path})")
-    if path.stat().st_size == 0:
+    size = path.stat().st_size
+    if size == 0:
         raise ValueError(f"{label} capture empty — refusing upload ({path})")
+    print(f"  reading {path.name} ({size / (1024 * 1024):.1f} MB)", flush=True)
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -1037,8 +1058,7 @@ def sync_local_ap_catalog_from_remote(
     print("--- sync AP catalog (live -> local) ---")
     export_script = build_remote_ap_catalog_export_script(remote_project, venv_bin)
     run_remote_bash(client, export_script)
-    sftp.get(remote_json, str(local_json))
-    print(f"Downloaded {remote_json} -> {local_json}")
+    sftp_get(sftp, remote_json, local_json, dest_label=str(local_json.name))
 
     subprocess.run(
         [sys.executable, "scripts/import_ap_catalog.py", "--in", local_json.name],
@@ -1391,31 +1411,39 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
         editorial_dir.mkdir(parents=True, exist_ok=True)
         print("--- download live baseline JSON ---")
         for slug in slugs:
-            remote_json = f"{remote_base}/instance/{_deploy_ovr_baseline_json_name(slug)}"
-            local_json = baseline_dir / _deploy_ovr_baseline_json_name(slug)
-            sftp.get(remote_json, str(local_json))
-            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+            download_live_json(
+                sftp,
+                f"{remote_base}/instance/{_deploy_ovr_baseline_json_name(slug)}",
+                baseline_dir / _deploy_ovr_baseline_json_name(slug),
+                local_root,
+            )
 
         print("--- download live trade log JSON ---")
         for slug in slugs:
-            remote_json = f"{remote_base}/instance/{_deploy_trade_log_json_name(slug)}"
-            local_json = trade_log_dir / _deploy_trade_log_json_name(slug)
-            sftp.get(remote_json, str(local_json))
-            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+            download_live_json(
+                sftp,
+                f"{remote_base}/instance/{_deploy_trade_log_json_name(slug)}",
+                trade_log_dir / _deploy_trade_log_json_name(slug),
+                local_root,
+            )
 
         print("--- download live game-record baseline JSON ---")
         for slug in slugs:
-            remote_json = f"{remote_base}/instance/{_deploy_game_record_baselines_json_name(slug)}"
-            local_json = game_rec_dir / _deploy_game_record_baselines_json_name(slug)
-            sftp.get(remote_json, str(local_json))
-            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+            download_live_json(
+                sftp,
+                f"{remote_base}/instance/{_deploy_game_record_baselines_json_name(slug)}",
+                game_rec_dir / _deploy_game_record_baselines_json_name(slug),
+                local_root,
+            )
 
         print("--- download live league editorial JSON ---")
         for slug in slugs:
-            remote_json = f"{remote_base}/instance/{_deploy_league_editorial_json_name(slug)}"
-            local_json = editorial_dir / _deploy_league_editorial_json_name(slug)
-            sftp.get(remote_json, str(local_json))
-            print(f"download {remote_json} -> {local_json.relative_to(local_root).as_posix()}")
+            download_live_json(
+                sftp,
+                f"{remote_base}/instance/{_deploy_league_editorial_json_name(slug)}",
+                editorial_dir / _deploy_league_editorial_json_name(slug),
+                local_root,
+            )
 
         print("--- validate live capture JSON (fail closed) ---")
         try:
@@ -1515,9 +1543,8 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             sqlite_wal_checkpoint(db_path)
             remote_parent = str(PurePosixPath(remote_file).parent)
             ensure_remote_dir(sftp, remote_parent)
-            sftp.put(str(db_path), remote_staging)
+            sftp_put(sftp, db_path, remote_staging, dest_label=f"{remote_rel} (staging)")
             uploaded += 1
-            print(f"upload {remote_rel} (staging)")
 
         # Newly-final game ids / broken records from local import (blank local Discord routes).
         uploaded += upload_deploy_discord_sidecars(sftp, local_root, remote_base)

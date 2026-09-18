@@ -4,6 +4,13 @@ from __future__ import annotations
 # GM-facing (and shared) categories — order matches commissioner UI.
 NEWS_CATEGORY_CHOICES_GM: list[tuple[str, str]] = [
     ("transactions", "Transactions"),
+    ("trade_rumours", "Trade Rumours"),
+    ("transfers", "Transfers"),
+    ("waiver_news", "Waiver News"),
+    ("contract", "Contract"),
+    ("signings", "Signings"),
+    ("contract_extensions", "Contract Extensions"),
+    ("suspensions", "Suspensions"),
     ("general_messages", "General Messages"),
     ("contract_news", "Contract News"),
     ("awards", "Awards"),

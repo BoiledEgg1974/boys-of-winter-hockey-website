@@ -2307,7 +2307,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3767;60;60;Kristian;Bergholm;;71;171;1933-11-25;Espoo;UUS;Finland;;;0;Right;0
 6433;83;83;Dave;Bonter;;72;181;1951-6-12;Pilot Butte;SK;Canada;;;0;Right;0
 5955;120;120;Ron;Stackhouse;;75;210;1949-8-26;Dysart;ON;Canada;;;0;Right;0
-5956;121;121;Don;Tannahill;Tanner;71;179;1949-2-21;Penetanguishene;ON;Canada;;;0;Left;1
+5956;128;121;Don;Tannahill;Tanner;71;179;1949-2-21;Penetanguishene;ON;Canada;;;0;Left;0
 6939;85;85;Yvon;Dupuis;;70;181;1953-3-16;Lévis;QC;Canada;;;0;Not Set;0
 3772;60;60;Aleksanteri;Lyytinen;;71;206;1933-11-13;Oulu;NOS;Finland;;;0;Left;0
 5957;121;121;Marc;Tardif;;73;195;1949-6-12;Grande-Rivière;QC;Canada;;;0;Left;0

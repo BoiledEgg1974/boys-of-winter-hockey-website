@@ -70,6 +70,8 @@ from app.services.gm_notifications import (
     notify_rfa_player_rejected,
     notify_trade_outcome_partner,
     notify_trade_outcome_proposer,
+    notify_transfer_outcome_proposer,
+    notify_transfer_proposal_commissioners,
 )
 from app.services.staff_catalog import (
     build_staff_profile_view,
@@ -223,15 +225,39 @@ from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
     STATUS_PENDING_COMMISSIONER,
     STATUS_PUBLISHED,
+    enrich_trade_player_row,
     format_trade_discord_body,
     format_ledger_summary,
     gm_user_id_for_team,
+    league_commissioner_user_ids,
     parse_ledger_payload,
     publish_trade_news_articles,
     publish_trade_proposal,
     trade_assets_for_team,
     trade_tool_draft_round_cap,
     validate_ledger,
+)
+from app.services.transfer_rules import (
+    STATUS_AI_COUNTER as TRANSFER_STATUS_AI_COUNTER,
+    STATUS_AI_DECLINED as TRANSFER_STATUS_AI_DECLINED,
+    STATUS_PENDING_COMMISSIONER as TRANSFER_STATUS_PENDING_COMMISSIONER,
+    STATUS_PUBLISHED as TRANSFER_STATUS_PUBLISHED,
+    is_transfer_tool_league,
+    load_transfer_rules_config,
+)
+from app.services.transfer_tool import (
+    bowl_sweetener_assets,
+    format_transfer_discord_body,
+    format_transfer_summary,
+    list_external_leagues,
+    list_external_teams,
+    parse_compensation_payload,
+    parse_player_ids,
+    preview_transfer_fees,
+    publish_transfer_proposal,
+    run_ai_review_for_proposal,
+    transfer_roster_for_team,
+    validate_transfer_submission,
 )
 from app.site_models import (
     AdminAuditLog,
@@ -242,6 +268,7 @@ from app.site_models import (
     GmApprovalRequest,
     GmLeagueMembership,
     GmTradeProposal,
+    GmTransferProposal,
     DiscordDirectMessageEvent,
     LeagueDraft,
     LeagueDraftPick,
@@ -949,6 +976,45 @@ def _enqueue_confirmed_trade_discord(
         "confirmed_trade",
         payload,
         source_type="confirmed_trade",
+        source_id=int(proposal_id),
+    )
+
+
+def _transfer_gm_mention(proposal: GmTransferProposal) -> str:
+    user = db.session.get(User, int(proposal.proposer_user_id))
+    return _discord_mention_for_user(user)
+
+
+def _enqueue_confirmed_transfer_discord(
+    *,
+    proposal: GmTransferProposal,
+    proposal_id: int,
+    article_id: int | None,
+    bowl_team: Team | None,
+) -> None:
+    if not article_id:
+        return
+    slug = _league_slug()
+    article = db.session.get(NewsArticle, int(article_id))
+    if article is None:
+        return
+    payload = news_article_discord_payload(
+        article,
+        category=str(article.category or ""),
+        proposal_id=int(proposal_id),
+        url=build_news_article_public_url(slug, int(article.id)),
+        **team_fields_for_discord(bowl_team),
+    )
+    payload["title"] = f"Transfer: {article.title}"
+    payload["body"] = format_transfer_discord_body(db.session, proposal)
+    payload["body_preview"] = str(payload["body"])[:280]
+    gm_mentions = _transfer_gm_mention(proposal)
+    if gm_mentions:
+        payload["gm_mentions"] = gm_mentions
+    _enqueue_discord_event(
+        "confirmed_transfer",
+        payload,
+        source_type="confirmed_transfer",
         source_id=int(proposal_id),
     )
 
@@ -2092,6 +2158,405 @@ def trade_log_ai_take():
     if out.get("error"):
         return jsonify({"error": out["error"], "details": out.get("details") or ""}), 503
     return jsonify(out)
+
+
+def _transfer_page_allowed(mem=None) -> bool:
+    if not is_transfer_tool_league(_league_slug()):
+        return False
+    return mem is not None
+
+
+@site_gm_bp.route("/transfer-tool", methods=["GET"])
+@login_required
+def transfer_tool_page():
+    slug = _league_slug()
+    if not is_transfer_tool_league(slug):
+        abort(404)
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        flash("Cross-league transfers require an active BOWL GM membership.", "err")
+        return redirect(url_for("main.home"))
+    my_team = db.session.get(Team, int(mem.team_id))
+    cfg = load_transfer_rules_config(slug)
+    external_leagues = list_external_leagues(db.session, slug)
+    recent = list(
+        db.session.scalars(
+            select(GmTransferProposal)
+            .where(
+                GmTransferProposal.league_slug == slug,
+                GmTransferProposal.proposer_user_id == int(current_user.id),
+            )
+            .order_by(GmTransferProposal.created_at.desc())
+            .limit(15)
+        ).all()
+    )
+    return render_template(
+        "transfer_tool.html",
+        membership=mem,
+        my_team=my_team,
+        external_leagues=external_leagues,
+        rules_config=cfg,
+        recent_proposals=recent,
+        gm_display_name=gm_display_name,
+    )
+
+
+@site_gm_bp.get("/operations/transfer-tool/leagues")
+@login_required
+def transfer_tool_leagues():
+    slug = _league_slug()
+    if not _transfer_page_allowed(_membership()):
+        abort(404)
+    return jsonify({"leagues": list_external_leagues(db.session, slug)})
+
+
+@site_gm_bp.get("/operations/transfer-tool/teams")
+@login_required
+def transfer_tool_teams():
+    slug = _league_slug()
+    if not _transfer_page_allowed(_membership()):
+        abort(404)
+    fhm_league_id = request.args.get("fhm_league_id", type=int)
+    if not fhm_league_id:
+        return jsonify({"error": "fhm_league_id required"}), 400
+    return jsonify({"teams": list_external_teams(db.session, int(fhm_league_id))})
+
+
+@site_gm_bp.get("/operations/transfer-tool/assets")
+@login_required
+def transfer_tool_assets():
+    slug = _league_slug()
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        abort(404)
+    external_team_id = request.args.get("external_team_id", type=int)
+    if not external_team_id:
+        return jsonify({"error": "external_team_id required"}), 400
+    raw_dir = _trade_tool_raw_dir()
+    roster = transfer_roster_for_team(db.session, int(external_team_id))
+    sweeteners = bowl_sweetener_assets(
+        db.session,
+        db.session,
+        team_id=int(mem.team_id),
+        league_slug=slug,
+        raw_dir=raw_dir,
+    )
+    for group in ("roster", "draft_picks"):
+        _finalize_trade_asset_side_urls({group: sweeteners.get(group, [])})
+    for row in roster:
+        pl = db.session.get(Player, int(row.get("id") or 0))
+        if pl:
+            enrich_trade_player_row(db.session, pl, row)
+    player_tpl = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
+    return jsonify(
+        {
+            "external_roster": roster,
+            "bowl_sweeteners": sweeteners,
+            "player_page_url_template": player_tpl,
+        }
+    )
+
+
+@site_gm_bp.get("/operations/transfer-tool/preview")
+@login_required
+def transfer_tool_preview():
+    slug = _league_slug()
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        abort(404)
+    external_team_id = request.args.get("external_team_id", type=int)
+    player_id = request.args.get("player_id", type=int)
+    if not external_team_id or not player_id:
+        return jsonify({"error": "external_team_id and player_id required"}), 400
+    preview = preview_transfer_fees(
+        db.session,
+        player_ids=[int(player_id)],
+        external_team_id=int(external_team_id),
+        league_slug=slug,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    return jsonify(preview)
+
+
+@site_gm_bp.post("/operations/transfer-tool/submit")
+@login_required
+def transfer_tool_submit():
+    slug = _league_slug()
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        abort(404)
+    external_team_id = request.form.get("external_team_id", type=int)
+    external_league_fhm_id = request.form.get("external_league_fhm_id", type=int)
+    player_id = request.form.get("player_id", type=int)
+    notes = (request.form.get("notes") or "").strip()[:8000]
+    compensation_raw = (request.form.get("compensation_json") or "").strip()
+    compensation = parse_compensation_payload(compensation_raw)
+    if not external_team_id or not external_league_fhm_id or not player_id:
+        flash("Select external league, team, and player.", "err")
+        return redirect(url_for("site_gm.transfer_tool_page"))
+    player_ids = [int(player_id)]
+    preview = preview_transfer_fees(
+        db.session,
+        player_ids=player_ids,
+        external_team_id=int(external_team_id),
+        league_slug=slug,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    required_pta = int(preview.get("required_pta_fee_usd") or 0)
+    compensation.setdefault("pta_transfer_fee", required_pta)
+    err = validate_transfer_submission(
+        db.session,
+        db.session,
+        league_slug=slug,
+        bowl_team_id=int(mem.team_id),
+        external_team_id=int(external_team_id),
+        external_league_fhm_id=int(external_league_fhm_id),
+        player_ids=player_ids,
+        compensation=compensation,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    if err:
+        flash(err, "err")
+        return redirect(url_for("site_gm.transfer_tool_page"))
+    prop = GmTransferProposal(
+        league_slug=slug,
+        proposer_user_id=int(current_user.id),
+        bowl_team_id=int(mem.team_id),
+        external_league_fhm_id=int(external_league_fhm_id),
+        external_team_id=int(external_team_id),
+        player_ids_json=json.dumps(player_ids),
+        compensation_json=json.dumps(compensation),
+        rules_snapshot_json=json.dumps(preview.get("rules_snapshot") or {}),
+        notes=notes,
+        status="pending_ai",
+    )
+    db.session.add(prop)
+    db.session.flush()
+    run_ai_review_for_proposal(
+        db.session,
+        prop,
+        league_slug=slug,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
+        summary = format_transfer_summary(db.session, prop)
+        notify_transfer_proposal_commissioners(
+            slug,
+            commissioner_user_ids=league_commissioner_user_ids(db.session),
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
+        flash("External club accepted your offer. Awaiting league office approval.", "ok")
+    elif prop.status == TRANSFER_STATUS_AI_COUNTER:
+        flash("Counter-offer received — review the proposal and adjust your package.", "warn")
+    else:
+        flash(prop.ai_rationale or "Transfer declined by external club.", "err")
+    commit_with_sqlite_retry(db.session)
+    return redirect(url_for("site_gm.transfer_proposal_detail", pid=int(prop.id)))
+
+
+@site_gm_bp.post("/operations/transfer-tool/respond-counter/<int:pid>")
+@login_required
+def transfer_tool_respond_counter(pid: int):
+    slug = _league_slug()
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        abort(404)
+    prop = db.session.get(GmTransferProposal, int(pid))
+    if not prop or prop.league_slug != slug or int(prop.proposer_user_id) != int(current_user.id):
+        abort(404)
+    if prop.status != TRANSFER_STATUS_AI_COUNTER:
+        flash("This proposal is not awaiting a counter response.", "err")
+        return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
+    action = (request.form.get("action") or "").strip().lower()
+    if action == "accept_counter":
+        counter = parse_compensation_payload(prop.ai_counter_json)
+        suggested = counter.get("suggested_compensation")
+        if isinstance(suggested, dict):
+            prop.compensation_json = json.dumps(suggested)
+        run_ai_review_for_proposal(
+            db.session,
+            prop,
+            league_slug=slug,
+            raw_dir=_trade_tool_raw_dir(),
+        )
+        if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
+            summary = format_transfer_summary(db.session, prop)
+            notify_transfer_proposal_commissioners(
+                slug,
+                commissioner_user_ids=league_commissioner_user_ids(db.session),
+                proposal_id=int(prop.id),
+                summary_preview=summary,
+            )
+            flash("Counter accepted. Awaiting league office approval.", "ok")
+        else:
+            flash(prop.ai_rationale or "External club still declined.", "err")
+    else:
+        compensation_raw = (request.form.get("compensation_json") or "").strip()
+        if compensation_raw:
+            prop.compensation_json = compensation_raw
+        run_ai_review_for_proposal(
+            db.session,
+            prop,
+            league_slug=slug,
+            raw_dir=_trade_tool_raw_dir(),
+        )
+        if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
+            summary = format_transfer_summary(db.session, prop)
+            notify_transfer_proposal_commissioners(
+                slug,
+                commissioner_user_ids=league_commissioner_user_ids(db.session),
+                proposal_id=int(prop.id),
+                summary_preview=summary,
+            )
+            flash("Revised offer accepted by external club. Awaiting league office approval.", "ok")
+        elif prop.status == TRANSFER_STATUS_AI_COUNTER:
+            flash("Updated counter-offer — review and respond.", "warn")
+        else:
+            flash(prop.ai_rationale or "Transfer declined.", "err")
+    commit_with_sqlite_retry(db.session)
+    return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
+
+
+@site_gm_bp.get("/operations/transfer-proposal/<int:pid>")
+@login_required
+def transfer_proposal_detail(pid: int):
+    slug = _league_slug()
+    mem = _membership()
+    prop = db.session.get(GmTransferProposal, int(pid))
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    if not _is_site_admin() and (not mem or int(prop.proposer_user_id) != int(current_user.id)):
+        abort(403)
+    bowl_team = db.session.get(Team, int(prop.bowl_team_id))
+    ext_team = db.session.get(Team, int(prop.external_team_id))
+    summary = format_transfer_summary(db.session, prop)
+    counter = parse_compensation_payload(prop.ai_counter_json)
+    return render_template(
+        "transfer_proposal_detail.html",
+        proposal=prop,
+        bowl_team=bowl_team,
+        ext_team=ext_team,
+        summary=summary,
+        counter=counter,
+        membership=mem,
+    )
+
+
+@site_admin_bp.get("/transfer-proposals")
+@login_required
+def admin_transfer_proposals_list():
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if not is_transfer_tool_league(slug):
+        abort(404)
+    rows = list(
+        db.session.scalars(
+            select(GmTransferProposal)
+            .where(GmTransferProposal.league_slug == slug)
+            .order_by(GmTransferProposal.created_at.desc())
+            .limit(120)
+        ).all()
+    )
+    team_ids = {p.bowl_team_id for p in rows} | {p.external_team_id for p in rows}
+    teams_by_id: dict[int, Team] = {}
+    if team_ids:
+        for t in db.session.scalars(select(Team).where(Team.id.in_(team_ids))).all():
+            teams_by_id[t.id] = t
+    return render_template(
+        "admin_transfer_proposals.html",
+        rows=rows,
+        teams_by_id=teams_by_id,
+    )
+
+
+@site_admin_bp.route("/transfer-proposals/<int:pid>", methods=["GET", "POST"])
+@login_required
+def admin_transfer_proposal_detail(pid: int):
+    require_admin_role(ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER)
+    slug = _league_slug()
+    if not is_transfer_tool_league(slug):
+        abort(404)
+    prop = db.session.get(GmTransferProposal, int(pid))
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    bowl_team = db.session.get(Team, int(prop.bowl_team_id))
+    ext_team = db.session.get(Team, int(prop.external_team_id))
+    summary = format_transfer_summary(db.session, prop)
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "republish_news":
+            if prop.status != TRANSFER_STATUS_PUBLISHED:
+                flash("Only published transfers can be repaired/requeued.", "err")
+                return redirect(url_for("site_admin.admin_transfer_proposal_detail", pid=pid))
+            from app.services.transfer_tool import publish_transfer_news_articles
+
+            article_id = publish_transfer_news_articles(
+                db.session,
+                league_slug=slug,
+                proposal=prop,
+                commissioner_user_id=int(prop.commissioner_user_id or current_user.id),
+            )
+            _enqueue_confirmed_transfer_discord(
+                proposal=prop,
+                proposal_id=int(prop.id),
+                article_id=article_id,
+                bowl_team=bowl_team,
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Transfer news verified and Discord confirmation queued if missing.", "ok")
+            return redirect(url_for("site_admin.admin_transfer_proposal_detail", pid=pid))
+        if prop.status != TRANSFER_STATUS_PENDING_COMMISSIONER:
+            flash("This proposal is not awaiting commissioner action.", "err")
+            return redirect(url_for("site_admin.admin_transfer_proposal_detail", pid=pid))
+        if action == "approve":
+            article_id, err = publish_transfer_proposal(
+                db.session,
+                db.session,
+                league_slug=slug,
+                proposal=prop,
+                commissioner_user_id=int(current_user.id),
+                raw_dir=_trade_tool_raw_dir(),
+                notify_gms=True,
+            )
+            if err:
+                flash(f"Could not approve transfer ({err}).", "err")
+                return redirect(url_for("site_admin.admin_transfer_proposal_detail", pid=pid))
+            _enqueue_confirmed_transfer_discord(
+                proposal=prop,
+                proposal_id=int(prop.id),
+                article_id=article_id,
+                bowl_team=bowl_team,
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Transfer approved and published.", "ok")
+            return redirect(url_for("site_admin.admin_transfer_proposals_list"))
+        if action == "deny":
+            note = (request.form.get("commissioner_note") or "").strip()
+            prop.status = STATUS_COMMISSIONER_DECLINED
+            prop.commissioner_user_id = int(current_user.id)
+            prop.commissioner_acted_at = datetime.utcnow()
+            prop.commissioner_note = note[:4000]
+            deny_body = "The league office did not approve this transfer." + (
+                f" Note: {note}" if note else ""
+            )
+            notify_transfer_outcome_proposer(
+                slug,
+                proposer_user_id=int(prop.proposer_user_id),
+                proposal_id=int(prop.id),
+                title="Transfer denied by commissioner",
+                body=deny_body,
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Transfer denied.", "ok")
+            return redirect(url_for("site_admin.admin_transfer_proposals_list"))
+    return render_template(
+        "admin_transfer_proposal_detail.html",
+        proposal=prop,
+        bowl_team=bowl_team,
+        ext_team=ext_team,
+        summary=summary,
+    )
 
 
 def _parse_trade_log_date(raw: str | None) -> date | None:

@@ -221,6 +221,9 @@
             <a class="header-tools__link" href="{{ url_for('site_gm.ai_trade_tool') }}">AI Trade Tool</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.finances_page') }}">Finances</a>
             <a class="header-tools__link" href="{{ url_for('site_gm.rfa_offers_page') }}">RFA Offers</a>
+            {% if current_league_slug == 'bowl-fantasy' %}
+            <a class="header-tools__link" href="{{ url_for('site_gm.transfer_tool_page') }}">Transfer Tool</a>
+            {% endif %}
             <a class="header-tools__link" href="{{ url_for('site_gm.bowl_six_hub') }}">BOWL Six</a>
             {% if current_league_slug in ('bowl-fantasy', 'bowl-cap', 'bowl-historical') %}
             <a class="header-tools__link" href="{{ url_for('site_gm.boost_lottery_tracker') }}">Boost Lottery Tracker</a>

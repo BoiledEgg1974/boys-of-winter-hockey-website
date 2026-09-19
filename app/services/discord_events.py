@@ -42,6 +42,7 @@ NEWS_DISCORD_EVENT_KEYS = frozenset(
 OPS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
     {
         "confirmed_trade",
+        "confirmed_transfer",
         "trade_request",
         "staff_transaction_posted",
         "draft_hub_pick_made",
@@ -93,6 +94,7 @@ DEFAULT_EVENT_KEYS = {
     "admin_news_published",
     "ap_redemption_posted",
     "confirmed_trade",
+    "confirmed_transfer",
     "trade_request",
     "announcement_posted",
     "draft_hub_pick_made",
@@ -132,6 +134,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "admin_news_published": "league-news",
     "ap_redemption_posted": "ap-redemptions",
     "confirmed_trade": "confirm-trade",
+    "confirmed_transfer": "confirm-trade",
     "trade_request": "transactions",
     "announcement_posted": "league-announcements",
     "draft_hub_pick_made": "draft-discussion",
@@ -197,6 +200,7 @@ DEFAULT_EVENT_LABELS = {
     "admin_news_published": "League news — admin compose",
     "ap_redemption_posted": "AP redemption approved",
     "confirmed_trade": "Confirmed trade",
+    "confirmed_transfer": "Confirmed cross-league transfer",
     "trade_request": "Trade / ops request",
     "announcement_posted": "Commissioner announcement",
     "draft_hub_pick_made": "Draft Hub pick (live)",

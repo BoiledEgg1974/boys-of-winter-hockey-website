@@ -361,6 +361,35 @@ class GmApprovalRequest(db.Model):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class GmTransferProposal(db.Model):
+    """Cross-league transfer: BOWL GM acquires from external (AI) franchise."""
+
+    __tablename__ = "gm_transfer_proposals"
+    __bind_key__ = "site"
+    __table_args__ = (Index("ix_gm_transfer_league_status", "league_slug", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    proposer_user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id"), nullable=False)
+    bowl_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    external_league_fhm_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    external_team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    compensation_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    rules_snapshot_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    ai_status: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    ai_verdict: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    ai_counter_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    ai_rationale: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending_ai", nullable=False)
+    commissioner_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    commissioner_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    ai_acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    commissioner_acted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class GmTradeProposal(db.Model):
     """GM-to-GM trade negotiation; no league roster mutation until CSV imports."""
 

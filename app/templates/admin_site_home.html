@@ -52,6 +52,9 @@
     <li><a href="{{ url_for('site_gm.staff_salaries_page') }}">Staff Hire/Fire</a> — league office staff contracts</li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (history &amp; repair)</a></li>
+    {% if config.LEAGUE_SLUG == 'bowl-fantasy' %}
+    <li><a href="{{ url_for('site_admin.admin_transfer_proposals_list') }}">Cross-league transfer proposals</a></li>
+    {% endif %}
     <li><a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Draft pick ownership panels</a></li>
     <li><a href="{{ url_for('site_admin.admin_game_records') }}">Game records (baseline seeding)</a></li>
     <li><a href="{{ url_for('site_admin.admin_records_home') }}">Records editor</a> — team seasons, career fixes, game baselines</li>

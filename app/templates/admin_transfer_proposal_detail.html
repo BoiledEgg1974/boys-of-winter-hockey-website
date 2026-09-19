@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Transfer #{{ proposal.id }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_admin.admin_transfer_proposals_list') }}">← All transfer proposals</a></p>
+  <h1 class="page-title">Transfer proposal #{{ proposal.id }}</h1>
+  <p class="muted">Status: <strong>{{ proposal.status }}</strong> · AI: {{ proposal.ai_verdict or '—' }}</p>
+  <pre style="white-space:pre-wrap;background:var(--row-alt);padding:0.75rem;border-radius:var(--radius);">{{ summary }}</pre>
+  {% if proposal.ai_rationale %}
+  <h2>AI partner rationale</h2>
+  <p>{{ proposal.ai_rationale }}</p>
+  {% endif %}
+  {% if (proposal.notes or '')|trim %}
+  <h2>GM notes</h2>
+  <div style="white-space:pre-wrap;">{{ proposal.notes }}</div>
+  {% endif %}
+
+  {% if proposal.status == 'pending_commissioner' %}
+  <div class="trade-proposal-detail__commissioner-actions">
+    <form method="post" action="{{ url_for('site_admin.admin_transfer_proposal_detail', pid=proposal.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="approve">
+      <button type="submit" class="trade-tool-submit trade-proposal-detail__btn trade-proposal-detail__btn--approve">Approve &amp; publish</button>
+    </form>
+    <form method="post" action="{{ url_for('site_admin.admin_transfer_proposal_detail', pid=proposal.id) }}" class="trade-proposal-detail__commissioner-deny-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="deny">
+      <label class="muted trade-proposal-detail__deny-label">Deny (optional note to GM)</label>
+      <textarea name="commissioner_note" rows="2" maxlength="2000" class="trade-proposal-detail__deny-note"></textarea>
+      <button type="submit" class="trade-proposal-detail__btn trade-proposal-detail__btn--deny trade-proposal-detail__deny-submit">Deny</button>
+    </form>
+  </div>
+  {% elif proposal.status == 'published' %}
+  <div class="trade-proposal-detail__commissioner-actions">
+    <form method="post" action="{{ url_for('site_admin.admin_transfer_proposal_detail', pid=proposal.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="republish_news">
+      <button type="submit" class="trade-tool-submit trade-proposal-detail__btn trade-proposal-detail__btn--approve">Repair / requeue Discord</button>
+    </form>
+  </div>
+  {% elif proposal.status == 'commissioner_declined' and (proposal.commissioner_note or '')|trim %}
+  <p class="muted">Commissioner note: {{ proposal.commissioner_note }}</p>
+  {% endif %}
+</div>
+{% endblock %}

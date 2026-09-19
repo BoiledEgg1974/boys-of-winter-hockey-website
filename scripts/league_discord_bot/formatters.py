@@ -215,11 +215,17 @@ def _text_only_header_lines(
     title: str,
 ) -> list[str]:
     lines: list[str] = []
-    if event_key in ("news_published", "gm_news_published", "admin_news_published", "confirmed_trade"):
+    if event_key in (
+        "news_published",
+        "gm_news_published",
+        "admin_news_published",
+        "confirmed_trade",
+        "confirmed_transfer",
+    ):
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
-        if event_key == "confirmed_trade":
+        if event_key in ("confirmed_trade", "confirmed_transfer"):
             _append_gm_mentions(lines, payload)
         elif team_line or payload.get("league_wide"):
             _append_team_gm_mention(lines, payload)

@@ -1,0 +1,52 @@
+{
+  "league_slug": "bowl-fantasy",
+  "eligible_external_league_fhm_ids": [5, 6, 7, 8, 9, 16],
+  "excluded_external_league_fhm_ids": [2, 3, 4, 10, 11, 12, 13, 14, 15, 17],
+  "eligible_external_league_names": {
+    "5": "SHL",
+    "6": "KHL",
+    "7": "DEL",
+    "8": "Liiga",
+    "9": "NL",
+    "16": "ELH"
+  },
+  "allow_draft_pick_sweeteners": true,
+  "allow_player_sweeteners": true,
+  "allow_cash_sweetener": true,
+  "max_players_acquired": 1,
+  "max_sweetener_picks": 2,
+  "max_sweetener_players": 2,
+  "european_rights_window_years": 4,
+  "north_american_rights_window_years": 2,
+  "ufa_min_age": 22,
+  "khl_league_fhm_id": 6,
+  "khl_requires_contract_expiry": true,
+  "european_pta_fees_usd": {
+    "default": 350000,
+    "by_league_fhm_id": {
+      "5": 400000,
+      "7": 325000,
+      "8": 375000,
+      "9": 350000,
+      "16": 300000
+    },
+    "by_age_bracket": {
+      "under_22": 250000,
+      "22_25": 350000,
+      "26_plus": 450000
+    }
+  },
+  "pick_value_to_usd_multiplier": 50000,
+  "ai_partner": {
+    "accept_threshold": 0.97,
+    "counter_threshold": 0.72,
+    "decline_below": 0.55,
+    "league_sell_multiplier": 0.35,
+    "star_ovr_threshold": 78,
+    "star_tax_usd": 750000,
+    "contract_year_premium_usd": 125000
+  },
+  "bowl_overrides": {
+    "notes": "Commissioner may edit this file for house rules. Defaults follow Transfers.docx baseline."
+  }
+}

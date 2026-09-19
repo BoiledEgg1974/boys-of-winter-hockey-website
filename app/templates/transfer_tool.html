@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Transfer Tool — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card transfer-tool-page" style="max-width:56rem;margin:0 auto;">
+  <header class="transfer-tool-page__header">
+    <h1 class="page-title">Cross-League Transfer Tool</h1>
+    <p class="muted">Acquire players from external pro leagues (KHL, SHL, DEL, etc.). The external club is simulated by AI; fair offers are accepted and forwarded to the league office for final approval.</p>
+    <p class="muted">Your team: <strong>{{ my_team.full_display_name() if my_team else '—' }}</strong></p>
+  </header>
+
+  <form id="transfer-tool-form" method="post" action="{{ url_for('site_gm.transfer_tool_submit') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="external_league_fhm_id" id="external-league-id" value="">
+    <input type="hidden" name="external_team_id" id="external-team-id" value="">
+    <input type="hidden" name="player_id" id="player-id" value="">
+    <input type="hidden" name="compensation_json" id="compensation-json" value="{}">
+
+    <div class="transfer-tool-page__grid">
+      <label>External league
+        <select id="league-select" required>
+          <option value="">— Select league —</option>
+          {% for lg in external_leagues %}
+          <option value="{{ lg.fhm_league_id }}">{{ lg.name }}{% if lg.abbreviation %} ({{ lg.abbreviation }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>External team
+        <select id="team-select" required disabled>
+          <option value="">— Select team —</option>
+        </select>
+      </label>
+      <label>Player to acquire
+        <select id="player-select" required disabled>
+          <option value="">— Select player —</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="fee-preview" class="transfer-tool-page__fees card" hidden>
+      <h2 class="transfer-tool-page__section-title">Required transfer costs</h2>
+      <p id="fee-preview-body" class="muted"></p>
+    </div>
+
+    <div id="sweetener-panel" class="transfer-tool-page__sweeteners card" hidden>
+      <h2 class="transfer-tool-page__section-title">Your compensation package</h2>
+      <label>PTA / transfer fee (USD)
+        <input type="number" id="pta-fee" min="0" step="1000" value="0">
+      </label>
+      <label>Cash sweetener (USD)
+        <input type="number" id="cash-sweetener" min="0" step="1000" value="0">
+      </label>
+      <div id="bowl-picks-panel" class="transfer-tool-page__pick-list"></div>
+      <div id="bowl-players-panel" class="transfer-tool-page__player-list"></div>
+    </div>
+
+    <label>Notes (optional)
+      <textarea name="notes" rows="2" maxlength="8000" placeholder="Conditions, loan-back plans, etc."></textarea>
+    </label>
+
+    <button type="submit" class="trade-tool-submit" id="submit-transfer" disabled>Submit for AI review</button>
+  </form>
+
+  {% if recent_proposals %}
+  <section class="transfer-tool-page__recent" style="margin-top:1.5rem;">
+    <h2 class="transfer-tool-page__section-title">Your recent proposals</h2>
+    <ul>
+      {% for p in recent_proposals %}
+      <li><a href="{{ url_for('site_gm.transfer_proposal_detail', pid=p.id) }}">#{{ p.id }} — {{ p.status }} — {{ p.created_at|eastern_time }}</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var teamsUrl = {{ url_for('site_gm.transfer_tool_teams')|tojson }};
+  var assetsUrl = {{ url_for('site_gm.transfer_tool_assets')|tojson }};
+  var previewUrl = {{ url_for('site_gm.transfer_tool_preview')|tojson }};
+  var leagueSelect = document.getElementById('league-select');
+  var teamSelect = document.getElementById('team-select');
+  var playerSelect = document.getElementById('player-select');
+  var leagueHidden = document.getElementById('external-league-id');
+  var teamHidden = document.getElementById('external-team-id');
+  var playerHidden = document.getElementById('player-id');
+  var compField = document.getElementById('compensation-json');
+  var ptaInput = document.getElementById('pta-fee');
+  var cashInput = document.getElementById('cash-sweetener');
+  var feePreview = document.getElementById('fee-preview');
+  var feeBody = document.getElementById('fee-preview-body');
+  var sweetenerPanel = document.getElementById('sweetener-panel');
+  var submitBtn = document.getElementById('submit-transfer');
+  var selectedPicks = [];
+  var selectedPlayers = [];
+
+  function syncCompensation() {
+    compField.value = JSON.stringify({
+      pta_transfer_fee: parseInt(ptaInput.value || '0', 10) || 0,
+      cash_sweetener: parseInt(cashInput.value || '0', 10) || 0,
+      draft_picks: selectedPicks.slice(),
+      players: selectedPlayers.slice()
+    });
+  }
+
+  function renderCheckboxList(container, items, kind) {
+    container.innerHTML = '';
+    if (!items || !items.length) {
+      container.innerHTML = '<p class="muted">None available.</p>';
+      return;
+    }
+    items.forEach(function (item) {
+      var label = document.createElement('label');
+      label.style.display = 'block';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = item.drag_key;
+      cb.addEventListener('change', function () {
+        var arr = kind === 'pick' ? selectedPicks : selectedPlayers;
+        if (cb.checked) arr.push(item.drag_key);
+        else {
+          var idx = arr.indexOf(item.drag_key);
+          if (idx >= 0) arr.splice(idx, 1);
+        }
+        syncCompensation();
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + (item.label || item.drag_key)));
+      container.appendChild(label);
+    });
+  }
+
+  leagueSelect.addEventListener('change', function () {
+    var lid = leagueSelect.value;
+    leagueHidden.value = lid;
+    teamSelect.innerHTML = '<option value="">— Select team —</option>';
+    playerSelect.innerHTML = '<option value="">— Select player —</option>';
+    teamSelect.disabled = !lid;
+    playerSelect.disabled = true;
+    feePreview.hidden = true;
+    sweetenerPanel.hidden = true;
+    submitBtn.disabled = true;
+    if (!lid) return;
+    fetch(teamsUrl + '?fhm_league_id=' + encodeURIComponent(lid))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        (data.teams || []).forEach(function (t) {
+          var opt = document.createElement('option');
+          opt.value = t.team_id;
+          opt.textContent = t.name;
+          teamSelect.appendChild(opt);
+        });
+        teamSelect.disabled = false;
+      });
+  });
+
+  teamSelect.addEventListener('change', function () {
+    var tid = teamSelect.value;
+    teamHidden.value = tid;
+    playerSelect.innerHTML = '<option value="">— Select player —</option>';
+    playerSelect.disabled = !tid;
+    feePreview.hidden = true;
+    sweetenerPanel.hidden = true;
+    submitBtn.disabled = true;
+    if (!tid) return;
+    fetch(assetsUrl + '?external_team_id=' + encodeURIComponent(tid))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        (data.external_roster || []).forEach(function (p) {
+          var opt = document.createElement('option');
+          opt.value = p.id;
+          var abi = p.abi != null ? ' ABI ' + Math.round(p.abi) : '';
+          var pot = p.pot != null ? ' POT ' + Math.round(p.pot) : '';
+          opt.textContent = (p.label || '') + abi + pot;
+          playerSelect.appendChild(opt);
+        });
+        playerSelect.disabled = false;
+        renderCheckboxList(document.getElementById('bowl-picks-panel'), data.bowl_sweeteners && data.bowl_sweeteners.draft_picks, 'pick');
+        renderCheckboxList(document.getElementById('bowl-players-panel'), data.bowl_sweeteners && data.bowl_sweeteners.roster, 'player');
+        selectedPicks = [];
+        selectedPlayers = [];
+        syncCompensation();
+      });
+  });
+
+  playerSelect.addEventListener('change', function () {
+    var pid = playerSelect.value;
+    var tid = teamSelect.value;
+    playerHidden.value = pid;
+    if (!pid || !tid) {
+      feePreview.hidden = true;
+      sweetenerPanel.hidden = true;
+      submitBtn.disabled = true;
+      return;
+    }
+    fetch(previewUrl + '?external_team_id=' + encodeURIComponent(tid) + '&player_id=' + encodeURIComponent(pid))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var req = data.required_pta_fee_usd || 0;
+        var lines = ['Required PTA / transfer fee: $' + req.toLocaleString()];
+        (data.players || []).forEach(function (p) {
+          if (p.blocked) lines.push('BLOCKED: ' + (p.block_reason || 'Rule block'));
+          (p.rule_notes || []).forEach(function (n) { lines.push('• ' + n); });
+        });
+        feeBody.textContent = lines.join('\n');
+        feePreview.hidden = false;
+        sweetenerPanel.hidden = false;
+        ptaInput.value = req;
+        syncCompensation();
+        var blocked = (data.rules_snapshot && data.rules_snapshot.any_blocked) || (data.players || []).some(function (p) { return p.blocked; });
+        submitBtn.disabled = !!blocked;
+      });
+  });
+
+  ptaInput.addEventListener('input', syncCompensation);
+  cashInput.addEventListener('input', syncCompensation);
+  document.getElementById('transfer-tool-form').addEventListener('submit', syncCompensation);
+})();
+</script>
+{% endblock %}

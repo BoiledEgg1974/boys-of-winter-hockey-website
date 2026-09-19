@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Transfer proposals — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:56rem;margin:0 auto;">
+  <h1 class="page-title">Cross-league transfer proposals</h1>
+  <p class="muted">AI-accepted transfers awaiting commissioner approval, plus history.</p>
+  {% if not rows %}
+  <p class="muted">No transfer proposals yet.</p>
+  {% else %}
+  <table class="data-table" style="width:100%;margin-top:0.75rem;">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Created</th>
+        <th>Status</th>
+        <th>Teams</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.created_at|eastern_time or '—' }}</td>
+        <td>{{ r.status }}</td>
+        <td>
+          {% set bowl = teams_by_id.get(r.bowl_team_id) %}
+          {% set ext = teams_by_id.get(r.external_team_id) %}
+          {{ bowl.full_display_name() if bowl else r.bowl_team_id }} ← {{ ext.full_display_name() if ext else r.external_team_id }}
+        </td>
+        <td><a href="{{ url_for('site_admin.admin_transfer_proposal_detail', pid=r.id) }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

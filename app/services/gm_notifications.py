@@ -222,6 +222,42 @@ def notify_trade_outcome_partner(
     )
 
 
+def notify_transfer_proposal_commissioners(
+    league_slug: str, *, commissioner_user_ids: list[int], proposal_id: int, summary_preview: str
+) -> None:
+    body = (summary_preview or "").strip().replace("\r\n", "\n")
+    if len(body) > 900:
+        body = body[:900] + "…"
+    for uid in commissioner_user_ids:
+        _add_notification(
+            GmInAppNotification(
+                league_slug=league_slug,
+                user_id=int(uid),
+                kind="transfer_commish_review",
+                title="Cross-league transfer — commissioner review",
+                body=body or "AI partner accepted; open for final approval or denial.",
+                article_id=int(proposal_id),
+            )
+        )
+    _commit_notifications()
+
+
+def notify_transfer_outcome_proposer(
+    league_slug: str, *, proposer_user_id: int, proposal_id: int, title: str, body: str
+) -> None:
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(proposer_user_id),
+            kind="transfer_outcome_proposer",
+            title=title[:400],
+            body=body[:4000],
+            article_id=int(proposal_id),
+        )
+    )
+    _commit_notifications()
+
+
 def _staff_req_ts(req: StaffChangeRequest) -> str:
     ts = req.created_at
     if ts is None:

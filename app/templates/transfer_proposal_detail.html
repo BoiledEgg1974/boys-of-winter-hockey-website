@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Transfer #{{ proposal.id }} — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ url_for('site_gm.transfer_tool_page') }}">← Transfer Tool</a></p>
+  <h1 class="page-title">Transfer proposal #{{ proposal.id }}</h1>
+  <p class="muted">Status: <strong>{{ proposal.status }}</strong> · AI: {{ proposal.ai_verdict or '—' }}</p>
+  <pre style="white-space:pre-wrap;background:var(--row-alt);padding:0.75rem;border-radius:var(--radius);">{{ summary }}</pre>
+  {% if proposal.ai_rationale %}
+  <h2>AI partner response</h2>
+  <p>{{ proposal.ai_rationale }}</p>
+  {% endif %}
+  {% if proposal.status == 'ai_counter' and counter %}
+  <div class="transfer-proposal-detail__counter card">
+    <h2>Counter-offer</h2>
+    <p class="muted">Minimum ask: ${{ counter.minimum_ask_usd or 0 }} · Your offer: ${{ counter.current_offer_usd or 0 }}</p>
+    <p>Suggested additional cash: ${{ counter.suggested_additional_cash_usd or 0 }}</p>
+    <form method="post" action="{{ url_for('site_gm.transfer_tool_respond_counter', pid=proposal.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="accept_counter">
+      <button type="submit" class="trade-tool-submit">Accept counter-offer</button>
+    </form>
+    <form method="post" action="{{ url_for('site_gm.transfer_tool_respond_counter', pid=proposal.id) }}" style="margin-top:0.75rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="revise">
+      <label class="muted">Revise compensation JSON and resubmit</label>
+      <textarea name="compensation_json" rows="4" class="transfer-proposal-detail__comp-json">{{ proposal.compensation_json }}</textarea>
+      <button type="submit" class="trade-tool-submit">Resubmit revised offer</button>
+    </form>
+  </div>
+  {% endif %}
+  {% if proposal.status == 'pending_commissioner' %}
+  <p class="muted">Awaiting league office approval. Apply the move in FHM after approval.</p>
+  {% endif %}
+</div>
+{% endblock %}

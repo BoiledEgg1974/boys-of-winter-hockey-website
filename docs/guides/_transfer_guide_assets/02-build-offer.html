@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>BOWL-Relegation — Build a transfer offer</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-top">
+      <div class="logo-mark">BOWL</div>
+      <div>
+        <div class="brand-name">BOWL-Relegation</div>
+        <div class="brand-sub">Boys of Winter League</div>
+      </div>
+    </div>
+    <div class="nav-label">GM / Admin</div>
+    <nav class="header-tools">
+      <a href="#">RFA Offers</a>
+      <a class="is-active" href="#">Transfer Tool</a>
+      <a href="#">BOWL Six</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <div class="example-note">Example walkthrough</div>
+      <h1 class="page-title">Cross-League Transfer Tool</h1>
+      <p class="muted">Your team: <strong>Stockholm Sentinels</strong></p>
+      <div class="grid">
+        <label>External league
+          <select><option selected>Swedish Hockey League (SHL)</option></select>
+        </label>
+        <label>External team
+          <select><option selected>Färjestad BK</option></select>
+        </label>
+        <label>Player to acquire
+          <select><option selected>Lukas Johansson  ABI 74  POT 79</option></select>
+        </label>
+      </div>
+      <div class="inner-card">
+        <h2>Required transfer costs</h2>
+        <p class="muted fee-lines">Required PTA / transfer fee: $350,000
+League cap / team budget ceiling: $95,500,000
+Your remaining budget: $8,250,000
+• European PTA transfer fee: $350,000.
+• Standard European pro contract includes NHL Out clause.
+• Contract: 1 year(s) remaining on current deal.</p>
+      </div>
+      <div class="inner-card">
+        <h2>Your compensation package</h2>
+        <label>PTA / transfer fee (USD)
+          <input value="350000">
+        </label>
+        <label>Cash sweetener (USD)
+          <input value="1650000">
+        </label>
+        <p class="muted" style="margin:0.55rem 0 0.25rem;">Optional players to send (max 2)</p>
+        <div class="players">
+          <label><input type="checkbox" style="width:auto;margin-right:0.4rem;"> Prospect A — RW, ABI 62 / POT 76</label>
+          <label><input type="checkbox" style="width:auto;margin-right:0.4rem;"> Depth forward — C, ABI 68 / POT 69</label>
+        </div>
+      </div>
+      <label>Notes (optional)
+        <textarea rows="2">Example: player reports after the SHL season.</textarea>
+      </label>
+      <p style="margin-top:0.9rem;"><button class="trade-tool-submit">Submit for AI review</button></p>
+    </div>
+  </main>
+</body></html>

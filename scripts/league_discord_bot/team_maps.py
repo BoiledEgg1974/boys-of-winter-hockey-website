@@ -47,6 +47,9 @@ def team(
     return TeamSpec(abbrev=abbr, emoji_id=eid, aliases=alias_tuple, emoji_name=name)
 
 
+_CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")
+
+
 def _mention_for(spec: TeamSpec) -> str:
     if not spec.emoji_id:
         return ""
@@ -54,12 +57,29 @@ def _mention_for(spec: TeamSpec) -> str:
     return f"<:{name}:{spec.emoji_id}>"
 
 
+def _coerce_team_spec(raw: object) -> TeamSpec:
+    """Accept ``team()`` rows or legacy ``(abbrev, <:Name:id>)`` tuples."""
+    if isinstance(raw, TeamSpec):
+        return raw
+    if isinstance(raw, (tuple, list)) and raw:
+        abbrev = str(raw[0] or "").strip().upper()
+        second = str(raw[1] or "").strip() if len(raw) > 1 else ""
+        match = _CUSTOM_EMOJI_MENTION_RE.fullmatch(second)
+        if match:
+            return team(abbrev, match.group(2), emoji_name=match.group(1))
+        if second.isdigit():
+            return team(abbrev, second)
+        return team(abbrev)
+    raise TypeError(f"Unsupported team spec: {raw!r}")
+
+
 def _compile_team_map(
-    specs: Mapping[int, TeamSpec],
+    specs: Mapping[int, TeamSpec | tuple],
 ) -> tuple[Dict[int, TeamEntry], Dict[str, int]]:
     teams: Dict[int, TeamEntry] = {}
     abbrev_to_fhm: Dict[str, int] = {}
-    for tid, spec in specs.items():
+    for tid, raw in specs.items():
+        spec = _coerce_team_spec(raw)
         teams[int(tid)] = (spec.abbrev, _mention_for(spec))
         labels = (spec.abbrev, *spec.aliases)
         for label in labels:
@@ -87,8 +107,6 @@ EXPORT_STATUS_EMOJIS: Dict[str, str] = {
     "fail": "<:NO:1522716685516279890>",
 }
 
-_CUSTOM_EMOJI_MENTION_RE = re.compile(r"<a?:([A-Za-z0-9_]+):(\d+)>")
-
 # --- Edit team rows here (abbrev, Discord emoji snowflake, optional aliases) ---
 
 _HISTORICAL_SPECS: Dict[int, TeamSpec] = {
@@ -110,24 +128,24 @@ _HISTORICAL_SPECS: Dict[int, TeamSpec] = {
 }
 
 _FANTASY_SPECS: Dict[int, TeamSpec] = {
-    0: ("SRK", "<:SRK:1549541031551176714>"),
-    1: ("VAN", "<:VAN:1549540952492998746>"),
-    2: ("BGK", "<:BGK:1549540956959674398>"),
-    3: ("SIX", "<:SIX:1549540933798989874>"),
-    4: ("BUF", "<:BUF:1549540958281146489>"),
-    5: ("RSL", "<:RSL:1549540927968780368>"),
-    6: ("WPG", "<:WPG:1549540955575558164>"),
-    7: ("SEO", "<:SEO:1549540932507009054>"),
-    8: ("COL", "<:COL:1549540991202099211>"),
-    9: ("TRL", "<:TRL:1549540951045701672>"),
-    10: ("STO", "<:STO:1549540947778469889>"),
-    11: ("WTP", "<:WTP:1549540953986171022>"),
-    12: ("NBP", "<:NBP:1549540925368172686>"),
-    13: ("FLA", "<:FLA:1549540922545668096>"),
-    14: ("ME", "<:ME:1549540923967410259>"),
-    15: ("SAV", "<:SAV:1549540929206091796>"),
-    387: ("SBB", "<:SBB:1549540930846204044>"),
-    388: ("PAS", "<:PAS:1549540926664474665>"),
+    0: team("SRK", "1549541031551176714"),
+    1: team("VAN", "1549540952492998746"),
+    2: team("BGK", "1549540956959674398"),
+    3: team("SIX", "1549540933798989874"),
+    4: team("BUF", "1549540958281146489"),
+    5: team("RSL", "1549540927968780368"),
+    6: team("WPG", "1549540955575558164"),
+    7: team("SEO", "1549540932507009054"),
+    8: team("COL", "1549540991202099211"),
+    9: team("TRL", "1549540951045701672"),
+    10: team("STO", "1549540947778469889"),
+    11: team("WTP", "1549540953986171022"),
+    12: team("NBP", "1549540925368172686"),
+    13: team("FLA", "1549540922545668096"),
+    14: team("ME", "1549540923967410259"),
+    15: team("SAV", "1549540929206091796"),
+    387: team("SBB", "1549540930846204044"),
+    388: team("PAS", "1549540926664474665"),
 }
 
 _CAP_SPECS: Dict[int, TeamSpec] = {

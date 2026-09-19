@@ -2274,6 +2274,7 @@ def transfer_tool_preview():
         external_team_id=int(external_team_id),
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
+        bowl_team_id=int(mem.team_id),
     )
     return jsonify(preview)
 
@@ -2301,6 +2302,7 @@ def transfer_tool_submit():
         external_team_id=int(external_team_id),
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
+        bowl_team_id=int(mem.team_id),
     )
     required_pta = int(preview.get("required_pta_fee_usd") or 0)
     compensation.setdefault("pta_transfer_fee", required_pta)

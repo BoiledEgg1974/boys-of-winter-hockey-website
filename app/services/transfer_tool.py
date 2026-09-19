@@ -22,6 +22,7 @@ from app.services.transfer_rules import (
     STATUS_COMMISSIONER_DECLINED,
     STATUS_PENDING_COMMISSIONER,
     STATUS_PUBLISHED,
+    bowl_team_budget_snapshot,
     build_player_transfer_context,
     external_leagues_for_transfer,
     external_teams_for_league,
@@ -89,7 +90,7 @@ def bowl_sweetener_assets(
     raw_dir: Path | None,
 ) -> dict[str, list[dict[str, Any]]]:
     cfg = load_transfer_rules_config(league_slug)
-    roster = transfer_roster_for_team(session, int(team_id))
+    roster = transfer_roster_for_team(session, int(team_id)) if cfg.allow_player_sweeteners else []
     picks: list[dict[str, Any]] = []
     if cfg.allow_draft_pick_sweeteners:
         picks = draft_pick_asset_dicts(site_session, site_session, league_slug=league_slug, team_id=int(team_id))
@@ -111,6 +112,9 @@ def validate_transfer_submission(
     if not is_transfer_tool_league(league_slug):
         return "Transfer Tool is only available on BOWL-Relegation."
     cfg = load_transfer_rules_config(league_slug)
+    picks = list(compensation.get("draft_picks") or [])
+    if picks and not cfg.allow_draft_pick_sweeteners:
+        return "Draft picks cannot be used as transfer compensation. Offer cash and/or players only."
     if external_league_fhm_id not in cfg.eligible_external_league_fhm_ids:
         return "That external league is not eligible for transfers."
     if external_team_has_human_gm(site_session, league_slug, external_team_id):
@@ -135,10 +139,11 @@ def validate_transfer_submission(
         pl = session.get(Player, int(pid))
         if not pl or pl.current_team_id != int(external_team_id):
             return "Selected player is not on the external team roster."
-    picks = list(compensation.get("draft_picks") or [])
     if len(picks) > cfg.max_sweetener_picks:
         return f"Maximum {cfg.max_sweetener_picks} draft pick sweetener(s)."
     players_out = list(compensation.get("players") or [])
+    if players_out and not cfg.allow_player_sweeteners:
+        return "Player sweeteners are not allowed."
     if len(players_out) > cfg.max_sweetener_players:
         return f"Maximum {cfg.max_sweetener_players} player sweetener(s)."
     allowed = tradable_drag_keys_for_team(session, int(bowl_team_id), raw_dir, league_slug=league_slug)
@@ -146,6 +151,16 @@ def validate_transfer_submission(
         if str(key) not in allowed:
             return f"Invalid sweetener asset: {key}"
     pta = int(compensation.get("pta_transfer_fee") or 0)
+    cash = int(compensation.get("cash_sweetener") or 0)
+    if cash and not cfg.allow_cash_sweetener:
+        return "Cash sweeteners are not allowed."
+    budget = bowl_team_budget_snapshot(session, bowl_team_id=int(bowl_team_id), league_slug=league_slug)
+    remaining = budget.get("remaining_budget_usd")
+    if remaining is not None and (pta + cash) > int(remaining):
+        return (
+            f"PTA fee plus cash (${pta + cash:,}) exceeds remaining team budget "
+            f"(${int(remaining):,} of ${int(budget.get('salary_cap_usd') or 0):,} cap)."
+        )
     players = [session.get(Player, int(pid)) for pid in player_ids]
     players = [p for p in players if p]
     snap = rules_snapshot_for_players(
@@ -335,6 +350,7 @@ def preview_transfer_fees(
     external_team_id: int,
     league_slug: str,
     raw_dir: Path | None,
+    bowl_team_id: int | None = None,
 ) -> dict[str, Any]:
     ext_team = session.get(Team, int(external_team_id))
     if not ext_team:
@@ -374,6 +390,13 @@ def preview_transfer_fees(
             for c in contexts
         ],
         "required_pta_fee_usd": int(snap.get("required_pta_fee_usd") or 0),
+        "salary_cap_usd": int(snap.get("salary_cap_usd") or 0),
+        "cap_scale": snap.get("cap_scale"),
+        "team_budget": (
+            bowl_team_budget_snapshot(session, bowl_team_id=int(bowl_team_id), league_slug=league_slug)
+            if bowl_team_id
+            else None
+        ),
     }
 
 

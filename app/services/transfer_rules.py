@@ -31,17 +31,18 @@ class TransferRulesConfig:
     league_slug: str = "bowl-fantasy"
     eligible_external_league_fhm_ids: tuple[int, ...] = ()
     excluded_external_league_fhm_ids: tuple[int, ...] = ()
-    allow_draft_pick_sweeteners: bool = True
+    allow_draft_pick_sweeteners: bool = False
     allow_player_sweeteners: bool = True
     allow_cash_sweetener: bool = True
     max_players_acquired: int = 1
-    max_sweetener_picks: int = 2
+    max_sweetener_picks: int = 0
     max_sweetener_players: int = 2
     european_rights_window_years: int = 4
     north_american_rights_window_years: int = 2
     ufa_min_age: int = 22
     khl_league_fhm_id: int = 6
     khl_requires_contract_expiry: bool = True
+    reference_salary_cap_usd: int = 95_500_000
     european_pta_fees_usd: dict[str, Any] = field(default_factory=dict)
     pick_value_to_usd_multiplier: float = 50000.0
     ai_partner: dict[str, float] = field(default_factory=dict)
@@ -82,17 +83,18 @@ def _load_config_cached(path_str: str, mtime: float) -> TransferRulesConfig:
         league_slug=str(raw.get("league_slug") or "bowl-fantasy"),
         eligible_external_league_fhm_ids=tuple(int(x) for x in (raw.get("eligible_external_league_fhm_ids") or [])),
         excluded_external_league_fhm_ids=tuple(int(x) for x in (raw.get("excluded_external_league_fhm_ids") or [])),
-        allow_draft_pick_sweeteners=bool(raw.get("allow_draft_pick_sweeteners", True)),
+        allow_draft_pick_sweeteners=bool(raw.get("allow_draft_pick_sweeteners", False)),
         allow_player_sweeteners=bool(raw.get("allow_player_sweeteners", True)),
         allow_cash_sweetener=bool(raw.get("allow_cash_sweetener", True)),
         max_players_acquired=max(1, int(raw.get("max_players_acquired") or 1)),
-        max_sweetener_picks=max(0, int(raw.get("max_sweetener_picks") or 2)),
+        max_sweetener_picks=max(0, int(raw.get("max_sweetener_picks") or 0)),
         max_sweetener_players=max(0, int(raw.get("max_sweetener_players") or 2)),
         european_rights_window_years=int(raw.get("european_rights_window_years") or 4),
         north_american_rights_window_years=int(raw.get("north_american_rights_window_years") or 2),
         ufa_min_age=int(raw.get("ufa_min_age") or 22),
         khl_league_fhm_id=int(raw.get("khl_league_fhm_id") or 6),
         khl_requires_contract_expiry=bool(raw.get("khl_requires_contract_expiry", True)),
+        reference_salary_cap_usd=max(1, int(raw.get("reference_salary_cap_usd") or 95_500_000)),
         european_pta_fees_usd=fees if isinstance(fees, dict) else {},
         pick_value_to_usd_multiplier=float(raw.get("pick_value_to_usd_multiplier") or 50000),
         ai_partner={k: float(v) for k, v in (raw.get("ai_partner") or {}).items() if isinstance(v, (int, float))},
@@ -106,6 +108,91 @@ def load_transfer_rules_config(league_slug: str = "bowl-fantasy") -> TransferRul
     path = _CONFIG_PATH
     mtime = path.stat().st_mtime if path.is_file() else 0.0
     return _load_config_cached(str(path.resolve()), mtime)
+
+
+def resolve_transfer_salary_cap_usd(
+    session: Session | None,
+    league_slug: str = "bowl-fantasy",
+) -> int:
+    """Live salary cap / team budget ceiling; falls back to the $95.5M reference."""
+    cfg = load_transfer_rules_config(league_slug)
+    reference = int(cfg.reference_salary_cap_usd or 95_500_000)
+    if session is None:
+        return reference
+    try:
+        from app.services.league_rules import rule_int
+        from app.services.salary_cap_schedule import cap_for_season
+        from app.services.seasons import get_current_season
+
+        season = get_current_season(session)
+        if season is not None and season.start_year:
+            ceiling, _ = cap_for_season(session, league_slug, int(season.start_year))
+            if ceiling and int(ceiling) > 0:
+                return int(ceiling)
+        amount = rule_int(session, league_slug, "salary_cap_amount", default=0)
+        if amount > 0:
+            return int(amount)
+    except Exception:
+        return reference
+    return reference
+
+
+def transfer_cap_scale(session: Session | None, league_slug: str = "bowl-fantasy") -> float:
+    cfg = load_transfer_rules_config(league_slug)
+    reference = float(cfg.reference_salary_cap_usd or 95_500_000)
+    current = float(resolve_transfer_salary_cap_usd(session, league_slug))
+    if reference <= 0:
+        return 1.0
+    return max(0.25, min(4.0, current / reference))
+
+
+def scale_usd_to_current_cap(
+    amount_at_reference: int | float,
+    session: Session | None,
+    league_slug: str = "bowl-fantasy",
+    *,
+    round_to: int = 1000,
+) -> int:
+    scaled = float(amount_at_reference) * transfer_cap_scale(session, league_slug)
+    step = max(1, int(round_to))
+    return int(round(scaled / step) * step)
+
+
+def bowl_team_budget_snapshot(
+    session: Session,
+    *,
+    bowl_team_id: int,
+    league_slug: str,
+) -> dict[str, int | None]:
+    """Cap-as-budget ceiling vs current roster AAV (proxy for remaining cash room)."""
+    cap = resolve_transfer_salary_cap_usd(session, league_slug)
+    payroll = 0
+    counted = 0
+    try:
+        result = session.scalars(
+            select(Player).where(Player.current_team_id == int(bowl_team_id), Player.retired.is_(False))
+        )
+        raw = result.all() if result is not None else []
+        rows = list(raw) if isinstance(raw, (list, tuple)) else []
+    except Exception:
+        rows = []
+    for pl in rows:
+        contract = getattr(pl, "contract", None)
+        aav = getattr(contract, "average_salary", None) if contract is not None else None
+        if aav is None:
+            continue
+        try:
+            payroll += max(0, int(aav))
+            counted += 1
+        except (TypeError, ValueError):
+            continue
+    remaining = max(0, int(cap) - int(payroll)) if counted else None
+    return {
+        "salary_cap_usd": int(cap),
+        "roster_payroll_usd": int(payroll) if counted else None,
+        "remaining_budget_usd": remaining,
+        "contracts_counted": counted,
+    }
 
 
 def is_transfer_tool_league(league_slug: str | None) -> bool:
@@ -165,18 +252,27 @@ def _player_age(session: Session, player: Player) -> int | None:
     return age_as_of(player.birth_date, ref)
 
 
-def _pta_fee_for_player(cfg: TransferRulesConfig, *, league_fhm_id: int, age: int | None) -> int:
+def _pta_fee_for_player(
+    cfg: TransferRulesConfig,
+    *,
+    league_fhm_id: int,
+    age: int | None,
+    session: Session | None = None,
+    league_slug: str = "bowl-fantasy",
+) -> int:
     fees = cfg.european_pta_fees_usd or {}
     by_league = fees.get("by_league_fhm_id") or {}
     base = int(by_league.get(str(league_fhm_id)) or fees.get("default") or 350000)
     brackets = fees.get("by_age_bracket") or {}
-    if age is None:
-        return base
-    if age < 22:
-        return int(brackets.get("under_22") or base)
-    if age <= 25:
-        return int(brackets.get("22_25") or base)
-    return int(brackets.get("26_plus") or base)
+    at_reference = base
+    if age is not None:
+        if age < 22:
+            at_reference = int(brackets.get("under_22") or base)
+        elif age <= 25:
+            at_reference = int(brackets.get("22_25") or base)
+        else:
+            at_reference = int(brackets.get("26_plus") or base)
+    return scale_usd_to_current_cap(at_reference, session, league_slug)
 
 
 def build_player_transfer_context(
@@ -229,14 +325,19 @@ def build_player_transfer_context(
         pta_fee = 0
         notes.append(f"European UFA path (age {age}+, undrafted/free agent).")
     elif european:
-        pta_fee = _pta_fee_for_player(cfg, league_fhm_id=league_fhm_id, age=age)
+        pta_fee = _pta_fee_for_player(
+            cfg, league_fhm_id=league_fhm_id, age=age, session=session, league_slug=league_slug
+        )
         notes.append(f"European PTA transfer fee: ${pta_fee:,}.")
         notes.append("Standard European pro contract includes NHL Out clause.")
     elif russian and not is_khl:
-        pta_fee = _pta_fee_for_player(cfg, league_fhm_id=league_fhm_id, age=age)
+        pta_fee = _pta_fee_for_player(
+            cfg, league_fhm_id=league_fhm_id, age=age, session=session, league_slug=league_slug
+        )
         notes.append("Russian player outside KHL — PTA-style fee applies.")
     else:
-        pta_fee = int((cfg.european_pta_fees_usd or {}).get("default") or 200000)
+        fallback = int((cfg.european_pta_fees_usd or {}).get("default") or 200000)
+        pta_fee = scale_usd_to_current_cap(fallback, session, league_slug)
         notes.append("Non-European external signing — baseline transfer fee applies.")
 
     if years_left and years_left > 0 and not is_khl:
@@ -281,10 +382,13 @@ def rules_snapshot_for_players(
     ]
     total_pta = sum(c.pta_fee_usd for c in contexts)
     blocked = [c for c in contexts if c.blocked]
+    cap_usd = resolve_transfer_salary_cap_usd(session, league_slug)
     return {
         "config_version": cfg.raw,
         "external_team_id": int(external_team.id),
         "external_league_fhm_id": int(external_team.fhm_league_id or 0),
+        "salary_cap_usd": cap_usd,
+        "cap_scale": round(transfer_cap_scale(session, league_slug), 4),
         "required_pta_fee_usd": total_pta,
         "players": [
             {

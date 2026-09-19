@@ -5,6 +5,7 @@
   <header class="transfer-tool-page__header">
     <h1 class="page-title">Cross-League Transfer Tool</h1>
     <p class="muted">Acquire players from external pro leagues (KHL, SHL, DEL, etc.). The external club is simulated by AI; fair offers are accepted and forwarded to the league office for final approval.</p>
+    <p class="muted">Compensation is <strong>cash and optional BOWL players only</strong> — draft picks cannot be included. PTA fees scale with the current salary cap / team budget ($95.5M reference).</p>
     <p class="muted">Your team: <strong>{{ my_team.full_display_name() if my_team else '—' }}</strong></p>
   </header>
 
@@ -38,7 +39,7 @@
 
     <div id="fee-preview" class="transfer-tool-page__fees card" hidden>
       <h2 class="transfer-tool-page__section-title">Required transfer costs</h2>
-      <p id="fee-preview-body" class="muted"></p>
+      <p id="fee-preview-body" class="muted" style="white-space:pre-wrap;"></p>
     </div>
 
     <div id="sweetener-panel" class="transfer-tool-page__sweeteners card" hidden>
@@ -49,7 +50,7 @@
       <label>Cash sweetener (USD)
         <input type="number" id="cash-sweetener" min="0" step="1000" value="0">
       </label>
-      <div id="bowl-picks-panel" class="transfer-tool-page__pick-list"></div>
+      <p class="muted" style="margin:0.5rem 0 0.25rem;">Optional players to send (max 2)</p>
       <div id="bowl-players-panel" class="transfer-tool-page__player-list"></div>
     </div>
 
@@ -90,14 +91,13 @@
   var feeBody = document.getElementById('fee-preview-body');
   var sweetenerPanel = document.getElementById('sweetener-panel');
   var submitBtn = document.getElementById('submit-transfer');
-  var selectedPicks = [];
   var selectedPlayers = [];
 
   function syncCompensation() {
     compField.value = JSON.stringify({
       pta_transfer_fee: parseInt(ptaInput.value || '0', 10) || 0,
       cash_sweetener: parseInt(cashInput.value || '0', 10) || 0,
-      draft_picks: selectedPicks.slice(),
+      draft_picks: [],
       players: selectedPlayers.slice()
     });
   }
@@ -115,7 +115,7 @@
       cb.type = 'checkbox';
       cb.value = item.drag_key;
       cb.addEventListener('change', function () {
-        var arr = kind === 'pick' ? selectedPicks : selectedPlayers;
+        var arr = selectedPlayers;
         if (cb.checked) arr.push(item.drag_key);
         else {
           var idx = arr.indexOf(item.drag_key);
@@ -174,9 +174,7 @@
           playerSelect.appendChild(opt);
         });
         playerSelect.disabled = false;
-        renderCheckboxList(document.getElementById('bowl-picks-panel'), data.bowl_sweeteners && data.bowl_sweeteners.draft_picks, 'pick');
         renderCheckboxList(document.getElementById('bowl-players-panel'), data.bowl_sweeteners && data.bowl_sweeteners.roster, 'player');
-        selectedPicks = [];
         selectedPlayers = [];
         syncCompensation();
       });
@@ -197,6 +195,13 @@
       .then(function (data) {
         var req = data.required_pta_fee_usd || 0;
         var lines = ['Required PTA / transfer fee: $' + req.toLocaleString()];
+        if (data.salary_cap_usd) {
+          lines.push('League cap / team budget ceiling: $' + Number(data.salary_cap_usd).toLocaleString());
+        }
+        var budget = data.team_budget || {};
+        if (budget.remaining_budget_usd != null) {
+          lines.push('Your remaining budget: $' + Number(budget.remaining_budget_usd).toLocaleString());
+        }
         (data.players || []).forEach(function (p) {
           if (p.blocked) lines.push('BLOCKED: ' + (p.block_reason || 'Rule block'));
           (p.rule_notes || []).forEach(function (n) { lines.push('• ' + n); });

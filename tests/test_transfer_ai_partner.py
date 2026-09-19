@@ -6,7 +6,15 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from app.services.transfer_ai_partner import evaluate_transfer_proposal
-from app.services.transfer_rules import STATUS_AI_DECLINED, STATUS_AI_COUNTER, STATUS_PENDING_COMMISSIONER
+from app.services.transfer_rules import (
+    STATUS_AI_DECLINED,
+    STATUS_AI_COUNTER,
+    STATUS_PENDING_COMMISSIONER,
+    _pta_fee_for_player,
+    load_transfer_rules_config,
+    scale_usd_to_current_cap,
+)
+from app.services.transfer_tool import validate_transfer_submission
 from app.services.transfer_valuation import compensation_offer_value_usd, player_asset_value
 
 
@@ -167,6 +175,55 @@ class TransferAiPartnerTests(unittest.TestCase):
         )
         self.assertEqual(total, 450000)
         self.assertEqual(breakdown["pta_transfer_fee"], 350000)
+
+    def test_house_rules_no_picks_six_leagues(self):
+        cfg = load_transfer_rules_config("bowl-fantasy")
+        self.assertFalse(cfg.allow_draft_pick_sweeteners)
+        self.assertEqual(cfg.max_sweetener_picks, 0)
+        self.assertTrue(cfg.allow_player_sweeteners)
+        self.assertTrue(cfg.allow_cash_sweetener)
+        self.assertEqual(cfg.reference_salary_cap_usd, 95_500_000)
+        self.assertEqual(cfg.eligible_external_league_fhm_ids, (5, 6, 7, 8, 9, 16))
+
+    def test_pta_matches_confirmed_table_at_reference_cap(self):
+        cfg = load_transfer_rules_config("bowl-fantasy")
+        session = MagicMock()
+        self.assertEqual(
+            _pta_fee_for_player(cfg, league_fhm_id=5, age=24, session=session),
+            350000,
+        )
+        self.assertEqual(
+            _pta_fee_for_player(cfg, league_fhm_id=5, age=20, session=session),
+            250000,
+        )
+        self.assertEqual(
+            _pta_fee_for_player(cfg, league_fhm_id=5, age=28, session=session),
+            450000,
+        )
+
+    def test_pta_scales_when_cap_doubles(self):
+        self.assertEqual(scale_usd_to_current_cap(350000, None), 350000)
+        with patch(
+            "app.services.transfer_rules.resolve_transfer_salary_cap_usd",
+            return_value=191_000_000,
+        ):
+            self.assertEqual(scale_usd_to_current_cap(350000, MagicMock()), 700000)
+
+    def test_draft_picks_rejected(self):
+        session = MagicMock()
+        err = validate_transfer_submission(
+            session,
+            session,
+            league_slug="bowl-fantasy",
+            bowl_team_id=1,
+            external_team_id=2,
+            external_league_fhm_id=5,
+            player_ids=[1],
+            compensation={"pta_transfer_fee": 350000, "draft_picks": ["dpick:1"]},
+            raw_dir=None,
+        )
+        self.assertIsNotNone(err)
+        self.assertIn("Draft picks", err or "")
 
 
 if __name__ == "__main__":

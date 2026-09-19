@@ -10,17 +10,18 @@
     "9": "NL",
     "16": "ELH"
   },
-  "allow_draft_pick_sweeteners": true,
+  "allow_draft_pick_sweeteners": false,
   "allow_player_sweeteners": true,
   "allow_cash_sweetener": true,
   "max_players_acquired": 1,
-  "max_sweetener_picks": 2,
+  "max_sweetener_picks": 0,
   "max_sweetener_players": 2,
   "european_rights_window_years": 4,
   "north_american_rights_window_years": 2,
   "ufa_min_age": 22,
   "khl_league_fhm_id": 6,
   "khl_requires_contract_expiry": true,
+  "reference_salary_cap_usd": 95500000,
   "european_pta_fees_usd": {
     "default": 350000,
     "by_league_fhm_id": {
@@ -44,9 +45,10 @@
     "league_sell_multiplier": 0.35,
     "star_ovr_threshold": 78,
     "star_tax_usd": 750000,
-    "contract_year_premium_usd": 125000
+    "contract_year_premium_usd": 125000,
+    "asset_usd_per_point": 10000
   },
   "bowl_overrides": {
-    "notes": "Commissioner may edit this file for house rules. Defaults follow Transfers.docx baseline."
+    "notes": "Confirmed house rules: six European leagues; players + cash only (no picks); KHL must be off contract; AI toughness unchanged; Discord #confirm-trade. PTA table is the dollar amount at reference_salary_cap_usd ($95.5M) and scales with the live cap / team budget ceiling."
   }
 }

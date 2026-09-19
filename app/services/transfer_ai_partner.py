@@ -165,7 +165,7 @@ def evaluate_transfer_proposal(
         rationale = (
             f"{team_name} is interested in {player_names} but wants more compensation. "
             f"Current offer: ${offer_usd:,}. Their floor: ${minimum_usd:,}. "
-            f"Consider adding roughly ${suggested_cash:,} in cash or equivalent pick value."
+            f"Consider adding roughly ${suggested_cash:,} in cash or a player of similar value."
         )
         return TransferAiReviewResult(
             ai_status="counter",

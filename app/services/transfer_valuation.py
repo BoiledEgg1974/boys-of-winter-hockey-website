@@ -10,7 +10,13 @@ from app.models import Player, PlayerInjury
 from app.services.draft_pick_values import ROUND_AVERAGE_VALUE, perri_pick_value_for_round
 from app.services.player_overall_score import compute_player_overall_100, player_is_goalie_for_overall
 from app.services.player_ratings_csv import get_player_ratings_row
-from app.services.transfer_rules import PlayerTransferContext, TransferRulesConfig, load_transfer_rules_config
+from app.services.transfer_rules import (
+    PlayerTransferContext,
+    TransferRulesConfig,
+    load_transfer_rules_config,
+    scale_usd_to_current_cap,
+    transfer_cap_scale,
+)
 
 
 def _age_multiplier(age: int | None) -> float:
@@ -92,11 +98,13 @@ def compensation_offer_value_usd(
     cfg = load_transfer_rules_config(league_slug)
     pta = int(compensation.get("pta_transfer_fee") or compensation.get("required_pta_fee_usd") or 0)
     cash = int(compensation.get("cash_sweetener") or 0)
-    picks = list(compensation.get("draft_picks") or [])
+    picks = list(compensation.get("draft_picks") or []) if cfg.allow_draft_pick_sweeteners else []
     players = list(compensation.get("players") or [])
     pick_usd = sum(_pick_usd_value(str(k), cfg) for k in picks)
     player_usd = 0
     player_details: list[dict[str, Any]] = []
+    point_usd = float((cfg.ai_partner or {}).get("asset_usd_per_point") or 10000)
+    point_usd *= transfer_cap_scale(session, league_slug)
     for key in players:
         if not str(key).startswith("player:"):
             continue
@@ -111,7 +119,7 @@ def compensation_offer_value_usd(
 
         age = _player_age(session, pl)
         val = player_asset_value(session, pl, age=age)
-        usd = int(val * 10000)
+        usd = int(val * point_usd)
         player_usd += usd
         player_details.append({"player_id": pid, "name": pl.full_name, "value_usd": usd})
     total = int(pta + cash + pick_usd + player_usd)
@@ -137,14 +145,17 @@ def external_club_minimum_ask_usd(
     ai = cfg.ai_partner or {}
     sell_mult = float(ai.get("league_sell_multiplier") or 0.35)
     star_threshold = float(ai.get("star_ovr_threshold") or 78)
-    star_tax = int(ai.get("star_tax_usd") or 750000)
-    year_premium = int(ai.get("contract_year_premium_usd") or 125000)
+    star_tax = scale_usd_to_current_cap(int(ai.get("star_tax_usd") or 750000), session, league_slug)
+    year_premium = scale_usd_to_current_cap(
+        int(ai.get("contract_year_premium_usd") or 125000), session, league_slug
+    )
+    point_usd = float(ai.get("asset_usd_per_point") or 10000) * transfer_cap_scale(session, league_slug)
     pta_total = sum(c.pta_fee_usd for c in contexts)
     player_fair = 0
     details: list[dict[str, Any]] = []
     for ctx in contexts:
         val = player_asset_value(session, ctx.player, age=ctx.age)
-        fair_usd = int(val * 10000 * sell_mult)
+        fair_usd = int(val * point_usd * sell_mult)
         if val >= star_threshold:
             fair_usd += star_tax
         if ctx.contract_years_remaining and ctx.contract_years_remaining > 0:

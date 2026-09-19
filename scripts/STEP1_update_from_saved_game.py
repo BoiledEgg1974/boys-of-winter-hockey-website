@@ -69,6 +69,29 @@ LEAGUES: tuple[LeagueCopyTarget, ...] = (
     LeagueCopyTarget("BOWL-Cap", "bowl-cap", "bowl_cap"),
 )
 
+_LEAGUE_ALIASES: dict[str, str] = {
+    "bowl-relegation": "bowl-fantasy",
+    "relegation": "bowl-fantasy",
+    "bow": "bowl-fantasy",
+    "historical": "bowl-historical",
+    "cap": "bowl-cap",
+    "bowl-soft-cap": "bowl-cap",
+}
+
+
+def _copy_targets_for_league(league: str | None) -> tuple[LeagueCopyTarget, ...]:
+    """Return all hockey copy targets, or one league when ``--league`` is set."""
+    wanted = (league or "").strip()
+    if not wanted:
+        return LEAGUES
+    key = wanted.lower()
+    slug = _LEAGUE_ALIASES.get(key, key)
+    for target in LEAGUES:
+        if target.slug == slug or target.label.lower() == key:
+            return (target,)
+    known = ", ".join(f"{t.slug} ({t.label})" for t in LEAGUES)
+    raise SystemExit(f"Unknown --league {wanted!r}. Use one of: {known}")
+
 
 def _prompt_path(prompt: str, default: Path | None = None) -> Path | None:
     if default is not None:
@@ -258,9 +281,21 @@ def main() -> int:
         action="store_true",
         help="Skip STEP3 between copy and import (default is to run STEP3 for every copied league).",
     )
+    parser.add_argument(
+        "--league",
+        default="",
+        help=(
+            "Copy and import only this league (slug or name, e.g. bowl-fantasy / "
+            "BOWL-Relegation). Default: all hockey leagues."
+        ),
+    )
     args = parser.parse_args()
 
     print("\nBoys of Winter: Saved-Game CSV Updater\n")
+
+    targets = _copy_targets_for_league(args.league or None)
+    if len(targets) == 1:
+        print(f"Single-league mode: {targets[0].label} ({targets[0].slug})")
 
     saved_paths = _load_saved_paths()
 
@@ -280,14 +315,14 @@ def main() -> int:
             print(f"Base folder does not exist: {base}")
             return 1
         print(f"Using base export folder from args: {base}")
-        for league in LEAGUES:
+        for league in targets:
             league_sources[league.slug] = base / league.import_dir
     else:
         paths_changed = _ask_yes_no("Have your saved-game CSV paths changed since last run? [y/N]: ")
         if paths_changed:
             print("Enter new CSV source paths for each league:")
             updated_paths = dict(saved_paths)
-            for league in LEAGUES:
+            for league in targets:
                 default_src = Path(saved_paths[league.slug])
                 new_src = _prompt_path(f"{league.label} source path", default=default_src)
                 if new_src is None:
@@ -299,7 +334,7 @@ def main() -> int:
             print(f"Saved updated paths to: {PATHS_FILE}")
         else:
             print("Using last known source paths.")
-        for league in LEAGUES:
+        for league in targets:
             league_sources[league.slug] = Path(saved_paths[league.slug])
 
     # CLI per-league overrides always win.
@@ -308,7 +343,7 @@ def main() -> int:
             league_sources[slug] = p
 
     latest_by_slug: dict[str, datetime] = {}
-    for league in LEAGUES:
+    for league in targets:
         src = league_sources.get(league.slug)
         if src is None:
             continue
@@ -319,7 +354,7 @@ def main() -> int:
     if latest_by_slug:
         freshest = max(latest_by_slug.values())
         stale_threshold_seconds = 18 * 60 * 60
-        for league in LEAGUES:
+        for league in targets:
             latest = latest_by_slug.get(league.slug)
             if latest is None:
                 continue
@@ -350,7 +385,7 @@ def main() -> int:
             )
             return 1
 
-    for league in LEAGUES:
+    for league in targets:
         src = league_sources.get(league.slug)
         if src is None:
             print(f"- Skipped {league.label}")
@@ -375,7 +410,7 @@ def main() -> int:
             print(f"ERROR: {STEP3_ALIGN_SCRIPT} not found.", file=sys.stderr)
             return 1
         print("\nAligning raw CSVs (STEP3) before imports …")
-        for league in LEAGUES:
+        for league in targets:
             if league.slug not in copied_slugs:
                 continue
             raw_dir = (RAW_ROOT / league.import_dir).resolve()

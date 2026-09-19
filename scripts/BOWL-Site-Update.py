@@ -29,6 +29,7 @@ Examples:
   python scripts/BOWL-Site-Update.py --no-racing
   python scripts/BOWL-Site-Update.py --deploy-db-only
   python scripts/BOWL-Site-Update.py --remote-import
+  python scripts/BOWL-Site-Update.py --league bowl-fantasy --no-push
 
 Use ``flask bowl-overall-baseline-refresh`` only to treat the current site as a fresh baseline
 (clears trend arrows until the next pre-import snapshot).
@@ -61,6 +62,28 @@ HIST_AWARDS_SHEET = HIST_RAW / "history_awards.sheet.csv"
 HOCKEY_LEAGUE_SLUGS = ("bowl-historical", "bowl-fantasy", "bowl-cap")
 RACING_LEAGUE_SLUGS = ("bowl-formula", "bowl-demolition")
 LEAGUE_SLUGS = HOCKEY_LEAGUE_SLUGS + RACING_LEAGUE_SLUGS
+_LEAGUE_ALIASES: dict[str, str] = {
+    "bowl-relegation": "bowl-fantasy",
+    "relegation": "bowl-fantasy",
+    "bow": "bowl-fantasy",
+    "historical": "bowl-historical",
+    "cap": "bowl-cap",
+    "bowl-soft-cap": "bowl-cap",
+}
+
+
+def _normalize_league_arg(raw: str) -> str:
+    wanted = (raw or "").strip()
+    if not wanted:
+        return ""
+    key = wanted.lower()
+    if key in LEAGUE_SLUGS:
+        return key
+    alias = _LEAGUE_ALIASES.get(key)
+    if alias:
+        return alias
+    known = ", ".join(LEAGUE_SLUGS)
+    raise SystemExit(f"Unknown --league {wanted!r}. Use one of: {known}")
 
 # Game export folders. First existing path wins (Projects checkout, then Desktop).
 DEFAULT_RACING_EXPORT_SOURCES: dict[str, tuple[str, ...]] = {
@@ -252,13 +275,15 @@ def _run_racing_imports() -> None:
     _run([sys.executable, str(IMPORT_RACING)])
 
 
-def _verify_local_league_databases() -> None:
+def _verify_local_league_databases(slugs: tuple[str, ...] | None = None) -> None:
     from app.config import resolve_league_sqlite_path
 
+    hockey = HOCKEY_LEAGUE_SLUGS if slugs is None else tuple(s for s in slugs if s in HOCKEY_LEAGUE_SLUGS)
+    racing = RACING_LEAGUE_SLUGS if slugs is None else tuple(s for s in slugs if s in RACING_LEAGUE_SLUGS)
     print("Verifying local league SQLite files before deploy-db...")
-    for slug in HOCKEY_LEAGUE_SLUGS:
+    for slug in hockey:
         _run([sys.executable, str(REPAIR), "--check", "--league", slug])
-    for slug in RACING_LEAGUE_SLUGS:
+    for slug in racing:
         db_path = resolve_league_sqlite_path(slug)
         if not db_path.is_file():
             print(f"Skipping verify for {slug} (no local DB yet: {db_path.name})")
@@ -305,6 +330,15 @@ def main() -> int:
         help="Skip Formula BOWL / Demolition BOWL CSV copy + import.",
     )
     ap.add_argument(
+        "--league",
+        default="",
+        help=(
+            "Import and deploy only this league (e.g. bowl-fantasy / BOWL-Relegation). "
+            "Skips other hockey imports, Historical awards re-pass, and racing unless "
+            "the selected league is a racing site."
+        ),
+    )
+    ap.add_argument(
         "--remote-pip",
         action="store_true",
         help="During STEP2 deploy, run remote pip install -r requirements.txt before imports.",
@@ -315,6 +349,11 @@ def main() -> int:
         help="During STEP2 deploy, sync live AP catalog back into local DB for verification.",
     )
     args = ap.parse_args()
+    league = _normalize_league_arg(args.league)
+    league_args = ["--league", league] if league else []
+    verify_slugs = (league,) if league else None
+    skip_historical_extra = bool(league) and league != "bowl-historical"
+    skip_racing = bool(args.no_racing) or (bool(league) and league not in RACING_LEAGUE_SLUGS)
 
     if not STEP1.is_file() or not STEP2.is_file() or not STEP3.is_file():
         print("Missing one or more required scripts (STEP1/STEP2/STEP3).", file=sys.stderr)
@@ -330,9 +369,11 @@ def main() -> int:
 
     if args.deploy_db_only:
         print("BOWL-Site-Update (deploy-db only)...")
+        if league:
+            print(f"Single-league mode: {league}")
         _deploy_preflight_note()
-        _verify_local_league_databases()
-        step2_cmd = [sys.executable, str(STEP2), "deploy-db"]
+        _verify_local_league_databases(verify_slugs)
+        step2_cmd = [sys.executable, str(STEP2), "deploy-db", *league_args]
         if args.sync_ap_catalog_local:
             step2_cmd.append("--sync-ap-catalog-local")
         _run(step2_cmd, env=_pa_deploy_env())
@@ -341,36 +382,44 @@ def main() -> int:
         return 0
 
     print("BOWL-Site-Update starting...")
+    if league:
+        print(f"Single-league mode: {league}")
 
     # 1) STEP1: copy CSVs + local imports; defer git push until after the historical re-import below.
-    step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy", "--no-push"]
+    step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy", "--no-push", *league_args]
     if args.allow_stale:
         step1_cmd.append("--allow-stale")
-    _run(step1_cmd)
+    if not league or league in HOCKEY_LEAGUE_SLUGS:
+        _run(step1_cmd)
+    else:
+        print(f"Skipping hockey STEP1 (selected league is {league}).")
 
-    # 2) STEP3: align historical awards IDs.
-    step3_cmd = [
-        sys.executable,
-        str(STEP3),
-        "--raw-dir",
-        str(HIST_RAW),
-        "--output",
-        str(HIST_AWARDS_SHEET),
-    ]
-    _run(step3_cmd)
+    # 2-3) Historical awards alignment + re-import (all-league runs, or Historical-only).
+    if skip_historical_extra:
+        print("Skipping Historical awards re-pass (not selected).")
+    else:
+        step3_cmd = [
+            sys.executable,
+            str(STEP3),
+            "--raw-dir",
+            str(HIST_RAW),
+            "--output",
+            str(HIST_AWARDS_SHEET),
+        ]
+        _run(step3_cmd)
 
-    # 3) Re-import historical locally so aligned awards are applied immediately.
-    env = dict(os.environ)
-    env["LEAGUE_SLUG"] = "bowl-historical"
-    snap = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
-    _run([sys.executable, str(snap)], env=env)
-    _run([sys.executable, str(IMPORT)], env=env)
-    if HISTORY_SHEET_EXTRAS.is_file():
-        _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
+        env = dict(os.environ)
+        env["LEAGUE_SLUG"] = "bowl-historical"
+        snap = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
+        _run([sys.executable, str(snap)], env=env)
+        _run([sys.executable, str(IMPORT)], env=env)
+        if HISTORY_SHEET_EXTRAS.is_file():
+            _run([sys.executable, str(HISTORY_SHEET_EXTRAS), "bowl-historical"], env=env)
 
     # 4) Formula / Demolition: copy game exports when present, then import racing CSVs.
-    if args.no_racing:
-        print("Skipping Formula/Demolition racing imports (--no-racing).")
+    if skip_racing:
+        reason = "--no-racing" if args.no_racing else "not selected"
+        print(f"Skipping Formula/Demolition racing imports ({reason}).")
     else:
         try:
             _run_racing_imports()
@@ -394,7 +443,7 @@ def main() -> int:
     # 6) Deploy to PythonAnywhere.
     if not args.no_deploy:
         _deploy_preflight_note()
-        _verify_local_league_databases()
+        _verify_local_league_databases(verify_slugs)
         deploy_env = _pa_deploy_env()
         if args.remote_import:
             step2_cmd = [sys.executable, str(STEP2), "deploy", "--repo-csv"]
@@ -414,7 +463,7 @@ def main() -> int:
             _run(step2_cmd, env=deploy_env)
             _deploy_success_note(via_deploy_db=False)
         else:
-            step2_cmd = [sys.executable, str(STEP2), "deploy-db"]
+            step2_cmd = [sys.executable, str(STEP2), "deploy-db", *league_args]
             if args.sync_ap_catalog_local:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)

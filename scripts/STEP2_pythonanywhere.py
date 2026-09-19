@@ -581,11 +581,14 @@ def upload_named_repo_files(
     return uploaded, skipped
 
 
-def upload_deploy_discord_sidecars(sftp, local_root: Path, remote_base: str) -> int:
+def upload_deploy_discord_sidecars(
+    sftp, local_root: Path, remote_base: str, *, slugs: list[str] | None = None
+) -> int:
     """Upload local boxscore/record-break sidecar JSON for remote notify.
 
     Remote JSON files that are no longer present locally are removed so a stale
     backlog (e.g. bowl-fantasy.json from months ago) cannot be drained again.
+    When ``slugs`` is set, only those leagues' sidecars are uploaded or removed.
     """
     from app.services.deploy_discord_finals import (
         DEPLOY_DISCORD_FINALS_DIRNAME,
@@ -599,10 +602,17 @@ def upload_deploy_discord_sidecars(sftp, local_root: Path, remote_base: str) -> 
     uploaded = 0
     remote_base = remote_base.rstrip("/")
     instance_root = local_root / "instance"
+    managed_names = {f"{slug}.json" for slug in slugs} if slugs else None
+
+    def _for_slugs(files: list[Path]) -> list[Path]:
+        if managed_names is None:
+            return files
+        return [path for path in files if path.name in managed_names]
 
     def _sync_dir(dirname: str, local_files: list[Path], *, empty_note: str) -> None:
         nonlocal uploaded
         remote_dir = f"{remote_base}/instance/{dirname}"
+        local_files = _for_slugs(local_files)
         local_names = {path.name for path in local_files}
         if local_files:
             print(f"--- upload deploy Discord {dirname} sidecars ---")
@@ -618,6 +628,8 @@ def upload_deploy_discord_sidecars(sftp, local_root: Path, remote_base: str) -> 
         except (FileNotFoundError, OSError):
             remote_names = []
         for name in remote_names:
+            if managed_names is not None and name not in managed_names:
+                continue
             if name in local_names:
                 continue
             sftp.remove(f"{remote_dir}/{name}")
@@ -642,13 +654,33 @@ def upload_deploy_discord_sidecars(sftp, local_root: Path, remote_base: str) -> 
     return uploaded
 
 
-def clear_local_sidecars_after_notify(local_root: Path) -> int:
+def clear_local_sidecars_after_notify(
+    local_root: Path, *, slugs: list[str] | None = None
+) -> int:
     """Drop local notify sidecars so the next import does not re-queue old games."""
     from app.services.deploy_discord_finals import (
         clear_local_deploy_discord_notify_sidecars,
+        list_deploy_discord_finals_files,
     )
+    from app.services.deploy_discord_records import list_deploy_discord_records_files
 
-    n = clear_local_deploy_discord_notify_sidecars(local_root / "instance")
+    instance_root = local_root / "instance"
+    if not slugs:
+        n = clear_local_deploy_discord_notify_sidecars(instance_root)
+        print(f"cleared {n} local Discord notify sidecar file(s)")
+        return n
+    names = {f"{slug}.json" for slug in slugs}
+    n = 0
+    for path in list_deploy_discord_finals_files(instance_root) + list_deploy_discord_records_files(
+        instance_root
+    ):
+        if path.name not in names:
+            continue
+        try:
+            path.unlink()
+            n += 1
+        except OSError:
+            continue
     print(f"cleared {n} local Discord notify sidecar file(s)")
     return n
 
@@ -893,6 +925,7 @@ def build_post_db_upload_script(
     staged_db_rels: tuple[str, ...] = (),
     notify_discord: bool = True,
     discord_fallback_days: int = 7,
+    notify_league: str | None = None,
 ) -> str:
     """SSH script: atomically promote staged DBs, drop WAL sidecars, integrity-check, reload WSGI."""
     rp = shlex.quote(remote_project.rstrip("/"))
@@ -902,12 +935,13 @@ def build_post_db_upload_script(
     notify = shlex.quote(
         f"{remote_project.rstrip('/')}/scripts/notify_discord_after_db_deploy.py"
     )
+    league_flag = f" --league {shlex.quote(notify_league)}" if notify_league else ""
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     if notify_discord:
         # Capture live record boards *before* promote so broken-records can be
         # reconstructed when the local import sidecar is missing.
         parts.append(
-            f"{py} {notify} --stash-live-record-state "
+            f"{py} {notify} --stash-live-record-state{league_flag} "
             "|| echo 'record-state stash failed (non-fatal)'"
         )
     for remote_rel in staged_db_rels:
@@ -923,7 +957,7 @@ def build_post_db_upload_script(
     if notify_discord:
         # Enqueue boxscores, broken records, BOWL Six, and playoff bracket.
         days = max(1, int(discord_fallback_days))
-        parts.append(f"{py} {notify} --fallback-days {days}")
+        parts.append(f"{py} {notify} --fallback-days {days}{league_flag}")
     parts.extend(_touch_wsgi_bash(wsgi_file))
     return "; ".join(parts)
 
@@ -970,6 +1004,38 @@ def league_db_upload_targets(
                 seen_remote.add(primary_rel)
                 out.append((slug, db_path, primary_rel))
     return out
+
+
+_DEPLOY_LEAGUE_ALIASES: dict[str, str] = {
+    "bowl-relegation": "bowl-fantasy",
+    "relegation": "bowl-fantasy",
+    "bow": "bowl-fantasy",
+    "historical": "bowl-historical",
+    "cap": "bowl-cap",
+    "bowl-soft-cap": "bowl-cap",
+}
+
+
+def resolve_deploy_db_leagues(
+    league: str | None,
+    *,
+    all_slugs: list[str],
+    hockey_slugs: list[str],
+    racing_slugs: list[str],
+) -> tuple[list[str], list[str]]:
+    """Return (hockey_slugs, racing_slugs), optionally filtered to one league."""
+    wanted = (league or "").strip()
+    if not wanted:
+        return list(hockey_slugs), list(racing_slugs)
+    slug = _DEPLOY_LEAGUE_ALIASES.get(wanted.lower(), wanted)
+    if slug not in all_slugs:
+        known = ", ".join(all_slugs)
+        raise SystemExit(f"Unknown --league {wanted!r}. Use one of: {known}")
+    hockey = [slug] if slug in hockey_slugs else []
+    racing = [slug] if slug in racing_slugs else []
+    if not hockey and not racing:
+        raise SystemExit(f"No deploy-db target for league {slug!r}.")
+    return hockey, racing
 
 
 def build_full_remote_rebuild_prep_script(
@@ -1269,9 +1335,16 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     # Hockey-only for live OVR / trade / game-record / editorial capture+merge.
     hockey_slugs = [s for s in all_slugs if s in HOCKEY_LEAGUE_SLUGS]
     racing_slugs = [s for s in all_slugs if s in RACING_LEAGUE_SLUGS]
-    # Upload hockey always; racing when a local DB exists.
+    hockey_slugs, racing_slugs = resolve_deploy_db_leagues(
+        getattr(ns, "league", None),
+        all_slugs=all_slugs,
+        hockey_slugs=hockey_slugs,
+        racing_slugs=racing_slugs,
+    )
+    # Upload hockey always (when selected); racing when a local DB exists.
     upload_slugs = list(hockey_slugs) + list(racing_slugs)
     slugs = hockey_slugs
+    notify_league = slugs[0] if getattr(ns, "league", None) and len(slugs) == 1 else None
 
     if getattr(ns, "seed_static_manifest", False):
         seed_tree_manifest(local_root, "app/static")
@@ -1311,7 +1384,8 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
     staged_db_rels = tuple(remote_rel for _slug, _db_path, remote_rel in db_targets)
     post_upload_script = build_post_db_upload_script(
-        remote_base, ns.venv_bin, slugs, wsgi, staged_db_rels=staged_db_rels
+        remote_base, ns.venv_bin, slugs, wsgi, staged_db_rels=staged_db_rels,
+        notify_league=notify_league,
     )
 
     if ns.dry_run:
@@ -1547,7 +1621,9 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             uploaded += 1
 
         # Newly-final game ids / broken records from local import (blank local Discord routes).
-        uploaded += upload_deploy_discord_sidecars(sftp, local_root, remote_base)
+        uploaded += upload_deploy_discord_sidecars(
+            sftp, local_root, remote_base, slugs=upload_slugs
+        )
 
         if not ns.skip_static:
             print("--- app/static ---")
@@ -1565,7 +1641,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
 
         print("--- remote post-upload checks + reload ---")
         run_remote_bash(client, post_upload_script)
-        clear_local_sidecars_after_notify(local_root)
+        clear_local_sidecars_after_notify(local_root, slugs=upload_slugs)
 
         if ns.sync_ap_catalog_local:
             sync_local_ap_catalog_from_remote(
@@ -1761,6 +1837,14 @@ def main() -> int:
         help=(
             "Before upload, record local app/static mtime+size as already deployed "
             "(one-time bootstrap when the server already matches your PC)."
+        ),
+    )
+    p_deploy_db.add_argument(
+        "--league",
+        default="",
+        help=(
+            "Upload/merge only this league slug (e.g. bowl-fantasy). "
+            "Default: all hockey leagues plus racing DBs that exist locally."
         ),
     )
     p_deploy_db.add_argument(

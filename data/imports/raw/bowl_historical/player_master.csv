@@ -796,7 +796,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 5093;90;90;Geoff;Powis;;73;170;1945-6-14;Oakbank;MB;Canada;;;0;Left;0
 4086;62;62;Rudolf;Potsch;;74;209;1937-6-15;Sluknov;UST;Czech Republic;;;0;Right;0
 4087;62;62;Zdenek;Kepak;;67;170;1937-12-24;Liberec;LIB;Czech Republic;;;0;Right;0
-6125;90;90;Norm;Gratton;;71;165;1950-12-22;Murdochville;QC;Canada;;;0;Left;1
+6125;126;119;Norm;Gratton;;71;165;1950-12-22;Murdochville;QC;Canada;;;0;Left;1
 5896;24;5;Phil;Hoene;;69;176;1949-3-15;Farmington;MN;The United States;;;0;Left;1
 4510;60;60;Timo;Ahlqvist;;69;172;1940-4-2;Tampere;PIR;Finland;;;0;Right;0
 4964;90;90;Ron;Ward;Magic;71;175;1944-9-12;Cornwall;ON;Canada;;;0;Right;0
@@ -1693,7 +1693,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6198;28;10;Murray;Wing;;71;180;1950-10-14;Thunder Bay;ON;Canada;;;0;Right;0
 6199;89;89;Bob;Winograd;;71;194;1950-6-6;Oakbank;MB;Canada;;;0;Left;0
 6200;89;89;Duane;Wylie;;69;174;1950-11-10;Tumwater;WA;The United States;;;0;Left;0
-6383;27;9;Brian;McKenzie;;70;174;1951-3-16;St. Catharines;ON;Canada;;;0;Left;1
+6383;9;9;Brian;McKenzie;;70;174;1951-3-16;St. Catharines;ON;Canada;;;0;Left;1
 6384;89;89;Bob;McManama;;72;181;1951-10-7;Buzzards Bay;MA;The United States;;;0;Right;0
 6201;-1;-1;Randy;Wyrozub;;71;180;1950-4-8;Leduc;AB;Canada;;;0;Left;0
 6202;62;62;Vladimír;Martinec;;68;185;1949-12-22;Lomnice nad Popelkou;LIB;Czech Republic;;;0;Left;0
@@ -1767,7 +1767,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6642;85;85;Jean;Lemieux;;73;180;1952-5-31;Roberval;QC;Canada;;;0;Right;0
 6400;83;83;Curt;Ridley;;72;190;1951-9-24;Oakbank;MB;Canada;;;0;Left;0
 6643;84;84;Don;Lever;Cleaver;71;185;1952-11-14;Timmins;ON;Canada;;;0;Left;0
-6401;9;9;Larry;Robinson;Big Bird;76;225;1951-6-2;Winchester;ON;Canada;;;0;Left;1
+6401;27;9;Larry;Robinson;Big Bird;76;225;1951-6-2;Winchester;ON;Canada;;;0;Left;1
 6402;121;121;Borje;Salming;B.J.;73;209;1951-4-17;Kiruna;NOR;Sweden;;;0;Left;1
 6403;84;84;Ted;Scharf;;71;185;1951-10-3;Sudbury;ON;Canada;;;0;Right;0
 6404;89;89;Sean;Shanahan;;75;205;1951-2-8;Toronto;ON;Canada;;;0;Right;0

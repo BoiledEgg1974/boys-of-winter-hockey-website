@@ -1,7 +1,7 @@
 LeagueId;Date;Event
-0;2025-7-1;Assign Scouts
 0;2025-7-2;Initial Draft
 0;2025-7-7;Player Training Programs
+0;2025-8-1;Assign Scouts
 0;2025-8-1;Set Monthly Budget
 0;2025-8-14;Prospect Tournament
 0;2025-9-20;Preseason Start
@@ -17,9 +17,9 @@ LeagueId;Date;Event
 0;2026-6-2;HOF Cast Ballot
 0;2026-6-30;Last Day of season
 0;2026-8-1;HOF Induction
-1;2025-7-1;Assign Scouts
-1;2025-7-1;Set Monthly Budget
 1;2025-7-7;Player Training Programs
+1;2025-8-1;Assign Scouts
+1;2025-8-1;Set Monthly Budget
 1;2025-8-14;Prospect Tournament
 1;2025-8-15;Initial Draft
 1;2025-9-20;Preseason Start
@@ -35,9 +35,9 @@ LeagueId;Date;Event
 1;2026-6-2;HOF Cast Ballot
 1;2026-6-30;Last Day of season
 1;2026-8-1;HOF Induction
-2;2025-7-1;Assign Scouts
-2;2025-7-1;Set Monthly Budget
 2;2025-7-7;Player Training Programs
+2;2025-8-1;Assign Scouts
+2;2025-8-1;Set Monthly Budget
 2;2025-9-20;Preseason Start
 2;2025-10-4;Opening Night
 2;2026-1-24;All-Star Announcement
@@ -52,9 +52,9 @@ LeagueId;Date;Event
 2;2026-7-6;Draft Order Announcement
 2;2026-7-7;AHL Entry Draft
 2;2026-8-1;HOF Induction
-3;2025-7-1;Assign Scouts
-3;2025-7-1;Set Monthly Budget
 3;2025-7-7;Player Training Programs
+3;2025-8-1;Assign Scouts
+3;2025-8-1;Set Monthly Budget
 3;2025-9-20;Preseason Start
 3;2025-10-4;Opening Night
 3;2026-4-3;Award Nominees
@@ -67,9 +67,9 @@ LeagueId;Date;Event
 3;2026-7-6;Draft Order Announcement
 3;2026-7-7;IHL Entry Draft
 3;2026-8-1;HOF Induction
-4;2025-7-1;Assign Scouts
-4;2025-7-1;Set Monthly Budget
 4;2025-7-7;Player Training Programs
+4;2025-8-1;Assign Scouts
+4;2025-8-1;Set Monthly Budget
 4;2025-9-20;Preseason Start
 4;2025-10-4;Opening Night
 4;2026-1-20;All-Star Announcement
@@ -83,9 +83,9 @@ LeagueId;Date;Event
 4;2026-7-6;Draft Order Announcement
 4;2026-7-7;OJHL Entry Draft
 4;2026-8-1;HOF Induction
-5;2025-7-1;Assign Scouts
-5;2025-7-1;Set Monthly Budget
 5;2025-7-7;Player Training Programs
+5;2025-8-1;Assign Scouts
+5;2025-8-1;Set Monthly Budget
 5;2025-8-30;Preseason Start
 5;2025-9-13;Opening Night
 5;2026-2-1;Trading Deadline
@@ -99,9 +99,9 @@ LeagueId;Date;Event
 5;2026-7-6;Draft Order Announcement
 5;2026-7-7;SHL Entry Draft
 5;2026-8-1;HOF Induction
-6;2025-7-1;Assign Scouts
-6;2025-7-1;Set Monthly Budget
 6;2025-7-7;Player Training Programs
+6;2025-8-1;Assign Scouts
+6;2025-8-1;Set Monthly Budget
 6;2025-8-22;Preseason Start
 6;2025-9-5;Opening Night
 6;2026-2-1;Trading Deadline
@@ -117,9 +117,9 @@ LeagueId;Date;Event
 6;2026-7-6;Draft Order Announcement
 6;2026-7-7;KHL Entry Draft
 6;2026-8-1;HOF Induction
-7;2025-7-1;Assign Scouts
-7;2025-7-1;Set Monthly Budget
 7;2025-7-7;Player Training Programs
+7;2025-8-1;Assign Scouts
+7;2025-8-1;Set Monthly Budget
 7;2025-8-26;Preseason Start
 7;2025-9-9;Opening Night
 7;2026-2-1;Trading Deadline
@@ -133,9 +133,9 @@ LeagueId;Date;Event
 7;2026-7-6;Draft Order Announcement
 7;2026-7-7;DEL Entry Draft
 7;2026-8-1;HOF Induction
-8;2025-7-1;Assign Scouts
-8;2025-7-1;Set Monthly Budget
 8;2025-7-7;Player Training Programs
+8;2025-8-1;Assign Scouts
+8;2025-8-1;Set Monthly Budget
 8;2025-8-26;Preseason Start
 8;2025-9-9;Opening Night
 8;2026-2-1;Trading Deadline
@@ -149,9 +149,9 @@ LeagueId;Date;Event
 8;2026-7-6;Draft Order Announcement
 8;2026-7-7;SML Entry Draft
 8;2026-8-1;HOF Induction
-9;2025-7-1;Assign Scouts
-9;2025-7-1;Set Monthly Budget
 9;2025-7-7;Player Training Programs
+9;2025-8-1;Assign Scouts
+9;2025-8-1;Set Monthly Budget
 9;2025-8-26;Preseason Start
 9;2025-9-9;Opening Night
 9;2026-2-1;Trading Deadline
@@ -165,9 +165,9 @@ LeagueId;Date;Event
 9;2026-7-6;Draft Order Announcement
 9;2026-7-7;NL Entry Draft
 9;2026-8-1;HOF Induction
-10;2025-7-1;Assign Scouts
-10;2025-7-1;Set Monthly Budget
 10;2025-7-7;Player Training Programs
+10;2025-8-1;Assign Scouts
+10;2025-8-1;Set Monthly Budget
 10;2025-9-25;Preseason Start
 10;2025-10-3;Opening Night
 10;2025-12-22;All-Star Announcement
@@ -183,9 +183,9 @@ LeagueId;Date;Event
 10;2026-7-6;Draft Order Announcement
 10;2026-7-7;NCAA Entry Draft
 10;2026-8-1;HOF Induction
-11;2025-7-1;Assign Scouts
-11;2025-7-1;Set Monthly Budget
 11;2025-7-7;Player Training Programs
+11;2025-8-1;Assign Scouts
+11;2025-8-1;Set Monthly Budget
 11;2025-9-4;Preseason Start
 11;2025-9-18;Opening Night
 11;2026-2-1;Trading Deadline
@@ -201,9 +201,9 @@ LeagueId;Date;Event
 11;2026-7-6;Draft Order Announcement
 11;2026-7-7;OHL Entry Draft
 11;2026-8-1;HOF Induction
-12;2025-7-1;Assign Scouts
-12;2025-7-1;Set Monthly Budget
 12;2025-7-7;Player Training Programs
+12;2025-8-1;Assign Scouts
+12;2025-8-1;Set Monthly Budget
 12;2025-9-5;Preseason Start
 12;2025-9-19;Opening Night
 12;2026-2-1;Trading Deadline
@@ -219,9 +219,9 @@ LeagueId;Date;Event
 12;2026-7-6;Draft Order Announcement
 12;2026-7-7;WHL Entry Draft
 12;2026-8-1;HOF Induction
-13;2025-7-1;Assign Scouts
-13;2025-7-1;Set Monthly Budget
 13;2025-7-7;Player Training Programs
+13;2025-8-1;Assign Scouts
+13;2025-8-1;Set Monthly Budget
 13;2025-9-4;Preseason Start
 13;2025-9-18;Opening Night
 13;2026-1-18;All-Star Announcement
@@ -237,9 +237,9 @@ LeagueId;Date;Event
 13;2026-7-6;Draft Order Announcement
 13;2026-7-7;QMJHL Entry Draft
 13;2026-8-1;HOF Induction
-14;2025-7-1;Assign Scouts
-14;2025-7-1;Set Monthly Budget
 14;2025-7-7;Player Training Programs
+14;2025-8-1;Assign Scouts
+14;2025-8-1;Set Monthly Budget
 14;2025-10-14;Preseason Start
 14;2025-10-17;Opening Night
 14;2026-2-1;Trading Deadline
@@ -255,9 +255,9 @@ LeagueId;Date;Event
 14;2026-7-6;Draft Order Announcement
 14;2026-7-7;ECHL Entry Draft
 14;2026-8-1;HOF Induction
-15;2025-7-1;Assign Scouts
-15;2025-7-1;Set Monthly Budget
 15;2025-7-7;Player Training Programs
+15;2025-8-1;Assign Scouts
+15;2025-8-1;Set Monthly Budget
 15;2025-9-20;Preseason Start
 15;2025-10-4;Opening Night
 15;2026-1-10;All-Star Announcement
@@ -273,9 +273,9 @@ LeagueId;Date;Event
 15;2026-7-6;Draft Order Announcement
 15;2026-7-7;USHL Entry Draft
 15;2026-8-1;HOF Induction
-16;2025-7-1;Assign Scouts
-16;2025-7-1;Set Monthly Budget
 16;2025-7-7;Player Training Programs
+16;2025-8-1;Assign Scouts
+16;2025-8-1;Set Monthly Budget
 16;2025-8-26;Preseason Start
 16;2025-9-9;Opening Night
 16;2026-2-1;Trading Deadline
@@ -289,9 +289,9 @@ LeagueId;Date;Event
 16;2026-7-6;Draft Order Announcement
 16;2026-7-7;ELH Entry Draft
 16;2026-8-1;HOF Induction
-17;2025-7-1;Assign Scouts
-17;2025-7-1;Set Monthly Budget
 17;2025-7-7;Player Training Programs
+17;2025-8-1;Assign Scouts
+17;2025-8-1;Set Monthly Budget
 17;2025-8-29;Preseason Start
 17;2025-9-6;Opening Night
 17;2025-12-19;All-Star Announcement

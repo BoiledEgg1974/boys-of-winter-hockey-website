@@ -17,6 +17,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from app import create_app
 from app.config import league_slugs, make_league_config
+from app.perfect_squad_mount import wrap_league_wsgi_with_perfect_squad
 from hub import create_hub_app
 
 _init_locks: dict[str, threading.Lock] = {}
@@ -41,7 +42,10 @@ def _lazy_league_wsgi(slug: str):
         if not loaded:
             with init_lock:
                 if not loaded:
-                    loaded.append(create_app(make_league_config(slug)).wsgi_app)
+                    league_app = create_app(make_league_config(slug))
+                    loaded.append(
+                        wrap_league_wsgi_with_perfect_squad(league_app.wsgi_app, slug)
+                    )
         return loaded[0](environ, start_response)
 
     return application

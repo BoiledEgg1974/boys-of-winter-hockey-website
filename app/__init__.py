@@ -651,6 +651,7 @@ def create_app(config_class: type = Config) -> Flask:
                 header_team_logo_season = None
 
         from app.services.relegation import relegation_under_construction
+        from app.perfect_squad_mount import perfect_squad_home_href
 
         return dict(
             nav_teams=teams,
@@ -689,6 +690,7 @@ def create_app(config_class: type = Config) -> Flask:
             )
             if getattr(current_user, "is_authenticated", False)
             else False,
+            perfect_squad_home_href=perfect_squad_home_href(slug_layout) if slug_layout else None,
         )
 
     @app.cli.command("init-db")

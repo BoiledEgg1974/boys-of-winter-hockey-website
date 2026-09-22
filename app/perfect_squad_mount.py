@@ -84,6 +84,13 @@ def _build_perfect_squad_app(league_slug: str):
 
         bowl_repo = Path(__file__).resolve().parent.parent
         site_uri = os.environ.get("SITE_DATABASE_URL", "").strip()
+        if site_uri:
+            try:
+                from app.config import normalize_site_database_url as _norm_site_db
+
+                site_uri = _norm_site_db(site_uri)
+            except ImportError:
+                pass
         ps_config: dict[str, Any] = {
             "PS_MOUNT_LEAGUE_SLUG": league_slug,
             "SECRET_KEY": os.environ.get("SECRET_KEY"),

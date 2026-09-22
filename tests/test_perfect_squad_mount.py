@@ -7,6 +7,7 @@ from werkzeug.wrappers import Response
 from app.config import HOCKEY_LEAGUE_SLUGS
 from app.perfect_squad_mount import (
     perfect_squad_home_href,
+    perfect_squad_league_enabled,
     perfect_squad_root,
     wrap_league_wsgi_with_perfect_squad,
 )
@@ -18,6 +19,14 @@ def test_perfect_squad_home_href_format():
         if href is None:
             continue
         assert href == f"/{slug}/perfect-squad/{slug}/"
+
+
+def test_perfect_squad_disabled_league(monkeypatch):
+    monkeypatch.setenv("PERFECT_SQUAD_DISABLED_LEAGUES", "bowl-fantasy")
+    assert not perfect_squad_league_enabled("bowl-fantasy")
+    assert perfect_squad_league_enabled("bowl-historical")
+    assert perfect_squad_home_href("bowl-fantasy") is None
+    assert perfect_squad_home_href("bowl-cap") is not None
 
 
 def test_wrap_league_wsgi_passthrough_for_racing():

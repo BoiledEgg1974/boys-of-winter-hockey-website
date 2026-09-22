@@ -136,6 +136,7 @@ def setdefault(key: str, value: str) -> None:
 setdefault("PERFECT_SQUAD_ROOT", str(ps))
 setdefault("PS_ECONOMY_LIVE", "1")
 setdefault("AP_ECONOMY_MULTIPLIER", "10")
+setdefault("PERFECT_SQUAD_DISABLED_LEAGUES", "bowl-fantasy")
 ps_db = ps / "instance" / "perfect-squad.db"
 ps_db.parent.mkdir(parents=True, exist_ok=True)
 setdefault("PERFECT_SQUAD_DATABASE_URL", f"sqlite:///{ps_db.as_posix()}")

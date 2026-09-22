@@ -36,8 +36,20 @@ def perfect_squad_enabled() -> bool:
     return perfect_squad_root() is not None
 
 
+def perfect_squad_disabled_leagues() -> frozenset[str]:
+    raw = os.environ.get("PERFECT_SQUAD_DISABLED_LEAGUES", "").strip()
+    if not raw:
+        return frozenset()
+    return frozenset(part.strip() for part in raw.split(",") if part.strip())
+
+
+def perfect_squad_league_enabled(league_slug: str) -> bool:
+    slug = str(league_slug or "").strip()
+    return slug in HOCKEY_LEAGUE_SLUGS and slug not in perfect_squad_disabled_leagues()
+
+
 def perfect_squad_home_href(league_slug: str) -> str | None:
-    if league_slug not in HOCKEY_LEAGUE_SLUGS or not perfect_squad_enabled():
+    if not perfect_squad_league_enabled(league_slug) or not perfect_squad_enabled():
         return None
     return f"/{league_slug}{_MOUNT_PREFIX}/{league_slug}/"
 
@@ -166,6 +178,6 @@ def _lazy_perfect_squad_wsgi(league_slug: str) -> Callable:
 
 def wrap_league_wsgi_with_perfect_squad(league_wsgi_app: Callable, league_slug: str) -> Callable:
     """Nest Perfect Squad under ``/perfect-squad`` for hockey league mounts."""
-    if league_slug not in HOCKEY_LEAGUE_SLUGS or not perfect_squad_enabled():
+    if not perfect_squad_league_enabled(league_slug) or not perfect_squad_enabled():
         return league_wsgi_app
     return DispatcherMiddleware(league_wsgi_app, {_MOUNT_PREFIX: _lazy_perfect_squad_wsgi(league_slug)})

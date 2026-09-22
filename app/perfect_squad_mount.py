@@ -12,7 +12,8 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from app.config import HOCKEY_LEAGUE_SLUGS
 
 _MOUNT_PREFIX = "/perfect-squad"
-_ps_apps: dict[str, Any] = {}
+# Per league: Flask app, snapshot of Perfect Squad ``app.*`` modules, repo root path.
+_ps_runtime: dict[str, tuple[Any, dict[str, Any], str]] = {}
 _ps_locks: dict[str, threading.Lock] = {}
 _ps_lock_guard = threading.Lock()
 
@@ -95,7 +96,12 @@ def _build_perfect_squad_app(league_slug: str):
         ps_db = os.environ.get("PERFECT_SQUAD_DATABASE_URL", "").strip()
         if ps_db:
             ps_config["SQLALCHEMY_DATABASE_URI"] = ps_db
-        return ps_create_app(ps_config)
+        if os.environ.get("DEV_BYPASS_LOGIN", "").strip().lower() in ("1", "true", "yes"):
+            ps_config["DEV_BYPASS_LOGIN"] = True
+            ps_config["DEV_BYPASS_USER_ID"] = int(os.environ.get("DEV_BYPASS_USER_ID", "1") or 1)
+        app = ps_create_app(ps_config)
+        ps_modules = _snapshot_app_modules()
+        return app, ps_modules, ps_root
     finally:
         if inserted:
             try:
@@ -105,17 +111,48 @@ def _build_perfect_squad_app(league_slug: str):
         _restore_app_modules(saved_modules)
 
 
+def _get_or_build_ps_runtime(league_slug: str) -> tuple[Any, dict[str, Any], str]:
+    runtime = _ps_runtime.get(league_slug)
+    if runtime is not None:
+        return runtime
+    runtime = _build_perfect_squad_app(league_slug)
+    _ps_runtime[league_slug] = runtime
+    return runtime
+
+
+def _invoke_ps_wsgi(
+    league_slug: str,
+    app: Any,
+    ps_modules: dict[str, Any],
+    ps_root: str,
+    environ,
+    start_response,
+):
+    saved_bowl = _snapshot_app_modules()
+    path_inserted = False
+    try:
+        _restore_app_modules(ps_modules)
+        if ps_root not in sys.path:
+            sys.path.insert(0, ps_root)
+            path_inserted = True
+        return app.wsgi_app(environ, start_response)
+    finally:
+        ps_modules = _snapshot_app_modules()
+        _restore_app_modules(saved_bowl)
+        if path_inserted:
+            try:
+                sys.path.remove(ps_root)
+            except ValueError:
+                pass
+        _ps_runtime[league_slug] = (app, ps_modules, ps_root)
+
+
 def _lazy_perfect_squad_wsgi(league_slug: str) -> Callable:
     def application(environ, start_response):
-        app = _ps_apps.get(league_slug)
-        if app is None:
-            lock = _lock_for(league_slug)
-            with lock:
-                app = _ps_apps.get(league_slug)
-                if app is None:
-                    app = _build_perfect_squad_app(league_slug)
-                    _ps_apps[league_slug] = app
-        return app.wsgi_app(environ, start_response)
+        lock = _lock_for(league_slug)
+        with lock:
+            app, ps_modules, ps_root = _get_or_build_ps_runtime(league_slug)
+            return _invoke_ps_wsgi(league_slug, app, ps_modules, ps_root, environ, start_response)
 
     return application
 

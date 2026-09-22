@@ -58,12 +58,59 @@ def _upload_ps_tree(sftp, local_root: Path, remote_ps: str) -> int:
     return uploaded
 
 
+def _tarball_extract_prep(user: str) -> str:
+    ps_root = f"/home/{user}/bowl-perfect-squad"
+    remote_tar = f"/home/{user}/bowl-ps-deploy.tgz"
+    return "; ".join(
+        [
+            "set -euo pipefail",
+            f"PS={shlex.quote(ps_root)}",
+            f'TAR={shlex.quote(remote_tar)}',
+            'OLD="${PS}.partial-$(date +%s)"',
+            'if [ -d "$PS" ]; then mv "$PS" "$OLD"; fi',
+            'mkdir -p "$PS"',
+            'tar -xzf "$TAR" -C "$PS"',
+            'rm -f "$TAR"',
+            'rm -rf "$OLD" 2>/dev/null || true',
+            "echo extracted_ps_tarball",
+        ]
+    )
+
+
+def _build_ps_tarball(local_root: Path) -> Path:
+    import subprocess
+    import tempfile
+
+    local_root = local_root.resolve()
+    out = Path(tempfile.gettempdir()) / "bowl-ps-deploy.tgz"
+    if out.is_file():
+        out.unlink()
+    cmd = [
+        "tar",
+        "-czf",
+        str(out),
+        "-C",
+        str(local_root),
+        "--exclude=.git",
+        "--exclude=instance",
+        "--exclude=.cursor",
+        "--exclude=.pytest_cache",
+        "--exclude=app/static/img/artifacts/_shared/scrap",
+        ".",
+    ]
+    subprocess.run(cmd, check=True)
+    return out
+
+
 def _remote_script(
     *,
     apply_economy: bool,
+    economy_dry_run: bool,
     backup: bool,
     ps_repo_url: str,
     upload_ps_from_local: bool,
+    skip_bowl_git_sync: bool,
+    ps_preinstalled: bool,
 ) -> str:
     user = os.environ.get("PA_USER", "BoiledEgg1974").strip() or "BoiledEgg1974"
     bowl = f"/home/{user}/boys-of-winter-hockey-website"
@@ -121,13 +168,19 @@ print("env patched (no secrets printed)")
         f"BOWL={shlex.quote(bowl)}",
         f"PS={shlex.quote(ps_root)}",
         f"PY={shlex.quote(py)}",
-        f"cd {shlex.quote(bowl)}",
-        "git stash push -m 'pre-perfect-squad-deploy' || true",
-        "git fetch origin",
-        "git checkout master",
-        "git reset --hard origin/master",
     ]
-    if not upload_ps_from_local:
+    if not skip_bowl_git_sync:
+        parts.extend(
+            [
+                f"cd {shlex.quote(bowl)}",
+                "git stash push -m 'pre-perfect-squad-deploy' || true",
+                "git fetch origin",
+                "git checkout master",
+                "git reset --hard origin/master",
+            ]
+        )
+    parts.append(f"cd {shlex.quote(bowl)}")
+    if not upload_ps_from_local and not ps_preinstalled:
         parts.extend(
             [
                 f"if [ ! -d {shlex.quote(ps_root + '/.git')} ]; then "
@@ -135,7 +188,7 @@ print("env patched (no secrets printed)")
                 f"else cd {shlex.quote(ps_root)} && git fetch origin && git checkout main && git reset --hard origin/main; fi",
             ]
         )
-    else:
+    elif upload_ps_from_local and not ps_preinstalled:
         parts.append(f"mkdir -p {shlex.quote(ps_root)}")
     parts.extend(
         [
@@ -167,7 +220,7 @@ print("env patched (no secrets printed)")
                 f"{ps_env} && {shlex.quote(py)} scripts/rebase_ap_catalog.py --include-fantasy --apply --confirm",
             ]
         )
-    else:
+    elif economy_dry_run:
         parts.append(
             f"{ps_env} && {shlex.quote(py)} scripts/rebase_ap_economy.py && "
             f"{ps_env} && {shlex.quote(py)} scripts/rebase_ap_catalog.py --include-fantasy"
@@ -204,6 +257,21 @@ def main() -> int:
         action="store_true",
         help="Use git clone on the server instead of SFTP upload.",
     )
+    parser.add_argument(
+        "--tarball",
+        action="store_true",
+        help="Upload one compressed archive (faster than per-file SFTP; excludes scrap images).",
+    )
+    parser.add_argument(
+        "--economy-dry-run",
+        action="store_true",
+        help="After deploy, print AP rebase/catalog dry-run on the server (no writes).",
+    )
+    parser.add_argument(
+        "--skip-bowl-git-sync",
+        action="store_true",
+        help="Do not hard-reset the BOWL repo on the server (use when STEP2 already deployed code).",
+    )
     parser.add_argument("--host", default=os.environ.get("PA_HOST", "ssh.pythonanywhere.com"))
     parser.add_argument("--user", default=os.environ.get("PA_USER", "BoiledEgg1974"))
     ns = parser.parse_args()
@@ -219,23 +287,46 @@ def main() -> int:
     upload_ps = local_ps is not None and not ns.no_local_ps_upload
     if upload_ps:
         print(f"Perfect Squad source (SFTP): {local_ps.resolve()}")
+    ps_preinstalled = False
     script = _remote_script(
         apply_economy=ns.apply_economy,
+        economy_dry_run=ns.economy_dry_run,
         backup=ns.backup,
         ps_repo_url=ns.ps_repo_url,
         upload_ps_from_local=upload_ps,
+        skip_bowl_git_sync=ns.skip_bowl_git_sync,
+        ps_preinstalled=ps_preinstalled,
     )
     user = ns.user.strip() or "BoiledEgg1974"
     remote_ps = f"/home/{user}/bowl-perfect-squad"
+    remote_tar = f"/home/{user}/bowl-ps-deploy.tgz"
     client = None
     try:
         key_raw = os.environ.get("PA_SSH_KEY", "").strip()
         key_path = Path(key_raw) if key_raw else None
         client, sftp = connect_sftp(ns.host, ns.user, key_path)
         if upload_ps and local_ps is not None:
-            print("--- uploading Perfect Squad tree ---")
-            n = _upload_ps_tree(sftp, local_ps, remote_ps)
-            print(f"Uploaded {n} files to {remote_ps}")
+            if ns.tarball:
+                print("--- building Perfect Squad tarball ---")
+                tar_path = _build_ps_tarball(local_ps)
+                print(f"Uploading {tar_path.name} ({tar_path.stat().st_size / (1024 * 1024):.1f} MB)…")
+                sftp_put(sftp, str(tar_path), remote_tar)
+                print("--- extracting Perfect Squad on server ---")
+                run_remote_bash(client, _tarball_extract_prep(user))
+            else:
+                print("--- uploading Perfect Squad tree ---")
+                n = _upload_ps_tree(sftp, local_ps, remote_ps)
+                print(f"Uploaded {n} files to {remote_ps}")
+            ps_preinstalled = True
+            script = _remote_script(
+                apply_economy=ns.apply_economy,
+                economy_dry_run=ns.economy_dry_run,
+                backup=ns.backup,
+                ps_repo_url=ns.ps_repo_url,
+                upload_ps_from_local=upload_ps,
+                skip_bowl_git_sync=ns.skip_bowl_git_sync,
+                ps_preinstalled=True,
+            )
         print("--- remote Perfect Squad deploy ---")
         run_remote_bash(client, script)
     finally:

@@ -22,6 +22,8 @@ from app.services.gm_achievements import (
     CATALOG,
     CATALOG_BY_KEY,
     acquired_by_team_from_ledger,
+    apply_achievement_ticket_rebase_plan,
+    build_achievement_ticket_rebase_plan,
     build_achievement_leaderboard,
     build_achievement_rival_page,
     build_achievements_page_payload,
@@ -1966,6 +1968,45 @@ class AchievementUnlockSchemaTests(unittest.TestCase):
                 text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gm_achievement_watermarks'")
             ).fetchone()
             self.assertIsNotNone(marks)
+
+
+class TicketScaleTests(unittest.TestCase):
+    def test_roll_and_rebase_at_10x(self) -> None:
+        self.app = create_app(make_league_config("bowl-cap"))
+        self.app.config["AP_ECONOMY_MULTIPLIER"] = 10
+        with self.app.app_context():
+            self.assertEqual(roll_reward_cells(_SeqRng([0.0, 0.60, 0.90])), [10, 20, 30])
+            self.assertEqual(parse_reward_cells("[10, 30, 30]"), [10, 30, 30])
+            self.assertEqual(parse_reward_cells("[1, 3, 3]"), [1, 3, 3])
+            tag = f"ticket-scale-{datetime.utcnow().timestamp():.6f}"
+            unlock = GmAchievementUnlock(
+                league_slug="bowl-cap",
+                team_id=99991,
+                user_id=1,
+                achievement_key=f"gordie_howe:{tag}",
+                source_ref=f"gm_ach:bowl-cap:99991:gordie_howe:{tag}",
+                season_label="",
+                reward_cells_json="[1, 2, 3]",
+                reward_ticket_ap=6,
+                reward_multiplier=2,
+                ap_delta=12,
+                claimed_at=datetime.utcnow(),
+            )
+            db.session.add(unlock)
+            db.session.commit()
+            plan = [
+                row
+                for row in build_achievement_ticket_rebase_plan(db.session, scale=10)
+                if row.unlock_id == int(unlock.id)
+            ]
+            self.assertEqual(len(plan), 1)
+            self.assertEqual(plan[0].ticket_ap_after, 60)
+            self.assertEqual(plan[0].ap_delta_after, 120)
+            self.assertEqual(apply_achievement_ticket_rebase_plan(db.session, plan), 1)
+            db.session.commit()
+            db.session.refresh(unlock)
+            self.assertEqual(parse_reward_cells(unlock.reward_cells_json), [10, 20, 30])
+            self.assertEqual(int(unlock.ap_delta), 120)
 
 
 if __name__ == "__main__":

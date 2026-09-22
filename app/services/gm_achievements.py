@@ -59,6 +59,8 @@ RELEGATION_ONLY = frozenset({"bowl-fantasy"})
 TICKET_CELL_COUNT = 3
 TICKET_CELL_P1 = 0.50
 TICKET_CELL_P2 = 0.35
+TICKET_CELL_FACES = (1, 2, 3)
+ACHIEVEMENT_TICKET_REBASE_VERSION = "v1"
 
 _FIGHT_WORDS = ("fight", "fighting", "fisticuffs", "combat")
 _MVP_NEEDLES = ("HART", "MOST VALUABLE", "MVP")
@@ -461,15 +463,52 @@ def unlock_source_ref(league_slug: str, team_id: int, key: str) -> str:
     return f"gm_ach:{league_slug}:{int(team_id)}:{key}"
 
 
-def roll_reward_cell(rng: random.Random | None = None) -> int:
-    """Roll one scratch spot: 1 (50%), 2 (35%), or 3 (15%)."""
-    dice = rng or random.Random()
-    roll = dice.random()
+def achievement_ticket_scale() -> int:
+    """Scale scratch-ticket face values (not the achievement tier multiplier)."""
+    try:
+        from flask import has_app_context, current_app
+
+        if has_app_context():
+            return max(1, int(current_app.config.get("AP_ECONOMY_MULTIPLIER") or 1))
+    except RuntimeError:
+        pass
+    import os
+
+    return max(1, int(os.environ.get("AP_ECONOMY_MULTIPLIER", "1") or 1))
+
+
+def _ticket_cell_face(rng: random.Random) -> int:
+    roll = rng.random()
     if roll < TICKET_CELL_P1:
         return 1
     if roll < TICKET_CELL_P1 + TICKET_CELL_P2:
         return 2
     return 3
+
+
+def roll_reward_cell(rng: random.Random | None = None) -> int:
+    """Roll one scratch spot: face 1/2/3 (50/35/15%), times ``AP_ECONOMY_MULTIPLIER``."""
+    dice = rng or random.Random()
+    return _ticket_cell_face(dice) * achievement_ticket_scale()
+
+
+def _ticket_cells_are_legacy(cells: list[int]) -> bool:
+    return bool(cells) and all(int(c) in TICKET_CELL_FACES for c in cells)
+
+
+def scale_legacy_ticket_cells(cells: list[int], *, scale: int | None = None) -> list[int]:
+    """Multiply pre-rebase 1/2/3 cells; already-scaled cells are unchanged."""
+    mult = scale if scale is not None else achievement_ticket_scale()
+    if mult <= 1:
+        return list(cells)
+    out: list[int] = []
+    for c in cells:
+        n = int(c)
+        if n in TICKET_CELL_FACES:
+            out.append(n * mult)
+        else:
+            out.append(n)
+    return out
 
 
 def roll_reward_cells(rng: random.Random | None = None) -> list[int]:
@@ -486,13 +525,16 @@ def parse_reward_cells(raw: Any) -> list[int] | None:
             return None
     if not isinstance(values, list) or len(values) != TICKET_CELL_COUNT:
         return None
+    scale = achievement_ticket_scale()
+    scaled_faces = {face * scale for face in TICKET_CELL_FACES}
+    allowed = set(TICKET_CELL_FACES) | scaled_faces
     cells: list[int] = []
     for item in values:
         try:
             n = int(item)
         except (TypeError, ValueError):
             return None
-        if n not in (1, 2, 3):
+        if n not in allowed:
             return None
         cells.append(n)
     return cells
@@ -4389,3 +4431,100 @@ def build_achievement_rival_page(session: Session, league_slug: str, team_id: in
         "total_unlocks": board["total_unlocks"],
         "total_ap": board["total_ap"],
     }
+
+
+@dataclass(frozen=True)
+class AchievementTicketRebaseRow:
+    unlock_id: int
+    league_slug: str
+    team_id: int
+    achievement_key: str
+    cells_before: tuple[int, ...]
+    cells_after: tuple[int, ...]
+    ticket_ap_before: int
+    ticket_ap_after: int
+    multiplier: int
+    ap_delta_before: int
+    ap_delta_after: int
+    claimed: bool
+
+
+def build_achievement_ticket_rebase_plan(
+    session: Session,
+    *,
+    scale: int | None = None,
+) -> list[AchievementTicketRebaseRow]:
+    """Rows needing a one-time 10× on scratch cells (tier multiplier unchanged)."""
+    mult = scale if scale is not None else achievement_ticket_scale()
+    if mult <= 1:
+        return []
+    plan: list[AchievementTicketRebaseRow] = []
+    unlocks = list(session.scalars(select(GmAchievementUnlock)).all())
+    for unlock in unlocks:
+        cells = parse_reward_cells(unlock.reward_cells_json)
+        if cells is None or not _ticket_cells_are_legacy(cells):
+            continue
+        spec = CATALOG_BY_KEY.get(catalog_key_from_storage(unlock.achievement_key))
+        if spec is None:
+            continue
+        new_cells = scale_legacy_ticket_cells(cells, scale=mult)
+        ticket_before = int(unlock.reward_ticket_ap or sum(cells))
+        ticket_after = sum(new_cells)
+        tier = int(unlock.reward_multiplier or spec.ap)
+        ap_before = int(unlock.ap_delta or 0)
+        ap_after = ap_before
+        if unlock.claimed_at is not None:
+            ap_after = ticket_after * tier
+        plan.append(
+            AchievementTicketRebaseRow(
+                unlock_id=int(unlock.id),
+                league_slug=str(unlock.league_slug),
+                team_id=int(unlock.team_id),
+                achievement_key=str(unlock.achievement_key),
+                cells_before=tuple(cells),
+                cells_after=tuple(new_cells),
+                ticket_ap_before=ticket_before,
+                ticket_ap_after=ticket_after,
+                multiplier=tier,
+                ap_delta_before=ap_before,
+                ap_delta_after=ap_after,
+                claimed=unlock.claimed_at is not None,
+            )
+        )
+    return plan
+
+
+def apply_achievement_ticket_rebase_plan(session: Session, plan: list[AchievementTicketRebaseRow]) -> int:
+    """Update unlock rows only (ledger already rebased via team AP economy)."""
+    updated = 0
+    for row in plan:
+        unlock = session.get(GmAchievementUnlock, row.unlock_id)
+        if unlock is None:
+            continue
+        cells = parse_reward_cells(unlock.reward_cells_json)
+        if cells is None or not _ticket_cells_are_legacy(cells):
+            continue
+        unlock.reward_cells_json = json.dumps(list(row.cells_after))
+        unlock.reward_ticket_ap = row.ticket_ap_after
+        if row.claimed:
+            unlock.ap_delta = row.ap_delta_after
+        updated += 1
+    return updated
+
+
+def format_achievement_ticket_rebase_report(plan: list[AchievementTicketRebaseRow], scale: int) -> str:
+    lines = [
+        f"Achievement scratch-ticket rebase (cell faces ×{scale}, tier multipliers unchanged)",
+        f"{'League':<18} {'Team':>5} {'Ticket':>8} {'→':^3} {'After':>8} {'×':^3} {'Mult':>4} {'AP Δ':>8}",
+        "-" * 72,
+    ]
+    for row in plan[:40]:
+        lines.append(
+            f"{row.league_slug:<18} {row.team_id:>5} {row.ticket_ap_before:>8} {'→':^3} "
+            f"{row.ticket_ap_after:>8} {'×':^3} {row.multiplier:>4} {row.ap_delta_after:>8}"
+        )
+    if len(plan) > 40:
+        lines.append(f"... and {len(plan) - 40} more")
+    lines.append("-" * 72)
+    lines.append(f"Unlocks to update: {len(plan)}")
+    return "\n".join(lines)

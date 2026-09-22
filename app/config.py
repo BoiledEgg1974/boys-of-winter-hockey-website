@@ -384,6 +384,8 @@ class Config:
     )
     # GM news → AP when article is published (set later via env or admin UI constant)
     NEWS_ARTICLE_AP_POINTS = int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "3"))
+    # Scratch-ticket cell values (1/2/3 faces) scale by this; tier multipliers on achievements stay 1/2/3.
+    AP_ECONOMY_MULTIPLIER = max(1, int(os.environ.get("AP_ECONOMY_MULTIPLIER", "1") or 1))
     SESSION_IDLE_TIMEOUT_MINUTES = int(os.environ.get("SESSION_IDLE_TIMEOUT_MINUTES", "30"))
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=SESSION_IDLE_TIMEOUT_MINUTES)
     # Hub + league mounts share one login session across / and /<slug>/.

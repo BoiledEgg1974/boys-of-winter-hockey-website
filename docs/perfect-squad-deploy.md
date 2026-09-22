@@ -45,6 +45,17 @@ python scripts/rebase_ap_economy.py --apply --confirm
 python scripts/rebase_ap_catalog.py --include-fantasy --apply --confirm
 ```
 
+## Game content bootstrap (missions, collections, artifacts)
+
+Local dev SQLite does **not** travel with git deploy. After cards are GO LIVE on production MySQL, seed all three leagues:
+
+```bash
+cd ~/bowl-perfect-squad
+python scripts/bootstrap_perfect_squad_content.py
+```
+
+Then publish **Latest Set** per league in Admin. Full checklist and ongoing admin duties: **`BOWL-Perfect-Squad/docs/DEPLOY.md`**.
+
 ## Local dev
 
 Set `PERFECT_SQUAD_ROOT` to your Desktop clone (or rely on the OneDrive Desktop fallback). Run `python run.py` in **BOWL** repo — uses `wsgi.py` combined app.

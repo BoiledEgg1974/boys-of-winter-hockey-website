@@ -95,7 +95,7 @@
     <h2 class="ap-export-dialog__title" id="ap-batch-title-{{ key }}">{{ label }}</h2>
     {% if key == 'predictions' %}
     <p class="muted ap-export-dialog__lead">
-      Check each team that should receive <strong>+1 Action Point</strong> in
+      Check each team that should receive <strong>+{{ ap_event_points }} Action Points</strong> in
       <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
       Teams are those in this league (same slugs as EXPORT).
     </p>
@@ -112,9 +112,9 @@
     {% else %}
     <p class="muted ap-export-dialog__lead">
       {% if is_pen %}
-      Enter a <strong>positive</strong> number per team to <strong>deduct</strong> that many AP. Blank or 0 skips a team.
+      Enter how many penalty events per team. Each deducts <strong>{{ ap_event_points }} AP</strong>. Blank or 0 skips a team.
       {% else %}
-      Enter AP to <strong>add</strong> for each team (negative values subtract). Blank or 0 skips a team.
+      Enter how many awards or selections per team. Each is worth <strong>+{{ ap_event_points }} AP</strong>. Blank or 0 skips a team.
       {% endif %}
       Applies to <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only (this league’s ledger).
     </p>
@@ -132,7 +132,7 @@
     <div class="ap-export-dialog__actions">
       <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
       <button type="button" class="ap-export-cancel-btn ap-batch-close">Cancel</button>
-      <button type="submit" class="join-league-btn ap-export-submit-btn">{% if key == 'predictions' %}Apply +1 AP{% else %}Apply {{ label }}{% endif %}</button>
+      <button type="submit" class="join-league-btn ap-export-submit-btn">{% if key == 'predictions' %}Apply +{{ ap_event_points }} AP{% else %}Apply {{ label }}{% endif %}</button>
     </div>
   </form>
 </dialog>
@@ -141,9 +141,9 @@
 <dialog class="ap-export-dialog" id="ap-export-dialog" aria-labelledby="ap-export-dialog-title">
   <form class="ap-export-dialog__form" method="post" action="{{ url_for('site_admin.admin_ap_ledger') }}/export-multileague">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <h2 class="ap-export-dialog__title" id="ap-export-dialog-title">EXPORT — award +1 AP</h2>
+    <h2 class="ap-export-dialog__title" id="ap-export-dialog-title">EXPORT — award +{{ ap_event_points }} AP</h2>
     <p class="muted ap-export-dialog__lead">
-      Check each team that should receive <strong>+1 Action Point</strong> in
+      Check each team that should receive <strong>+{{ ap_event_points }} Action Points</strong> in
       <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only. Attendance is always
       recorded for checked teams on the export date below.
     </p>
@@ -164,7 +164,7 @@
     <div class="ap-export-dialog__actions">
       <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
       <button type="button" class="ap-export-cancel-btn" id="ap-export-close">Cancel</button>
-      <button type="submit" class="join-league-btn ap-export-submit-btn">Apply +1 AP</button>
+      <button type="submit" class="join-league-btn ap-export-submit-btn">Apply +{{ ap_event_points }} AP</button>
     </div>
   </form>
 </dialog>

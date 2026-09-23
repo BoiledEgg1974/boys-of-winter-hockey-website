@@ -12,6 +12,7 @@ from app.services.bowl_six_scoring import (
 )
 from datetime import date, datetime
 
+from app.services.ap_service import scale_ap
 from app.services.bowl_six import (
     award_bowl_six_season_prizes,
     list_bowl_six_seasons_with_scored_slates,
@@ -130,10 +131,10 @@ class BowlSixScoringTest(unittest.TestCase):
             )
 
     def test_season_ap_prizes_by_rank(self):
-        self.assertEqual(season_ap_prize_for_rank(1), 30)
-        self.assertEqual(season_ap_prize_for_rank(2), 20)
-        self.assertEqual(season_ap_prize_for_rank(3), 10)
-        self.assertEqual(season_ap_prize_for_rank(4), 2)
+        self.assertEqual(season_ap_prize_for_rank(1), scale_ap(30))
+        self.assertEqual(season_ap_prize_for_rank(2), scale_ap(20))
+        self.assertEqual(season_ap_prize_for_rank(3), scale_ap(10))
+        self.assertEqual(season_ap_prize_for_rank(4), scale_ap(2))
 
     def test_bowl_six_real_season_bounds(self):
         self.assertEqual(
@@ -193,8 +194,8 @@ class BowlSixScoringTest(unittest.TestCase):
                 session, "bowl-cap", season_start, season_end
             )
         self.assertEqual(created, 2)
-        self.assertEqual(add_entry.call_args_list[0].kwargs["delta"], 30)
-        self.assertEqual(add_entry.call_args_list[1].kwargs["delta"], 20)
+        self.assertEqual(add_entry.call_args_list[0].kwargs["delta"], scale_ap(30))
+        self.assertEqual(add_entry.call_args_list[1].kwargs["delta"], scale_ap(20))
         self.assertEqual(
             add_entry.call_args_list[0].kwargs["reason_code"], "bowl_six_season_prize"
         )
@@ -237,7 +238,7 @@ class BowlSixScoringTest(unittest.TestCase):
         ) as add_entry:
             created = repair_bowl_six_weekly_prize_net_balances(session, slate)
         self.assertEqual(created, 1)
-        self.assertEqual(add_entry.call_args.kwargs["delta"], 10)
+        self.assertEqual(add_entry.call_args.kwargs["delta"], scale_ap(10))
         self.assertTrue(add_entry.call_args.kwargs["meta"]["net_repair"])
         self.assertEqual(slate.ap_place1_team_id, 10)
 
@@ -255,7 +256,7 @@ class BowlSixScoringTest(unittest.TestCase):
             "app.services.bowl_six.slate_weekly_podium_teams",
             return_value={1: (10, 5)},
         ), unittest.mock.patch(
-            "app.services.bowl_six.net_bowl_six_weekly_prize_ap", return_value=10
+            "app.services.bowl_six.net_bowl_six_weekly_prize_ap", return_value=scale_ap(10)
         ), unittest.mock.patch("app.services.bowl_six.add_ledger_entry") as add_entry:
             created = repair_bowl_six_weekly_prize_net_balances(session, slate)
         self.assertEqual(created, 0)
@@ -678,7 +679,7 @@ class BowlSixScoringTest(unittest.TestCase):
             created = ensure_bowl_six_slate_prize_ledgers(MagicMock(), slate)
         self.assertEqual(created, 1)
         self.assertEqual(add_entry.call_args.kwargs["team_id"], 10)
-        self.assertEqual(add_entry.call_args.kwargs["delta"], 10)
+        self.assertEqual(add_entry.call_args.kwargs["delta"], scale_ap(10))
         self.assertTrue(add_entry.call_args.kwargs["meta"]["net_repair"])
 
     def test_bowl_six_roster_reminders_queue_unlock_and_warning(self):

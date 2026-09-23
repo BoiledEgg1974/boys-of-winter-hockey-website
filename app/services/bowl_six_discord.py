@@ -12,6 +12,7 @@ from app.models import Player, Team
 from app.services.bowl_six import (
     AP_PRIZES,
     _real_bowl_six_week_bounds,
+    bowl_six_weekly_prize,
     gm_season_standings,
     is_current_bowl_six_week,
     season_ap_prize_for_rank,
@@ -222,7 +223,7 @@ def build_bowl_six_leaders_discord_payload(
         body_lines.append("")
         body_lines.append("Last week winners" if status == "scored" else "This week (GM)")
         for r in week_standings:
-            ap_note = f" +{AP_PRIZES[r['rank']]} AP" if r["rank"] in AP_PRIZES else ""
+            ap_note = f" +{bowl_six_weekly_prize(r['rank'])} AP" if r["rank"] in AP_PRIZES else ""
             body_lines.append(
                 f"{r['rank']}. {r['team']} ({r['gm']}) — {r['points']:.1f} pts{ap_note}"
             )

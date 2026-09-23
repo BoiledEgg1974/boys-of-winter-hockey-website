@@ -25,10 +25,10 @@ from app.services.player_overall_score import build_overall_cell_map_from_player
 from app.services.player_ratings_csv import player_positions_display_label
 from app.routes.site_portal import site_admin_bp, site_gm_bp
 from app.services.bowl_six import (
-    AP_PRIZES,
-    SEASON_AP_PRIZES,
-    SEASON_PARTICIPATION_AP,
     SLOT_LABELS,
+    bowl_six_season_participation_ap,
+    bowl_six_season_prizes,
+    bowl_six_weekly_prizes,
     _bowl_six_membership_maps,
     blocked_player_ids_from_prior_slate,
     bowl_six_enabled,
@@ -296,9 +296,9 @@ def bowl_six_hub():
         most_picked=most_picked,
         gm_mini=gm_mini,
         lock_ui=lock_ui,
-        ap_prizes=AP_PRIZES,
-        season_ap_prizes=SEASON_AP_PRIZES,
-        season_participation_ap=SEASON_PARTICIPATION_AP,
+        ap_prizes=bowl_six_weekly_prizes(),
+        season_ap_prizes=bowl_six_season_prizes(),
+        season_participation_ap=bowl_six_season_participation_ap(),
         membership=mem,
         submissions=submissions,
     )
@@ -429,8 +429,8 @@ def bowl_six_leaders():
         in_progress_rows=in_progress_rows,
         week_progress=week_progress,
         ownership_by_player=ownership_by_player,
-        season_ap_prizes=SEASON_AP_PRIZES,
-        season_participation_ap=SEASON_PARTICIPATION_AP,
+        season_ap_prizes=bowl_six_season_prizes(),
+        season_participation_ap=bowl_six_season_participation_ap(),
     )
 
 

@@ -25,7 +25,7 @@ PERFECT_SQUAD_DATABASE_URL=mysql+pymysql://...
 SITE_DATABASE_URL=mysql+pymysql://...   # shared with BOWL
 SECRET_KEY=...                          # same as BOWL (shared session)
 PS_ECONOMY_LIVE=1
-AP_ECONOMY_MULTIPLIER=10
+AP_ECONOMY_MULTIPLIER=10   # scales all AP earnings (exports, articles, awards, BOWL Six, scratch faces)
 ```
 
 Install Perfect Squad dependencies on the server:

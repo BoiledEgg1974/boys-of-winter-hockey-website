@@ -465,16 +465,9 @@ def unlock_source_ref(league_slug: str, team_id: int, key: str) -> str:
 
 def achievement_ticket_scale() -> int:
     """Scale scratch-ticket face values (not the achievement tier multiplier)."""
-    try:
-        from flask import has_app_context, current_app
+    from app.services.ap_service import ap_economy_multiplier
 
-        if has_app_context():
-            return max(1, int(current_app.config.get("AP_ECONOMY_MULTIPLIER") or 1))
-    except RuntimeError:
-        pass
-    import os
-
-    return max(1, int(os.environ.get("AP_ECONOMY_MULTIPLIER", "1") or 1))
+    return ap_economy_multiplier()
 
 
 def _ticket_cell_face(rng: random.Random) -> int:

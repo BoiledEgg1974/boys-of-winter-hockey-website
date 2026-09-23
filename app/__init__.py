@@ -749,7 +749,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.cli.command("ap-credit-daily-export")
     def ap_credit_daily_export_cmd() -> None:
-        """Credit +1 AP (UTC day, idempotent) for each team with an active GM if raw import dir was touched recently."""
+        """Credit standard-event AP (UTC day, idempotent) for each team with an active GM if raw import dir was touched recently."""
         from pathlib import Path
         from time import time
 

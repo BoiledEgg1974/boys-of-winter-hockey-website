@@ -14,7 +14,7 @@
     <h2 id="ap-rules-h">How GMs Earn / Lose AP</h2>
     <div class="ap-rules__groups">
       <div class="ap-rules__group">
-        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+1 AP each</span></h3>
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+{{ ap_event_points }} AP each</span></h3>
         <ul class="ap-rules__list">
           <li>Daily Export</li>
           <li>All-Star Selection</li>
@@ -25,13 +25,13 @@
         </ul>
       </div>
       <div class="ap-rules__group">
-        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+3 AP each</span></h3>
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--plus">+{{ ap_article_points }} AP each</span></h3>
         <ul class="ap-rules__list">
           <li>Daily submission of a news article</li>
         </ul>
       </div>
       <div class="ap-rules__group">
-        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--minus">-1 AP penalty each</span></h3>
+        <h3 class="ap-rules__group-title"><span class="ap-rules__points ap-rules__points--minus">-{{ ap_event_points }} AP penalty each</span></h3>
         <ul class="ap-rules__list">
           <li>Contract below the minimum at the start of the regular season</li>
         </ul>

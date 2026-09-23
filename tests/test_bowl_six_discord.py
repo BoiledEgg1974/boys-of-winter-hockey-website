@@ -5,6 +5,7 @@ import unittest
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
+from app.services.ap_service import scale_ap
 from app.services.bowl_six_discord import (
     build_bowl_six_leaders_discord_payload,
     enqueue_fresh_bowl_six_leaders_discord,
@@ -87,12 +88,12 @@ class BowlSixDiscordPayloadTest(unittest.TestCase):
         self.assertEqual(len(payload["season_standings"]), 7)
         self.assertIn("6. Team 6 (GM 6)", payload["body"])
         self.assertIn("7. Team 7 (GM 7)", payload["body"])
-        self.assertEqual(payload["season_standings"][0]["season_ap_award"], 30)
-        self.assertEqual(payload["season_standings"][1]["season_ap_award"], 20)
-        self.assertEqual(payload["season_standings"][2]["season_ap_award"], 10)
-        self.assertEqual(payload["season_standings"][3]["season_ap_award"], 2)
-        self.assertIn("season AP 30", payload["body"])
-        self.assertIn("season AP 2", payload["body"])
+        self.assertEqual(payload["season_standings"][0]["season_ap_award"], scale_ap(30))
+        self.assertEqual(payload["season_standings"][1]["season_ap_award"], scale_ap(20))
+        self.assertEqual(payload["season_standings"][2]["season_ap_award"], scale_ap(10))
+        self.assertEqual(payload["season_standings"][3]["season_ap_award"], scale_ap(2))
+        self.assertIn(f"season AP {scale_ap(30)}", payload["body"])
+        self.assertIn(f"season AP {scale_ap(2)}", payload["body"])
 
     def test_idempotency_key_per_league(self):
         self.assertEqual(

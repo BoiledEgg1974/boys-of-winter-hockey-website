@@ -175,9 +175,12 @@ from app.services.ap_service import (
     add_ledger_entry,
     approve_redemption_request,
     league_ledger_page,
+    news_article_ap_award,
     parse_ledger_list_params,
     new_redemption_token,
     publish_news_and_maybe_award_ap,
+    scale_ap,
+    standard_event_ap,
     team_ap_balance,
 )
 from app.sqlite_retry import commit_with_sqlite_retry, flush_with_sqlite_retry, write_with_sqlite_retry
@@ -645,6 +648,8 @@ def _ap_ledger_template_context(
         "ledger_reset_url": url_for(form_endpoint),
         "ledger_prev_url": _ledger_page_url(int(ledger["page"]) - 1),
         "ledger_next_url": _ledger_page_url(int(ledger["page"]) + 1),
+        "ap_event_points": standard_event_ap(),
+        "ap_article_points": news_article_ap_award(),
     }
 
 
@@ -6441,7 +6446,7 @@ def admin_story_automation_live_dispatch(sid: int):
         discord_webhook_url=str(current_app.config.get("DISCORD_STORY_WEBHOOK_URL") or ""),
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or ""),
         league_display_name=league_display_name(slug),
-        news_article_ap_points=int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3)),
+        news_article_ap_points=news_article_ap_award(),
     )
     db.session.add(
         AdminAuditLog(
@@ -6517,7 +6522,7 @@ def admin_story_automation_retry_live_dispatch(sid: int):
         discord_webhook_url=str(current_app.config.get("DISCORD_STORY_WEBHOOK_URL") or ""),
         site_public_base_url=str(current_app.config.get("SITE_PUBLIC_BASE_URL") or ""),
         league_display_name=league_display_name(slug),
-        news_article_ap_points=int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3)),
+        news_article_ap_points=news_article_ap_award(),
     )
     db.session.add(
         AdminAuditLog(
@@ -8030,7 +8035,7 @@ def admin_news_publish(aid: int):
             "ok",
         )
         return redirect(url_for("site_admin.admin_news_queue"))
-    pts = int(current_app.config.get("NEWS_ARTICLE_AP_POINTS", 3))
+    pts = news_article_ap_award()
     publish_news_and_maybe_award_ap(art, points=pts)
     db.session.refresh(art)
     team = resolve_news_article_team(db.session, art)
@@ -8085,7 +8090,7 @@ def admin_news_reject(aid: int):
 @site_admin_bp.route("/ap-ledger/export-multileague", methods=["POST"])
 @login_required
 def admin_ap_export_multileague():
-    """Award +1 AP for each selected team in the current league only (URL mount)."""
+    """Award standard-event AP for each selected team in the current league only (URL mount)."""
     require_admin_role(ADMIN_ROLE_STATS, ADMIN_ROLE_LEAGUE)
     cur_slug = _league_slug()
     dry_run = request.form.get("dry_run") == "1"
@@ -8103,7 +8108,8 @@ def admin_ap_export_multileague():
         if not pe.allowed:
             ap_allowed = False
             ap_block_message = pe.message
-    note = f"EXPORT: +1 AP ({label})"
+    export_ap = standard_event_ap()
+    note = f"EXPORT: +{export_ap} AP ({label})"
     if dry_run:
         matched_slugs: list[str] = []
         ap_added = 0
@@ -8122,7 +8128,7 @@ def admin_ap_export_multileague():
         if len(matched_slugs) > 8:
             sample += ", …"
         flash(
-            f"[DRY RUN] EXPORT would add {ap_added} ledger row(s) (+1 AP) and register "
+            f"[DRY RUN] EXPORT would add {ap_added} ledger row(s) (+{export_ap} AP) and register "
             f"{ap_added} attendance row(s) for {export_date.isoformat()} in {label}. "
             f"Teams: {sample}",
             "ok",
@@ -8150,7 +8156,7 @@ def admin_ap_export_multileague():
                 ledger_row = add_ledger_entry(
                     league_slug=cur_slug,
                     team_id=tid,
-                    delta=1,
+                    delta=export_ap,
                     reason_code="manual",
                     meta={
                         "note": note,
@@ -8274,6 +8280,7 @@ def admin_ap_batch_adjust():
         if not picked:
             flash("PREDICTIONS: select at least one team.", "err")
             return redirect(url_for("site_admin.admin_ap_ledger"))
+        prediction_ap = standard_event_ap()
         entries = 0
         preview: list[tuple[str, int]] = []
         for team_slug in picked:
@@ -8282,12 +8289,12 @@ def admin_ap_batch_adjust():
             tid = team_id_by_slug.get(team_slug.casefold())
             if tid is None:
                 continue
-            preview.append((team_slug, 1))
+            preview.append((team_slug, prediction_ap))
             if dry_run:
                 entries += 1
                 continue
         if dry_run:
-            show = ", ".join([f"{s}: +1" for s, _d in preview[:8]]) if preview else "none"
+            show = ", ".join([f"{s}: +{prediction_ap}" for s, _d in preview[:8]]) if preview else "none"
             if len(preview) > 8:
                 show += ", …"
             flash(
@@ -8307,7 +8314,7 @@ def admin_ap_batch_adjust():
                 add_ledger_entry(
                     league_slug=cur_slug,
                     team_id=tid,
-                    delta=1,
+                    delta=prediction_ap,
                     reason_code=reason,
                     meta={"batch": label, "team_slug": team_slug},
                     created_by_user_id=current_user.id,
@@ -8318,7 +8325,7 @@ def admin_ap_batch_adjust():
         entries = write_with_sqlite_retry(db.session, _apply_predictions_batch)
         if entries:
             flash(
-                f"PREDICTIONS: added {entries} ledger row(s) (+1 AP per checked team in {league_name} only).",
+                f"PREDICTIONS: added {entries} ledger row(s) (+{prediction_ap} AP per checked team in {league_name} only).",
                 "ok",
             )
         else:
@@ -8346,9 +8353,9 @@ def admin_ap_batch_adjust():
         if val == 0:
             continue
         if reason == "batch_penalties":
-            delta = -abs(val)
+            delta = -scale_ap(abs(val))
         else:
-            delta = val
+            delta = scale_ap(val)
         tid = team_id_by_slug.get(team_slug.casefold())
         if tid is None:
             continue

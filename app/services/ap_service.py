@@ -86,6 +86,44 @@ def parse_redemption_line_labels(lines_json: str) -> list[str]:
     return titles
 
 
+def ap_economy_multiplier() -> int:
+    """Scale factor for AP earnings after the 10x balance rebase."""
+    try:
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            return max(1, int(current_app.config.get("AP_ECONOMY_MULTIPLIER") or 1))
+    except RuntimeError:
+        pass
+    import os
+
+    return max(1, int(os.environ.get("AP_ECONOMY_MULTIPLIER", "1") or 1))
+
+
+def scale_ap(base: int) -> int:
+    """Multiply a pre-rebase AP amount by ``AP_ECONOMY_MULTIPLIER``."""
+    return int(base) * ap_economy_multiplier()
+
+
+def standard_event_ap() -> int:
+    """Export, award, all-star, prediction, and similar +1 events after rebase."""
+    return scale_ap(1)
+
+
+def news_article_ap_award() -> int:
+    """Published GM article AP after economy rebase."""
+    try:
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            return scale_ap(int(current_app.config.get("NEWS_ARTICLE_AP_POINTS") or 3))
+    except RuntimeError:
+        pass
+    import os
+
+    return scale_ap(int(os.environ.get("NEWS_ARTICLE_AP_POINTS", "3") or 3))
+
+
 def team_ap_balance(league_slug: str, team_id: int) -> int:
     """Sum of ledger deltas for this team."""
     with db.session.no_autoflush:
@@ -298,7 +336,7 @@ def maybe_credit_daily_export_for_team(
     raw_import_dir_mtime: float | None = None,
 ) -> bool:
     """
-    If raw import data looks fresh (mtime), credit +1 AP once per UTC calendar day per team.
+    If raw import data looks fresh (mtime), credit standard-event AP once per UTC day per team.
     Call from import CLI or scheduled task. Returns True if a new row was inserted.
     """
     if raw_import_dir_mtime is None:
@@ -308,7 +346,7 @@ def maybe_credit_daily_export_for_team(
     row = add_ledger_entry(
         league_slug=league_slug,
         team_id=team_id,
-        delta=1,
+        delta=standard_event_ap(),
         reason_code="daily_export",
         meta={"day": day_key},
         source_ref=source_ref,

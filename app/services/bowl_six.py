@@ -18,7 +18,7 @@ from app.services.homepage_dashboard import league_calendar_anchor_date
 from app.services.postseason_odds import _is_regular_season_game
 
 _log = logging.getLogger(__name__)
-from app.services.ap_service import add_ledger_entry
+from app.services.ap_service import add_ledger_entry, scale_ap
 from app.services.bowl_six_scoring import (
     SLOT_ORDER,
     dumps_points,
@@ -71,13 +71,36 @@ def bowl_six_enabled(session: Session, league_slug: str) -> bool:
     return rule_bool(session, league_slug, "bowl_six_enabled", default=True)
 
 
+def bowl_six_weekly_prize(place: int) -> int:
+    """Weekly podium AP after economy rebase."""
+    try:
+        p = int(place)
+    except (TypeError, ValueError):
+        return 0
+    return scale_ap(AP_PRIZES.get(p, 0))
+
+
+def bowl_six_weekly_prizes() -> dict[int, int]:
+    return {place: scale_ap(amount) for place, amount in AP_PRIZES.items()}
+
+
+def bowl_six_season_prizes() -> dict[int, int]:
+    return {place: scale_ap(amount) for place, amount in SEASON_AP_PRIZES.items()}
+
+
+def bowl_six_season_participation_ap() -> int:
+    return scale_ap(SEASON_PARTICIPATION_AP)
+
+
 def season_ap_prize_for_rank(rank: int) -> int:
     """Season-end BOWL Six AP prize for a standings rank."""
     try:
         r = int(rank)
     except (TypeError, ValueError):
         return 0
-    return SEASON_AP_PRIZES.get(r, SEASON_PARTICIPATION_AP if r > 0 else 0)
+    if r <= 0:
+        return 0
+    return scale_ap(SEASON_AP_PRIZES.get(r, SEASON_PARTICIPATION_AP))
 
 
 def bowl_six_season_bounds_for_week(week_start: date) -> tuple[date, date]:
@@ -1654,7 +1677,7 @@ def sync_bowl_six_slate_ap_awards(session: Session, slate: BowlSixSlate) -> None
     version = int(slate.scoring_version or 1)
     for place in (1, 2, 3):
         old_tid = prev.get(place)
-        prize = AP_PRIZES.get(place, 0)
+        prize = bowl_six_weekly_prize(place)
         if place not in desired:
             # Fewer than `place` ranked lineups — claw back a prior payout.
             if old_tid:
@@ -1709,7 +1732,7 @@ def _bowl_six_award_ledger_exists(
     place: int,
     team_id: int,
 ) -> bool:
-    prize = AP_PRIZES.get(place, 0)
+    prize = bowl_six_weekly_prize(place)
     if prize <= 0:
         return True
     prefix = f"bowl_six:slate:{int(slate.id)}:place:{place}:award:"
@@ -1759,7 +1782,7 @@ def repair_bowl_six_weekly_prize_net_balances(
     created = 0
     version = int(slate.scoring_version or 1)
     for place, (team_id, user_id) in podium.items():
-        prize = AP_PRIZES.get(place, 0)
+        prize = bowl_six_weekly_prize(place)
         if prize <= 0:
             continue
         net = net_bowl_six_weekly_prize_ap(
@@ -2222,7 +2245,7 @@ def notify_slate_scored(session: Session, slate: BowlSixSlate) -> None:
             pts = float(lineup.score.total_points)
         ap_note = ""
         if rank and rank <= 3:
-            ap_note = f" +{AP_PRIZES[rank]} AP"
+            ap_note = f" +{bowl_six_weekly_prize(rank)} AP"
         notif = GmInAppNotification(
             league_slug=slate.league_slug,
             user_id=int(lineup.user_id),

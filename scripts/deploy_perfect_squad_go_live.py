@@ -61,15 +61,26 @@ def _upload_ps_tree(sftp, local_root: Path, remote_ps: str) -> int:
 def _tarball_extract_prep(user: str) -> str:
     ps_root = f"/home/{user}/bowl-perfect-squad"
     remote_tar = f"/home/{user}/bowl-ps-deploy.tgz"
+    # Tarball excludes instance/; keep live DB, action-shots, and golden copies on PA.
     return "; ".join(
         [
             "set -euo pipefail",
             f"PS={shlex.quote(ps_root)}",
             f'TAR={shlex.quote(remote_tar)}',
+            'INSTANCE_SAVE=""',
+            'if [ -d "$PS/instance" ]; then '
+            'INSTANCE_SAVE=$(mktemp -d); '
+            'mv "$PS/instance" "$INSTANCE_SAVE/instance"; '
+            'fi',
             'OLD="${PS}.partial-$(date +%s)"',
             'if [ -d "$PS" ]; then mv "$PS" "$OLD"; fi',
             'mkdir -p "$PS"',
             'tar -xzf "$TAR" -C "$PS"',
+            'if [ -n "$INSTANCE_SAVE" ] && [ -d "$INSTANCE_SAVE/instance" ]; then '
+            'rm -rf "$PS/instance"; '
+            'mv "$INSTANCE_SAVE/instance" "$PS/instance"; '
+            'rmdir "$INSTANCE_SAVE" 2>/dev/null || true; '
+            'fi',
             'rm -f "$TAR"',
             'rm -rf "$OLD" 2>/dev/null || true',
             "echo extracted_ps_tarball",

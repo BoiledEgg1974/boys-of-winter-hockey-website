@@ -16,7 +16,8 @@ Default flow:
    boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
    (or live-board diffs / recent undelivered finals), then reload.
 7) Deploy **BOWL Perfect Squad** (tarball upload, pip, env, WSGI reload) unless
-   ``--no-perfect-squad``.
+   ``--no-perfect-squad``. Tarball deploy refreshes app code only; ``instance/``
+   (live ``perfect-squad.db``, action-shots) is preserved on PythonAnywhere.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
 

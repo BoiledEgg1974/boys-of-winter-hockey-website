@@ -37,12 +37,13 @@ def main() -> None:
             "app/services/migrate.py",
         ):
             sftp_put(sftp, str(local_ps / rel), f"{ps}/{rel}")
-        print("Uploading fresh golden DB...")
-        sftp_put(
-            sftp,
-            str(local_ps / "instance" / "perfect-squad.db"),
-            f"{ps}/instance/perfect-squad.golden.db",
-        )
+        golden = local_ps / "instance" / "perfect-squad.golden.db"
+        if not golden.is_file():
+            golden = local_ps / "instance" / "perfect-squad.db"
+        if not golden.is_file():
+            raise SystemExit(f"Missing golden DB under {local_ps / 'instance'}")
+        print(f"Uploading golden DB from {golden.name}...")
+        sftp_put(sftp, str(golden), f"{ps}/instance/perfect-squad.golden.db")
     finally:
         sftp.close()
 

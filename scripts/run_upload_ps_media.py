@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -100,12 +101,10 @@ def main() -> None:
     finally:
         sftp.close()
 
-    touch_paths = wsgi_files_to_reload(None, pa_user=user)
-    if touch_paths:
-        touch_cmd = " ".join(f"touch {p}" for p in touch_paths)
-        run_remote_bash(client, f"{touch_cmd}; echo uploaded_{total}_media_files")
-    else:
-        run_remote_bash(client, f"echo uploaded_{total}_media_files")
+    wsgi_primary = (os.environ.get("PA_WSGI_FILE") or "").strip() or "/var/www/www_bowlhockey_com_wsgi.py"
+    touch_paths = wsgi_files_to_reload(wsgi_primary, pa_user=user)
+    touch_cmd = " ".join(f"touch {shlex.quote(p)} 2>/dev/null || true" for p in touch_paths)
+    run_remote_bash(client, f"{touch_cmd}; echo uploaded_{total}_media_files")
     client.close()
     print(f"Done. {total} files uploaded.")
 

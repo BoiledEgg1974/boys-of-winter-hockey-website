@@ -200,7 +200,7 @@ def _commit_and_push_local_changes() -> None:
         f"Automated BOWL-Site-Update local run at {datetime.now().isoformat(timespec='seconds')}."
     )
     subprocess.run(["git", "commit", "-m", msg], cwd=REPO_ROOT, check=True)
-    subprocess.run(["git", "push"], cwd=REPO_ROOT, check=True)
+    subprocess.run(["git", "push", "-u", "origin", "HEAD"], cwd=REPO_ROOT, check=True)
     print("Git push complete.")
 
 

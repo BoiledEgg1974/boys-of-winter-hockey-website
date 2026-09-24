@@ -3,7 +3,7 @@ import importlib
 from pathlib import Path
 
 import click
-from flask import Flask, session
+from flask import Flask, request, session
 from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
@@ -95,6 +95,8 @@ def create_app(config_class: type = Config) -> Flask:
     @app.before_request
     def _idle_timeout_touch_session():
         # Sliding idle timeout for authenticated users (default 30 minutes).
+        if request.endpoint == "static":
+            return None
         if getattr(current_user, "is_authenticated", False):
             session.permanent = True
             session.modified = True

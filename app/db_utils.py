@@ -248,10 +248,15 @@ def sqlite_integrity_message(path: Path) -> str:
     db_path = Path(path).resolve()
     if not db_path.is_file():
         return "missing"
+    # Prefer a normal connection so WAL can be read while a local web app is open.
+    # mode=ro often reports a false "disk I/O error" against a live WAL database.
     try:
-        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=30.0)
-    except sqlite3.Error:
         conn = sqlite3.connect(str(db_path), timeout=30.0)
+    except sqlite3.Error:
+        try:
+            conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=30.0)
+        except sqlite3.Error as exc:
+            return str(exc)
     try:
         row = conn.execute("PRAGMA integrity_check").fetchone()
         msg = str(row[0] if row else "").strip()
@@ -505,16 +510,30 @@ def recover_sqlite_database(path: Path) -> Path:
     return backup
 
 
+_TRANSIENT_SQLITE_INTEGRITY = frozenset(
+    {
+        "disk i/o error",
+        "database is locked",
+        "database is busy",
+    }
+)
+
+
 def prepare_sqlite_database(path: Path, *, auto_repair: bool = False) -> tuple[bool, str]:
     """Checkpoint WAL, verify integrity, and optionally rebuild a corrupt database."""
     db_path = Path(path).resolve()
     if not db_path.is_file():
         # Fresh install / after reset_db — import will create schema via create_app().
         return True, "missing"
-    sqlite_wal_checkpoint(db_path)
-    msg = sqlite_integrity_message(db_path)
-    if msg.lower() == "ok":
-        return True, msg
+    msg = "unknown"
+    for attempt in range(4):
+        sqlite_wal_checkpoint(db_path)
+        msg = sqlite_integrity_message(db_path)
+        if msg.lower() == "ok":
+            return True, msg
+        if msg.lower() not in _TRANSIENT_SQLITE_INTEGRITY:
+            break
+        time.sleep(1.5 * (attempt + 1))
     if not auto_repair or not db_path.is_file():
         return False, msg
     try:

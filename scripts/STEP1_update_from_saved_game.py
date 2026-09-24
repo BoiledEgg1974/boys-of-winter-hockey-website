@@ -28,13 +28,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
-import os
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+
+# Windows: access denied, sharing violation, lock violation, user-mapped section.
+_WIN_TRANSIENT_COPY_ERRORS = {5, 32, 33, 1224}
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -142,6 +146,77 @@ def _save_paths(paths: dict[str, str]) -> None:
     PATHS_FILE.write_text(json.dumps(paths, indent=2), encoding="utf-8")
 
 
+def _is_transient_copy_error(exc: OSError) -> bool:
+    winerr = getattr(exc, "winerror", None)
+    if winerr in _WIN_TRANSIENT_COPY_ERRORS:
+        return True
+    return isinstance(exc, PermissionError)
+
+
+def _copy_file_via_bytes(src: Path, dst: Path) -> None:
+    """Copy without Windows CopyFile2, which fails on memory-mapped files."""
+    data = src.read_bytes()
+    tmp = dst.with_name(f".{dst.name}.copytmp")
+    try:
+        tmp.write_bytes(data)
+        try:
+            shutil.copystat(src, tmp, follow_symlinks=True)
+        except OSError:
+            pass
+        try:
+            os.replace(tmp, dst)
+            return
+        except OSError:
+            with open(dst, "wb") as out:
+                out.write(data)
+            try:
+                shutil.copystat(src, dst, follow_symlinks=True)
+            except OSError:
+                pass
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
+def _copy_file_resilient(src: Path, dst: Path, *, attempts: int = 8) -> None:
+    """Copy one file, retrying common Windows lock / OneDrive mapping errors."""
+    last_err: OSError | None = None
+    for attempt in range(1, attempts + 1):
+        tmp = dst.with_name(f".{dst.name}.copytmp")
+        try:
+            if tmp.exists():
+                tmp.unlink()
+            shutil.copy2(src, tmp)
+            os.replace(tmp, dst)
+            return
+        except OSError as exc:
+            last_err = exc
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+            if not _is_transient_copy_error(exc):
+                raise
+            if attempt < attempts:
+                print(
+                    f"  retry {attempt}/{attempts - 1}: {src.name} locked ({exc.winerror or exc.errno}); waiting…"
+                )
+                time.sleep(0.2 * attempt)
+    try:
+        _copy_file_via_bytes(src, dst)
+        return
+    except OSError as exc:
+        last_err = exc
+    raise OSError(
+        f"Could not copy {src.name} to {dst} (file is locked or memory-mapped). "
+        "Close Excel/FHM/preview windows on that CSV, pause OneDrive briefly, then retry."
+    ) from last_err
+
+
 def _copy_csvs(src: Path, dst: Path) -> int:
     if not src.exists() or not src.is_dir():
         raise FileNotFoundError(f"Source folder not found: {src}")
@@ -150,7 +225,7 @@ def _copy_csvs(src: Path, dst: Path) -> int:
     if not files:
         return 0
     for f in files:
-        shutil.copy2(f, dst / f.name)
+        _copy_file_resilient(f, dst / f.name)
     return len(files)
 
 

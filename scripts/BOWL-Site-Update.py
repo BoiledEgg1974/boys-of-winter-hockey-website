@@ -15,9 +15,6 @@ Default flow:
    upload league databases (+ ``app/static``), integrity-check, enqueue Discord
    boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
    (or live-board diffs / recent undelivered finals), then reload.
-7) Deploy **BOWL Perfect Squad** (tarball upload, pip, env, WSGI reload) unless
-   ``--no-perfect-squad``. Tarball deploy refreshes app code only; ``instance/``
-   (live ``perfect-squad.db``, action-shots) is preserved on PythonAnywhere.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
 
@@ -33,7 +30,6 @@ Examples:
   python scripts/BOWL-Site-Update.py --deploy-db-only
   python scripts/BOWL-Site-Update.py --remote-import
   python scripts/BOWL-Site-Update.py --league bowl-fantasy --no-push
-  python scripts/BOWL-Site-Update.py --no-perfect-squad
 
 Use ``flask bowl-overall-baseline-refresh`` only to treat the current site as a fresh baseline
 (clears trend arrows until the next pre-import snapshot).
@@ -54,7 +50,6 @@ if str(REPO_ROOT) not in sys.path:
 STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
 STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
 STEP3 = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
-DEPLOY_PS = REPO_ROOT / "scripts" / "deploy_perfect_squad_go_live.py"
 IMPORT = REPO_ROOT / "scripts" / "import_data.py"
 IMPORT_RACING = REPO_ROOT / "scripts" / "import_racing_data.py"
 REPAIR = REPO_ROOT / "scripts" / "repair_league_sqlite.py"
@@ -119,11 +114,6 @@ RACING_RAW_DIRS: dict[str, str] = {
 # Default PythonAnywhere deploy key (override with PA_SSH_KEY in the environment).
 _DEFAULT_PA_SSH_KEY = Path.home() / ".ssh" / "id_ed25519_pa"
 
-DEFAULT_PERFECT_SQUAD_ROOTS: tuple[str, ...] = (
-    r"C:\Users\keeno\OneDrive\Desktop\BOWL Perfect Squad",
-    r"C:\Users\keeno\Projects\BOWL-Perfect-Squad",
-)
-
 
 def _pa_deploy_env() -> dict[str, str]:
     """Environment for STEP2 deploy/deploy-db; sets PA_SSH_KEY when unset."""
@@ -166,74 +156,6 @@ def _no_deploy_warning() -> None:
         + "\n",
         file=sys.stderr,
     )
-
-
-def _resolve_perfect_squad_root() -> Path | None:
-    env = os.environ.get("PERFECT_SQUAD_LOCAL", "").strip()
-    if env:
-        root = Path(env).expanduser()
-        if (root / "app" / "__init__.py").is_file():
-            return root
-    for raw in DEFAULT_PERFECT_SQUAD_ROOTS:
-        root = Path(raw)
-        if (root / "app" / "__init__.py").is_file():
-            return root
-    return None
-
-
-def _perfect_squad_git_dirty(root: Path) -> bool:
-    res = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return bool(res.stdout.strip()) if res.returncode == 0 else False
-
-
-def _commit_and_push_perfect_squad() -> None:
-    root = _resolve_perfect_squad_root()
-    if root is None or not (root / ".git").is_dir():
-        print("Perfect Squad: no local git clone to push (set PERFECT_SQUAD_LOCAL or use Desktop path).")
-        return
-    if not _perfect_squad_git_dirty(root):
-        print("Perfect Squad: no git changes to push.")
-        return
-    msg = (
-        "Perfect Squad updates for BOWL site deploy\n\n"
-        f"Automated BOWL-Site-Update at {datetime.now().isoformat(timespec='seconds')}."
-    )
-    print(f"Perfect Squad: committing and pushing from {root}…")
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
-    subprocess.run(["git", "commit", "-m", msg], cwd=root, check=True)
-    subprocess.run(["git", "push"], cwd=root, check=True)
-
-
-def _deploy_perfect_squad(*, env: dict[str, str]) -> None:
-    if not DEPLOY_PS.is_file():
-        print(f"Warning: missing {DEPLOY_PS.name}; skipping Perfect Squad deploy.", file=sys.stderr)
-        return
-    print("\n--- BOWL Perfect Squad (PythonAnywhere) ---")
-    cmd = [
-        sys.executable,
-        str(DEPLOY_PS),
-        "--code",
-        "--tarball",
-        "--skip-bowl-git-sync",
-    ]
-    ps_root = _resolve_perfect_squad_root()
-    if ps_root is not None:
-        cmd.extend(["--local-ps-root", str(ps_root)])
-    else:
-        print(
-            "Warning: no local Perfect Squad clone; server PS code will not be refreshed "
-            "(pip/env/WSGI reload only). Set PERFECT_SQUAD_LOCAL.",
-            file=sys.stderr,
-        )
-        cmd.append("--no-local-ps-upload")
-    _run(cmd, env=env)
-    print("Perfect Squad deploy step finished.\n")
 
 
 def _deploy_success_note(*, via_deploy_db: bool = True) -> None:
@@ -426,16 +348,6 @@ def main() -> int:
         action="store_true",
         help="During STEP2 deploy, sync live AP catalog back into local DB for verification.",
     )
-    ap.add_argument(
-        "--no-perfect-squad",
-        action="store_true",
-        help="Skip Perfect Squad tarball deploy after PythonAnywhere STEP2.",
-    )
-    ap.add_argument(
-        "--no-perfect-squad-push",
-        action="store_true",
-        help="Do not git commit/push the local Perfect Squad repo before deploy.",
-    )
     args = ap.parse_args()
     league = _normalize_league_arg(args.league)
     league_args = ["--league", league] if league else []
@@ -467,14 +379,6 @@ def main() -> int:
         deploy_env = _pa_deploy_env()
         _run(step2_cmd, env=deploy_env)
         _deploy_success_note()
-        if not args.no_perfect_squad:
-            if not args.no_perfect_squad_push:
-                try:
-                    _commit_and_push_perfect_squad()
-                except subprocess.CalledProcessError as exc:
-                    print(f"Perfect Squad git push failed: {exc}", file=sys.stderr)
-                    return int(exc.returncode or 1)
-            _deploy_perfect_squad(env=deploy_env)
         print("\nBOWL-Site-Update complete.")
         return 0
 
@@ -537,13 +441,6 @@ def main() -> int:
     else:
         print("Skipping git commit/push (--no-push).")
 
-    if not args.no_perfect_squad_push and not args.no_perfect_squad:
-        try:
-            _commit_and_push_perfect_squad()
-        except subprocess.CalledProcessError as exc:
-            print(f"Perfect Squad git push failed: {exc}", file=sys.stderr)
-            return int(exc.returncode or 1)
-
     # 6) Deploy to PythonAnywhere.
     if not args.no_deploy:
         _deploy_preflight_note()
@@ -572,8 +469,6 @@ def main() -> int:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)
             _deploy_success_note(via_deploy_db=True)
-        if not args.no_perfect_squad:
-            _deploy_perfect_squad(env=deploy_env)
     else:
         _no_deploy_warning()
 

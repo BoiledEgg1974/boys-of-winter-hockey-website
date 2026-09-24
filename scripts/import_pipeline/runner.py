@@ -1402,6 +1402,13 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
         log.error("Raw import directory does not exist: %s", raw)
         return 1
     _sync_team_logos_from_raw(raw, app)
+    if slug == "bowl-fantasy":
+        from app.services.fhm_league_logos import sync_fhm_league_logos
+        from app.services.fhm_team_logos import sync_fhm_team_logos
+
+        league_logo_dest = Path(app.static_folder) / "logos" / "leagues" / "fhm"
+        sync_fhm_league_logos(raw, league_logo_dest)
+        sync_fhm_team_logos(raw, Path(app.config["TEAM_LOGOS_DIR"]))
     with app.app_context():
         if db_uri.startswith("sqlite:///"):
             from app.sqlite_import import configure_sqlite_for_bulk_import
@@ -1409,6 +1416,7 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
             configure_sqlite_for_bulk_import(db.engine, db_path=resolve_league_sqlite_path(slug))
         snapshot_overall_baselines_before_import(app)
         from scripts.import_pipeline.fhm_loader import (
+            all_fhm_league_ids,
             is_fhm_export_dir,
             relegation_tier_league_ids,
             run_fhm_import,
@@ -1422,10 +1430,21 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
             message = ""
             total = 0
             try:
-                tier_ids = relegation_tier_league_ids(raw) if slug == "bowl-fantasy" else None
-                league_filter: int | tuple[int, ...] = tier_ids if tier_ids else 0
-                if tier_ids:
-                    log.info("BOWL-Relegation import: loading tier leagues %s", tier_ids)
+                if slug == "bowl-fantasy":
+                    all_ids = all_fhm_league_ids(raw)
+                    league_filter: int | tuple[int, ...] = all_ids if all_ids else 0
+                    tier_ids = relegation_tier_league_ids(raw)
+                    if tier_ids:
+                        log.info(
+                            "BOWL-Relegation import: loading all FHM leagues %s (site tiers %s)",
+                            league_filter,
+                            tier_ids,
+                        )
+                    else:
+                        log.info("BOWL-Relegation import: loading all FHM leagues %s", league_filter)
+                else:
+                    tier_ids = None
+                    league_filter = 0
                 counts = run_fhm_import(raw, app, league_filter=league_filter)
                 overlay = raw / "team_standings.csv"
                 if overlay.is_file():
@@ -1445,6 +1464,12 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
                 if tr.is_file():
                     log.info("Applying trades.csv after FHM import.")
                     counts["trades"] = import_trade_log(raw, app)
+                tx_csv = raw / "transactions.csv"
+                if tx_csv.is_file():
+                    from app.services.league_transactions import import_transactions_csv
+
+                    log.info("Applying transactions.csv after FHM import.")
+                    counts["transactions"] = import_transactions_csv(raw, app)
                 tsr = raw / "team_season_records_template.csv"
                 if tsr.is_file():
                     from scripts.import_pipeline.team_season_records_loader import (

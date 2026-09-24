@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}Farm / Overseas — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+
+{% block content %}
+
+<div class="page-head farm-overseas-head">
+
+  <h1 class="page-title">Farm / Overseas</h1>
+
+  <p class="muted">
+
+    Standings by division, leaders, and scores from AHL, junior, and other FHM leagues
+
+    {% if scoreboard.season_label %}({{ scoreboard.season_label }}){% endif %}.
+
+  </p>
+
+  <form class="farm-scoreboard-filters" method="get" action="{{ url_for('main.farm_scoreboard_page') }}">
+
+    <label>
+
+      As of
+
+      <input type="date" name="date" value="{{ selected_date }}">
+
+    </label>
+
+    <label>
+
+      League
+
+      <select name="league">
+
+        <option value="">All leagues</option>
+
+        {% for lg in scoreboard.leagues %}
+
+        <option value="{{ lg.fhm_league_id }}"{% if selected_league == lg.fhm_league_id %} selected{% endif %}>{{ lg.name }}</option>
+
+        {% endfor %}
+
+      </select>
+
+    </label>
+
+    <button type="submit" class="btn btn--secondary">Update</button>
+
+  </form>
+
+</div>
+
+
+
+{% if scoreboard.leagues %}
+
+<nav class="farm-league-nav" aria-label="Farm and overseas leagues">
+
+  <div class="farm-league-nav__scroll">
+
+    {% for lg in scoreboard.leagues %}
+
+    <a class="farm-league-nav__chip" href="#farm-league-{{ lg.fhm_league_id }}">
+
+      {% if lg.logo_url %}
+
+      <img class="farm-league-nav__logo" src="{{ lg.logo_url }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+
+      {% endif %}
+
+      <span class="farm-league-nav__label">{{ lg.abbr or lg.name }}</span>
+
+    </a>
+
+    {% endfor %}
+
+  </div>
+
+</nav>
+
+{% endif %}
+
+
+
+<div class="farm-overseas-board">
+
+  {% for sec in scoreboard.sections %}
+
+  <section class="farm-league-block card" id="farm-league-{{ sec.fhm_league_id }}">
+
+    <header class="farm-league-block__head">
+
+      {% if sec.logo_url %}
+
+      <img class="farm-league-block__logo" src="{{ sec.logo_url }}" alt="" width="48" height="48" loading="lazy" decoding="async">
+
+      {% endif %}
+
+      <div>
+
+        <h2 class="farm-league-block__title">{{ sec.name }}</h2>
+
+        {% if sec.abbr %}<p class="farm-league-block__abbr muted">{{ sec.abbr }}</p>{% endif %}
+
+      </div>
+
+    </header>
+
+
+
+    <div class="farm-league-block__standings-area">
+
+      <h3 class="farm-league-block__subhead">Standings</h3>
+
+      {% if sec.conference_groups %}
+
+      <div class="farm-conference-stack">
+
+        {% for conf in sec.conference_groups %}
+
+        <section class="farm-conference-block">
+
+          <h4 class="farm-conference-block__title">{{ conf.conference_name }}</h4>
+
+          <div class="farm-division-columns">
+
+        {% for div in conf.divisions %}
+
+        <div class="farm-division-column">
+
+          <h5 class="farm-division-column__title">{{ div.division_name }}</h5>
+
+          <table class="data-table data-table--compact farm-standings-table">
+
+            <thead>
+
+              <tr>
+
+                <th scope="col">Team</th>
+
+                <th scope="col">GP</th>
+
+                <th scope="col">W</th>
+
+                <th scope="col">L</th>
+
+                <th scope="col">OTL</th>
+
+                <th scope="col">Pts</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {% for row in div.teams %}
+
+              <tr>
+
+                <td>
+
+                  <span class="farm-team-cell" title="{{ row.team_name }}">
+
+                    {% if row.team_logo_url %}
+
+                    <img class="farm-team-cell__logo" src="{{ row.team_logo_url }}" alt="" width="22" height="22" loading="lazy" decoding="async">
+
+                    {% endif %}
+
+                    <span class="farm-team-cell__abbr">{{ row.team_abbr }}</span>
+
+                  </span>
+
+                </td>
+
+                <td>{{ row.gp }}</td>
+
+                <td>{{ row.w }}</td>
+
+                <td>{{ row.l }}</td>
+
+                <td>{{ row.otl }}</td>
+
+                <td><strong>{{ row.pts }}</strong></td>
+
+              </tr>
+
+              {% endfor %}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+        {% endfor %}
+
+          </div>
+
+        </section>
+
+        {% endfor %}
+
+      </div>
+
+      {% else %}
+
+      <p class="muted farm-league-block__empty">No standings imported yet. Re-run the FHM import to load farm leagues.</p>
+
+      {% endif %}
+
+    </div>
+
+
+
+    <div class="farm-league-block__lower">
+
+      <div class="farm-league-block__leaders">
+
+        <h3 class="farm-league-block__subhead">Leading scorers</h3>
+
+        {% if sec.skater_leaders %}
+
+        <table class="data-table data-table--compact farm-leaders-table">
+
+          <thead>
+
+            <tr><th scope="col">Player</th><th scope="col">Tm</th><th scope="col">GP</th><th scope="col">G</th><th scope="col">A</th><th scope="col">Pts</th></tr>
+
+          </thead>
+
+          <tbody>
+
+            {% for p in sec.skater_leaders %}
+
+            <tr>
+
+              <td>{{ p.name }}</td>
+
+              <td>
+
+                <span class="farm-team-cell farm-team-cell--inline">
+
+                  {% if p.team_logo_url %}<img class="farm-team-cell__logo" src="{{ p.team_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                  {{ p.team_abbr }}
+
+                </span>
+
+              </td>
+
+              <td>{{ p.gp }}</td>
+
+              <td>{{ p.g }}</td>
+
+              <td>{{ p.a }}</td>
+
+              <td><strong>{{ p.pts }}</strong></td>
+
+            </tr>
+
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+
+        {% else %}
+
+        <p class="muted farm-league-block__empty">—</p>
+
+        {% endif %}
+
+
+
+        <h3 class="farm-league-block__subhead">Leading goalies</h3>
+
+        {% if sec.goalie_leaders %}
+
+        <table class="data-table data-table--compact farm-leaders-table">
+
+          <thead>
+
+            <tr><th scope="col">Player</th><th scope="col">Tm</th><th scope="col">GP</th><th scope="col">W</th><th scope="col">GAA</th><th scope="col">SV%</th></tr>
+
+          </thead>
+
+          <tbody>
+
+            {% for p in sec.goalie_leaders %}
+
+            <tr>
+
+              <td>{{ p.name }}</td>
+
+              <td>
+
+                <span class="farm-team-cell farm-team-cell--inline">
+
+                  {% if p.team_logo_url %}<img class="farm-team-cell__logo" src="{{ p.team_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                  {{ p.team_abbr }}
+
+                </span>
+
+              </td>
+
+              <td>{{ p.gp }}</td>
+
+              <td>{{ p.w }}</td>
+
+              <td>{% if p.gaa is not none %}{{ "%.2f"|format(p.gaa) }}{% else %}—{% endif %}</td>
+
+              <td>{% if p.sv_pct is not none %}{{ "%.3f"|format(p.sv_pct) }}{% else %}—{% endif %}</td>
+
+            </tr>
+
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+
+        {% else %}
+
+        <p class="muted farm-league-block__empty">—</p>
+
+        {% endif %}
+
+      </div>
+
+
+
+      <div class="farm-league-block__scores">
+
+        <h3 class="farm-league-block__subhead">Recent results</h3>
+
+        {% if sec.recent_games %}
+
+        <ul class="farm-score-list">
+
+          {% for g in sec.recent_games %}
+
+          <li class="farm-score-list__item">
+
+            <time class="farm-score-list__date muted">{{ g.date }}</time>
+
+            <span class="farm-score-list__line farm-matchup">
+
+              <span class="farm-matchup__team">
+
+                {% if g.away_logo_url %}<img class="farm-team-cell__logo" src="{{ g.away_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                <strong>{{ g.away_abbr }}</strong> {{ g.away_score }}
+
+              </span>
+
+              <span class="farm-matchup__at muted">@</span>
+
+              <span class="farm-matchup__team">
+
+                {% if g.home_logo_url %}<img class="farm-team-cell__logo" src="{{ g.home_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                <strong>{{ g.home_abbr }}</strong> {{ g.home_score }}
+
+              </span>
+
+              {% if g.went_to_shootout %}<span class="muted">SO</span>{% elif g.went_to_overtime %}<span class="muted">OT</span>{% endif %}
+
+            </span>
+
+          </li>
+
+          {% endfor %}
+
+        </ul>
+
+        {% else %}
+
+        <p class="muted farm-league-block__empty">No recent finals.</p>
+
+        {% endif %}
+
+
+
+        <h3 class="farm-league-block__subhead">Upcoming</h3>
+
+        {% if sec.upcoming_games %}
+
+        <ul class="farm-score-list">
+
+          {% for g in sec.upcoming_games %}
+
+          <li class="farm-score-list__item">
+
+            <time class="farm-score-list__date muted">{{ g.date }}</time>
+
+            <span class="farm-score-list__line farm-matchup">
+
+              <span class="farm-matchup__team">
+
+                {% if g.away_logo_url %}<img class="farm-team-cell__logo" src="{{ g.away_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                <strong>{{ g.away_abbr }}</strong>
+
+              </span>
+
+              <span class="farm-matchup__at muted">@</span>
+
+              <span class="farm-matchup__team">
+
+                {% if g.home_logo_url %}<img class="farm-team-cell__logo" src="{{ g.home_logo_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">{% endif %}
+
+                <strong>{{ g.home_abbr }}</strong>
+
+              </span>
+
+            </span>
+
+          </li>
+
+          {% endfor %}
+
+        </ul>
+
+        {% else %}
+
+        <p class="muted farm-league-block__empty">No upcoming games in the next two weeks.</p>
+
+        {% endif %}
+
+      </div>
+
+    </div>
+
+  </section>
+
+  {% else %}
+
+  <p class="empty-state">No farm or overseas leagues are configured. Check <code>league_data.csv</code> and re-run import.</p>
+
+  {% endfor %}
+
+</div>
+
+{% endblock %}
+

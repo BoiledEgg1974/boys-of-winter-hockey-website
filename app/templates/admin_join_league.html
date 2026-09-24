@@ -70,7 +70,7 @@
     <p class="muted admin-join-league__file">
       Saved to <code>{{ teams_file }}</code>. Current open teams:
       {% if configured_names %}{{ configured_names|join(', ') }}{% else %}none{% endif %}.
-      {% if not has_admin_file %}No admin file exists yet; this site may still use a legacy default until you save.{% endif %}
+      {% if not has_admin_file %}No availability file yet — the public banner and join form show only Waitlist until you save open teams here.{% endif %}
     </p>
 
     <button type="submit" class="btn">Save Availability</button>

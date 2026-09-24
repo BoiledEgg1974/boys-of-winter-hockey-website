@@ -5,6 +5,7 @@
 <div class="teams-directory">
   <header class="teams-directory__head">
     <h1 class="page-title">Teams</h1>
+    {% include "includes/relegation_scope_tabs.html" %}
     {% if season %}<p class="muted teams-directory__season">Season: <strong>{{ season|season_display }}</strong></p>{% endif %}
     <p class="teams-directory__lead muted">Choose a franchise to open its team page.</p>
   </header>

@@ -1716,3 +1716,48 @@ class GmAchievementWatermark(db.Model):
         if not isinstance(raw, dict):
             return {}
         return {str(k): str(v) for k, v in raw.items() if v}
+
+
+class InjuryImportSnapshot(db.Model):
+    """Last published injury rows for Discord delta detection after FHM import."""
+
+    __tablename__ = "injury_import_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_slug", name="uq_injury_import_snapshot_league"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class RosterImportSnapshot(db.Model):
+    """FHM ``player_master`` team ids per player — detect roster moves between imports."""
+
+    __tablename__ = "roster_import_snapshots"
+    __bind_key__ = "site"
+    __table_args__ = (UniqueConstraint("league_slug", name="uq_roster_import_snapshot_league"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TeamTransferBudgetOverride(db.Model):
+    """Commissioner-entered transfer cash wallet (FHM cash is not imported)."""
+
+    __tablename__ = "team_transfer_budget_overrides"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint("league_slug", "team_id", name="uq_transfer_budget_league_team"),
+        Index("ix_transfer_budget_league", "league_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    transfer_cash_usd: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("site_users.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

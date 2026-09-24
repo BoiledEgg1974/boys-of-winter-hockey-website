@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Front Office — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Front Office</h1>
+  <p class="muted">Draft picks, transfers, trades, and relegation tools for BOWL-Relegation.{% if finances_season_label %} Cap figures use season {{ finances_season_label }}.{% endif %}{% if cap_ceiling %} League ceiling ${{ '{:,}'.format(cap_ceiling) }}.{% endif %}</p>
+</div>
+
+<nav class="front-office-links card" aria-label="Front office tools">
+  <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('main.relegation_page') }}">Promotion / Relegation</a>
+  {% if gm_membership or site_has_admin %}
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('site_gm.transfer_tool_page') }}">Transfer Tool</a>
+  {% endif %}
+  {% if site_has_admin %}
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('site_admin.admin_transfer_budgets') }}">Edit transfer wallets</a>
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Edit pick grid</a>
+  {% endif %}
+</nav>
+
+<section class="card front-office-section" aria-labelledby="fo-transfer-h">
+  <h2 id="fo-transfer-h" class="front-office-section__title">Transfer budgets</h2>
+  <p class="muted front-office-section__lead">Cap room vs commissioner transfer wallet; effective room is the lower of the two when a wallet is set.</p>
+  <div class="table-wrap">
+    <table class="data front-office-table">
+      <thead>
+        <tr>
+          <th scope="col">Team</th>
+          <th scope="col">Cap room</th>
+          <th scope="col">Transfer wallet</th>
+          <th scope="col">Effective</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in front_office_teams %}
+        <tr>
+          <td><a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a></td>
+          <td>{% if row.cap_room_usd is not none %}${{ '{:,}'.format(row.cap_room_usd) }}{% else %}—{% endif %}</td>
+          <td>{% if row.transfer_override_usd is not none %}${{ '{:,}'.format(row.transfer_override_usd) }}{% else %}<span class="muted">Cap room only</span>{% endif %}</td>
+          <td>{% if row.transfer_effective_usd is not none %}${{ '{:,}'.format(row.transfer_effective_usd) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card front-office-section" aria-labelledby="fo-cap-h">
+  <h2 id="fo-cap-h" class="front-office-section__title">Team budgets</h2>
+  <p class="muted front-office-section__lead">Active roster cap hit and remaining space under the league salary ceiling.</p>
+  <div class="table-wrap">
+    <table class="data front-office-table">
+      <thead>
+        <tr>
+          <th scope="col">Team</th>
+          <th scope="col">Cap hit</th>
+          <th scope="col">Cap space</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in front_office_teams %}
+        <tr>
+          <td><a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a></td>
+          <td>{% if row.cap_hit is not none %}${{ '{:,}'.format(row.cap_hit) }}{% else %}—{% endif %}</td>
+          <td>
+            {% if row.cap_space is not none %}
+            {% set cap_space_tier = 'over' if row.cap_space < 0 else ('low' if row.cap_space < 2000000 else ('mid' if row.cap_space < 6000000 else 'high')) %}
+            <span class="finances-cap-space finances-cap-space--{{ cap_space_tier }}">${{ '{:,}'.format(row.cap_space) }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card front-office-section" aria-labelledby="fo-picks-h">
+  <h2 id="fo-picks-h" class="front-office-section__title">Draft pick ownership</h2>
+  <p class="muted front-office-section__lead">Picks currently owned by each franchise (active draft years on the admin grid).</p>
+  <div class="front-office-picks-grid">
+    {% for row in front_office_teams %}
+    <article class="front-office-picks-team">
+      <h3 class="front-office-picks-team__name">
+        <a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a>
+      </h3>
+      {% if row.draft_pick_labels %}
+      <ul class="front-office-picks-list">
+        {% for label in row.draft_pick_labels %}
+        <li>{{ label }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted front-office-picks-empty">No picks on file.</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

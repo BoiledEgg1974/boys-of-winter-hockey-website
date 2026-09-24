@@ -137,6 +137,10 @@ def refresh_after_import(engine, app=None) -> None:
                         maybe_enqueue_playoff_bracket_discord(
                             db.session, db.session, slug
                         )
+                        if slug == "bowl-fantasy":
+                            from app.services.injury_discord import maybe_enqueue_injury_report_delta
+
+                            maybe_enqueue_injury_report_delta(db.session, slug)
                         db.session.commit()
                     from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
                     from app.services.league_json_cache import invalidate_league_json_cache

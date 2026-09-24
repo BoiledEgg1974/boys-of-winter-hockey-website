@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Injuries — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Injury Report</h1>
+  {% include "includes/relegation_scope_tabs.html" %}
+  <form class="injuries-filters" method="get" action="{{ url_for('main.injuries_page') }}">
+    {% if relegation_scope and relegation_scope != 'combined' %}
+    <input type="hidden" name="scope" value="{{ relegation_scope }}">
+    {% endif %}
+    <label>
+      Status
+      <select name="status">
+        <option value="all"{% if status_filter == 'all' %} selected{% endif %}>All</option>
+        <option value="day_to_day"{% if status_filter == 'day_to_day' %} selected{% endif %}>Day-to-day</option>
+        <option value="out"{% if status_filter == 'out' %} selected{% endif %}>Out</option>
+      </select>
+    </label>
+    <label>
+      Team
+      <select name="team">
+        <option value="">All teams</option>
+        {% for t in filter_teams %}
+        <option value="{{ t.id }}"{% if team_filter == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn btn--secondary">Filter</button>
+  </form>
+</div>
+{% if injury_rows %}
+<div class="table-wrap">
+  <table class="data injuries-table">
+    <thead>
+      <tr>
+        <th scope="col">Status</th>
+        <th scope="col">Player</th>
+        <th scope="col">Team</th>
+        <th scope="col">Injury</th>
+        <th scope="col">Recovery</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in injury_rows %}
+      <tr>
+        <td>
+          <img class="injuries-table__icon" src="{{ url_for('static', filename=row.status_icon_path) }}" alt="{{ row.status_label }}" width="20" height="20">
+          <span class="visually-hidden">{{ row.status_label }}</span>
+        </td>
+        <td><a href="{{ url_for('main.player_page', player_id=row.player_id) }}">{{ row.player_name }}</a></td>
+        <td>{% if row.team_slug %}<a href="{{ url_for('main.team_page', slug=row.team_slug) }}">{{ row.team_name }}</a>{% else %}{{ row.team_name }}{% endif %}</td>
+        <td>{{ row.injury_name }}</td>
+        <td>{% if row.recovery_days is not none %}{{ row.recovery_days }}d{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty-state">No active injuries for this filter.</p>
+{% endif %}
+{% endblock %}

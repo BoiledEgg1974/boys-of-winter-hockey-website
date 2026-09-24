@@ -57,7 +57,9 @@ def _main_league_standings_score(league_session: Session, season_id: int) -> tup
         .options(joinedload(TeamStanding.team))
         .where(TeamStanding.season_id == int(season_id))
     ).all()
-    filtered = [row for row in rows if row.team is not None and is_main_league_team(row.team)]
+    filtered = [
+        row for row in rows if row.team is not None and is_main_league_team(row.team, session=league_session)
+    ]
     with_records = sum(1 for row in filtered if _standing_row_has_record_data(row))
     return (with_records, len(filtered))
 
@@ -139,7 +141,7 @@ def main_league_standings_worst_to_best(
             .where(TeamStanding.season_id == int(season.id))
         ).all()
     )
-    filtered = [r for r in rows if r.team is not None and is_main_league_team(r.team)]
+    filtered = [r for r in rows if r.team is not None and is_main_league_team(r.team, session=league_session)]
     if _standings_have_record_data(filtered):
         return sorted(filtered, key=_standing_worst_first_key)
     derived = _derive_main_league_standings_from_games(league_session, season)
@@ -163,7 +165,9 @@ def _derive_main_league_standings_from_games(
     league_session: Session, season: Season
 ) -> list[DraftOrderStanding]:
     teams = list(league_session.scalars(select(Team)).all())
-    main_team_by_id = {int(t.id): t for t in teams if is_main_league_team(t)}
+    main_team_by_id = {
+        int(t.id): t for t in teams if is_main_league_team(t, session=league_session)
+    }
     if not main_team_by_id:
         return []
     stats = {
@@ -251,7 +255,7 @@ def _standings_from_team_season_records(
     recs = _load_records_for_year(league_session, year_label)
     rows: list[DraftOrderStanding] = []
     for rec in recs:
-        if rec.team is None or not is_main_league_team(rec.team):
+        if rec.team is None or not is_main_league_team(rec.team, session=league_session):
             continue
         rows.append(_draft_order_standing_from_record(rec, rec.team))
     return sorted(rows, key=_standing_worst_first_key)
@@ -281,7 +285,7 @@ def _standings_from_career_year(
         if agg.team_id is None:
             continue
         team = league_session.get(Team, int(agg.team_id))
-        if team is None or not is_main_league_team(team):
+        if team is None or not is_main_league_team(team, session=league_session):
             continue
         rows.append(
             DraftOrderStanding(
@@ -311,7 +315,7 @@ def _with_new_franchise_slots(
     for team in league_session.scalars(select(Team).order_by(Team.id.asc())).all():
         if not isinstance(team, Team):
             continue
-        if not is_main_league_team(team) or int(team.id) in have_ids:
+        if not is_main_league_team(team, session=league_session) or int(team.id) in have_ids:
             continue
         missing.append(DraftOrderStanding(team=team))
     missing.sort(key=lambda row: (row.team.full_display_name() if row.team else "").lower())
@@ -323,7 +327,7 @@ def default_picks_per_round(league_session: Session) -> int:
     n = sum(
         1
         for team in league_session.scalars(select(Team)).all()
-        if isinstance(team, Team) and is_main_league_team(team)
+        if isinstance(team, Team) and is_main_league_team(team, session=league_session)
     )
     return max(1, n)
 

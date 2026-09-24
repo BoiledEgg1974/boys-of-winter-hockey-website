@@ -370,7 +370,8 @@ def home():
         best_by_player.values(),
         key=lambda x: (int(x["remaining"]), str(getattr(x["player"], "full_name", "")).lower()),
     )[:5]
-    return render_template("home.html", milestone_teasers=milestone_teasers)
+    relegation_ctx = _relegation_template_context("main.home")
+    return render_template("home.html", milestone_teasers=milestone_teasers, **relegation_ctx)
 
 
 def _headline_byline_team(
@@ -2650,6 +2651,109 @@ def relegation_page():
         movement_watch=movement,
         tier_config=config,
         **relegation_ctx,
+    )
+
+
+@main_bp.get("/injuries")
+def injuries_page():
+    """League-wide injury report (BOWL-Relegation / FHM12)."""
+    from app.services.injuries import injury_payload_league_wide, injuries_supported_for_league
+    from app.services.relegation import filter_teams_by_scope, filter_teams_to_main_tiers, get_tier_config
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not injuries_supported_for_league(league_slug):
+        return redirect(url_for("main.home"))
+    relegation_ctx = _relegation_template_context("main.injuries_page")
+    status_filter = (request.args.get("status") or "all").strip().lower()
+    team_filter = request.args.get("team", type=int)
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+    rel_scope = relegation_ctx.get("relegation_scope") or "combined"
+    teams = filter_teams_by_scope(
+        filter_teams_to_main_tiers(list(db.session.scalars(select(Team)).all()), tier_cfg),
+        rel_scope,
+        tier_cfg,
+    )
+    team_ids = frozenset(int(t.id) for t in teams)
+    rows = injury_payload_league_wide(db.session, team_ids)
+    if status_filter in ("day_to_day", "out"):
+        rows = [r for r in rows if str(r.get("status")) == status_filter]
+    if team_filter:
+        rows = [r for r in rows if int(r.get("team_id") or 0) == int(team_filter)]
+    rows.sort(key=lambda r: (str(r.get("team_name") or ""), str(r.get("player_name") or "")))
+    return render_template(
+        "injuries.html",
+        injury_rows=rows,
+        filter_teams=sorted(teams, key=lambda t: t.full_display_name()),
+        status_filter=status_filter,
+        team_filter=team_filter,
+        **relegation_ctx,
+    )
+
+
+@main_bp.get("/farm-scoreboard")
+def farm_scoreboard_page():
+    """Other-league nightly-style scoreboard (AHL, juniors, etc.)."""
+    from datetime import date as date_cls
+
+    from app.services.farm_scoreboard import build_farm_scoreboard_payload
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if league_slug != "bowl-fantasy":
+        return redirect(url_for("main.home"))
+    on_date = request.args.get("date")
+    parsed: date_cls | None = None
+    if on_date:
+        try:
+            parsed = date_cls.fromisoformat(str(on_date).strip()[:10])
+        except ValueError:
+            parsed = None
+    league_fhm_id = request.args.get("league", type=int)
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    payload = build_farm_scoreboard_payload(
+        db.session,
+        on_date=parsed,
+        league_fhm_id=league_fhm_id,
+        raw_dir=raw_dir if raw_dir.is_dir() else None,
+    )
+    return render_template(
+        "farm_scoreboard.html",
+        scoreboard=payload,
+        selected_league=league_fhm_id,
+        selected_date=(parsed or date_cls.today()).isoformat(),
+    )
+
+
+@main_bp.get("/blup")
+def blup_hub_page():
+    return redirect(url_for("main.standings", scope="upper"))
+
+
+@main_bp.get("/blow")
+def blow_hub_page():
+    return redirect(url_for("main.standings", scope="lower"))
+
+
+@main_bp.get("/front-office")
+def front_office_page():
+    """Draft picks, transfers, and trade history entry points."""
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if league_slug != "bowl-fantasy":
+        return redirect(url_for("main.home"))
+    from app.services.front_office import build_front_office_rows
+
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    team_rows, fo_meta = build_front_office_rows(
+        db.session,
+        db.session,
+        league_slug=league_slug,
+        raw_import_dir=raw_dir,
+    )
+    return render_template(
+        "front_office.html",
+        front_office_teams=team_rows,
+        finances_season_label=fo_meta.get("season_label"),
+        cap_ceiling=fo_meta.get("cap_ceiling"),
     )
 
 
@@ -4983,7 +5087,15 @@ def _team_page_news_rows(team_id: int) -> list[dict[str, object]]:
 @main_bp.get("/teams")
 def teams_index():
     """Directory of team banners (same layout as each team page hero) for the active league site."""
+    relegation_ctx = _relegation_template_context("main.teams_index")
     teams_list = list(db.session.scalars(select(Team)).all())
+    if relegation_ctx.get("relegation_enabled"):
+        from app.services.relegation import filter_teams_by_scope, get_tier_config
+
+        raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+        rel_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+        rel_scope = relegation_ctx.get("relegation_scope") or "combined"
+        teams_list = filter_teams_by_scope(teams_list, rel_scope, rel_cfg)
     teams_list.sort(key=lambda t: (t.full_display_name() or "").strip().lower())
     canonical_season = get_current_season()
     season = (
@@ -5014,6 +5126,13 @@ def teams_index():
     team_agg_by_id: dict[int, TeamSeasonAggregate] = {}
     if season:
         all_st = standings_for_season(season)
+        if relegation_ctx.get("relegation_enabled"):
+            from app.services.relegation import filter_standings_by_scope, get_tier_config
+
+            raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+            rel_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+            rel_scope = relegation_ctx.get("relegation_scope") or "combined"
+            all_st = filter_standings_by_scope(all_st, rel_scope, rel_cfg)
         ranks_rs = _rank_maps_for_segment(season.id, "rs")
         for a in db.session.scalars(
             select(TeamSeasonAggregate).where(
@@ -5157,6 +5276,7 @@ def teams_index():
         team_banners=team_banners,
         season=season,
         canonical_season=canonical_season,
+        **relegation_ctx,
     )
 
 
@@ -5177,6 +5297,15 @@ def team_page(slug: str):
     team = db.session.scalars(select(Team).where(Team.slug == slug).limit(1)).first()
     if not team:
         abort(404)
+    relegation_ctx = _relegation_template_context("main.team_page", slug=slug)
+    team_relegation_tier: str | None = None
+    if relegation_ctx.get("relegation_enabled"):
+        from app.services.relegation import get_tier_config, team_tier
+
+        raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+        rel_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+        tier = team_tier(team, rel_cfg)
+        team_relegation_tier = tier
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
     canonical_season = get_current_season()
     season = (
@@ -5270,6 +5399,13 @@ def team_page(slug: str):
                     for r in standings_for_season(season)
                     if _display_division(r) == division_name
                 ]
+                if relegation_ctx.get("relegation_enabled"):
+                    from app.services.relegation import filter_standings_by_scope, get_tier_config
+
+                    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+                    rel_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+                    rel_scope = relegation_ctx.get("relegation_scope") or "combined"
+                    div_rows = filter_standings_by_scope(div_rows, rel_scope, rel_cfg)
                 for idx, r in enumerate(div_rows, start=1):
                     if r.team_id == team.id:
                         division_rank = idx
@@ -5286,12 +5422,15 @@ def team_page(slug: str):
         "staff",
         "alumni",
         "trades",
+        "transactions",
         "franchise",
         "season_records",
         "team_history",
         "org_development",
         "prospects",
     }
+    if panel == "trades":
+        panel = "transactions"
     if panel not in allowed_team_panels:
         panel = "roster"
     salary_years = (
@@ -5472,26 +5611,22 @@ def team_page(slug: str):
     if panel == "alumni":
         team_alumni = build_team_alumni_rows(db.session, team)
 
+    team_transaction_rows: list = []
     team_trade_log: list = []
     trade_log_card_view_fn = None
     trade_log_team_logo_url_fn = None
     trade_log_source_label_fn = None
-    if panel == "trades":
-        from app.services.season_team_logo_bundle import get_season_team_logo_bundle
-        from app.services.trade_log import trade_log_card_view, trade_log_source_label
+    if panel == "transactions":
+        from app.services.league_transactions import league_transactions_payload
 
         slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-        team_trade_log = build_trade_log_rows(
-            db.session, db.session, league_slug=slug, team_id=int(team.id), limit=80
+        team_transaction_rows = league_transactions_payload(
+            db.session,
+            db.session,
+            league_slug=slug,
+            team_id=int(team.id),
+            limit=80,
         )
-        logo_bundle = get_season_team_logo_bundle()
-
-        def _team_page_trade_log_team_logo_url(row, trade_team, label=""):
-            return _trade_log_team_logo_url_for_label(row, trade_team, label, logo_bundle)
-
-        trade_log_card_view_fn = trade_log_card_view
-        trade_log_team_logo_url_fn = _team_page_trade_log_team_logo_url
-        trade_log_source_label_fn = trade_log_source_label
 
     raw_dir = Path(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR))
     depth_chart, lines_sections, lines_name_to_id, salary_rows, salary_total = _build_team_lines_views(
@@ -5729,6 +5864,8 @@ def team_page(slug: str):
         )
     tmpl_kwargs: dict[str, object] = {
         "team": team,
+        "team_relegation_tier": team_relegation_tier,
+        **relegation_ctx,
         "arena_name": arena_name,
         "arena_capacity": arena_capacity,
         "division_name": division_name,
@@ -5799,6 +5936,7 @@ def team_page(slug: str):
         "season_records_po_sections": season_records_po_sections,
         "team_history_records": team_history_records,
         "team_alumni_rows": team_alumni,
+        "team_transaction_rows": team_transaction_rows,
         "team_trade_log_rows": team_trade_log,
         "trade_log_card_view": trade_log_card_view_fn,
         "trade_log_team_logo_url": trade_log_team_logo_url_fn,
@@ -6066,6 +6204,9 @@ def player_page(player_id: int):
         current_app.config.get("PLAYER_HEADSHOTS_REL_DIR", "players"),
     )
     _photo_url = url_for("static", filename=_headshot_rel) if _headshot_rel else None
+    from app.services.injuries import injuries_by_player_id
+
+    player_active_injury = injuries_by_player_id(db.session, {int(player.id)}).get(int(player.id))
     player_analytics_card = build_player_analytics_card(
         db.session,
         player,
@@ -6130,6 +6271,7 @@ def player_page(player_id: int):
         player_development=player_development,
         player_process_stats=player_process_stats,
         player_analytics_card=player_analytics_card,
+        player_active_injury=player_active_injury,
         can_manage_player_boost=has_admin_role(
             current_user, ADMIN_ROLE_SUPER, ADMIN_ROLE_LEAGUE, ADMIN_ROLE_STATS
         ),

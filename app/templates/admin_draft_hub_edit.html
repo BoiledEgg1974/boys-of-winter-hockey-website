@@ -109,11 +109,10 @@
     <input type="hidden" name="action" value="save_ranking_and_generate">
     <h3 style="margin-top:0;">Worst-to-first ranking + NHL lottery</h3>
     <p class="muted">
-      Rank every club from worst record to best. The first
-      <strong>{{ lottery_team_count }}</strong> become lottery seeds (including playoff teams).
-      The two best records stay out of the lottery and keep the last first-round picks.
-      Pick ownership is applied after you save. Upper/Lower standings scrape comes later —
-      this ranking is the source of truth for now.
+      Generate order from combined BLUP+BLOW prior-season standings (worst → best, all 24 franchises).
+      The first <strong>{{ lottery_team_count }}</strong> slots enter the weighted lottery; picks
+      {{ lottery_team_count + 1 }}–24 stay fixed in ranking order (no lottery balls).
+      Traded pick ownership is applied when you save. Use “Generate from prior season” for the default 24-team list.
     </p>
     <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0 0 0.75rem;">
       <label>Lottery teams

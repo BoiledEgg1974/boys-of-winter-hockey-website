@@ -88,6 +88,12 @@
 {% set tx = ac.text_color or '#f8fafc' %}
 {% set banner = p1 %}
 <div class="player-profile" style="--pp-banner: {{ banner }}; --pp-accent: {{ p1 }}; --pp-accent2: {{ p2 }}; --pp-text-on: {{ tx }};">
+  {% if player_active_injury %}
+  <p class="player-profile__injury-banner card">
+    <img src="{{ url_for('static', filename=player_active_injury.status_icon_path) }}" alt="" width="18" height="18">
+    <strong>{{ player_active_injury.status_label }}</strong> — {{ player_active_injury.injury_name }}{% if player_active_injury.recovery_days is not none %} ({{ player_active_injury.recovery_days }}d){% endif %}
+  </p>
+  {% endif %}
   {% set player_boost_tier = (resolved_boost_tier if resolved_boost_tier is defined else player.boost_tier or '')|lower %}
   {% set player_profile_is_hof = player_is_hof if player_is_hof is defined else player_boost_tier == 'hof' %}
   {% set _ova = (player_overall_by_id or {}).get(player.id) %}

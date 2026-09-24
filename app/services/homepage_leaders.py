@@ -44,6 +44,7 @@ def build_homepage_leaders_payload(
     segment: str,
     *,
     league_slug: str | None = None,
+    main_fhm_league_ids_override: tuple[int, ...] | None = None,
     player_photo_url: Callable[[Player | None], str] | None = None,
 ) -> dict[str, Any]:
     """Top-10 skater/goalie leader rows for one stat segment."""
@@ -55,7 +56,9 @@ def build_homepage_leaders_payload(
     photo_url = player_photo_url or _player_photo_url
 
     bowl_main_fhm_league_ids: tuple[int, ...] | None = None
-    if slug in _BOWL_SLUGS:
+    if main_fhm_league_ids_override is not None:
+        bowl_main_fhm_league_ids = main_fhm_league_ids_override
+    elif slug in _BOWL_SLUGS:
         bowl_main_fhm_league_ids = bowl_nhl_league_ids(session)
         if not bowl_main_fhm_league_ids:
             bowl_main_fhm_league_ids = (0,)

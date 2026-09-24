@@ -2171,6 +2171,69 @@ def _transfer_page_allowed(mem=None) -> bool:
     return mem is not None
 
 
+@site_admin_bp.route("/transfer-budgets", methods=["GET", "POST"])
+@login_required
+def admin_transfer_budgets():
+    from app.auth_login import has_admin_role
+    from app.services.roster_team import is_main_league_team
+    from app.services.staff_salaries import main_league_teams
+    from app.site_models import TeamTransferBudgetOverride
+
+    if not has_admin_role(current_user):
+        abort(403)
+    slug = _league_slug()
+    if not is_transfer_tool_league(slug):
+        abort(404)
+    teams = main_league_teams(db.session)
+    if request.method == "POST":
+        team_id = request.form.get("team_id", type=int)
+        cash = request.form.get("transfer_cash_usd", type=int)
+        notes = (request.form.get("notes") or "").strip()[:2000]
+        if team_id and cash is not None and cash >= 0:
+            row = db.session.scalar(
+                select(TeamTransferBudgetOverride).where(
+                    TeamTransferBudgetOverride.league_slug == slug,
+                    TeamTransferBudgetOverride.team_id == int(team_id),
+                ).limit(1)
+            )
+            if row is None:
+                row = TeamTransferBudgetOverride(
+                    league_slug=slug,
+                    team_id=int(team_id),
+                )
+                db.session.add(row)
+            row.transfer_cash_usd = int(cash)
+            row.notes = notes
+            row.updated_by_user_id = int(current_user.id)
+            row.updated_at = datetime.utcnow()
+            db.session.commit()
+            flash("Transfer budget saved.", "ok")
+        return redirect(url_for("site_admin.admin_transfer_budgets"))
+    overrides = {
+        int(r.team_id): r
+        for r in db.session.scalars(
+            select(TeamTransferBudgetOverride).where(TeamTransferBudgetOverride.league_slug == slug)
+        ).all()
+    }
+    rows = []
+    for team in teams:
+        if not is_main_league_team(team, session=db.session):
+            continue
+        ov = overrides.get(int(team.id))
+        rows.append(
+            {
+                "team": team,
+                "override_usd": int(ov.transfer_cash_usd) if ov else None,
+                "notes": (ov.notes or "") if ov else "",
+            }
+        )
+    return render_template(
+        "admin_transfer_budgets.html",
+        league_slug=slug,
+        budget_rows=rows,
+    )
+
+
 @site_gm_bp.route("/transfer-tool", methods=["GET"])
 @login_required
 def transfer_tool_page():
@@ -3138,7 +3201,7 @@ def draft_lottery_preview():
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     team_rows = []
     for t in teams:
-        if not is_main_league_team(t):
+        if not is_main_league_team(t, session=db.session):
             continue
         team_rows.append(
             {
@@ -10162,7 +10225,7 @@ def admin_draft_hub_edit(draft_id: int):
             ]
         have = set(ranking_defaults)
         for team in teams:
-            if is_main_league_team(team) and int(team.id) not in have:
+            if is_main_league_team(team, session=db.session) and int(team.id) not in have:
                 ranking_defaults.append(int(team.id))
         field_n = min(lottery_team_count, max(1, len(ranking_defaults)))
         lottery_odds_preview = odds_matrix(scale_combo_counts(field_n), lottery_draw_count)
@@ -10562,7 +10625,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             continue
         if pl.contract is not None:
             ct = pl.current_team
-            if ct is not None and is_main_league_team(ct) and int(ct.id) == tid:
+            if ct is not None and is_main_league_team(ct, session=db.session) and int(ct.id) == tid:
                 bucket = "main"
             else:
                 bucket = "minors"

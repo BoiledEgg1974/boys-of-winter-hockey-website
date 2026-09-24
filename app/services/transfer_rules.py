@@ -158,6 +158,26 @@ def scale_usd_to_current_cap(
     return int(round(scaled / step) * step)
 
 
+def transfer_budget_override_usd(
+    league_slug: str,
+    team_id: int,
+) -> int | None:
+    from sqlalchemy import select
+
+    from app.league_db import db
+    from app.site_models import TeamTransferBudgetOverride
+
+    row = db.session.scalar(
+        select(TeamTransferBudgetOverride).where(
+            TeamTransferBudgetOverride.league_slug == str(league_slug or "").strip(),
+            TeamTransferBudgetOverride.team_id == int(team_id),
+        ).limit(1)
+    )
+    if row is None:
+        return None
+    return max(0, int(row.transfer_cash_usd or 0))
+
+
 def bowl_team_budget_snapshot(
     session: Session,
     *,
@@ -186,11 +206,20 @@ def bowl_team_budget_snapshot(
             counted += 1
         except (TypeError, ValueError):
             continue
-    remaining = max(0, int(cap) - int(payroll)) if counted else None
+    cap_room = max(0, int(cap) - int(payroll)) if counted else None
+    override = transfer_budget_override_usd(league_slug, int(bowl_team_id))
+    if override is not None and cap_room is not None:
+        effective = min(int(cap_room), int(override))
+    elif override is not None:
+        effective = int(override)
+    else:
+        effective = cap_room
     return {
         "salary_cap_usd": int(cap),
         "roster_payroll_usd": int(payroll) if counted else None,
-        "remaining_budget_usd": remaining,
+        "cap_room_usd": cap_room,
+        "transfer_cash_override_usd": override,
+        "remaining_budget_usd": effective,
         "contracts_counted": counted,
     }
 

@@ -8,6 +8,7 @@ from app.sqlite_retry import commit_with_sqlite_retry
 from app.site_models import HomepageModuleSetting
 
 ALLOWED_HOMEPAGE_MODULE_KEYS = (
+    "league_transactions",
     "schedule",
     "postseason_odds",
     "game_of_the_night",
@@ -31,6 +32,7 @@ ALLOWED_HOMEPAGE_MODULE_KEYS = (
 )
 
 DEFAULT_HOMEPAGE_MODULES = (
+    {"module_key": "league_transactions", "sort_order": 7},
     {"module_key": "schedule", "sort_order": 10},
     {"module_key": "postseason_odds", "sort_order": 20},
     {"module_key": "game_of_the_night", "sort_order": 30},

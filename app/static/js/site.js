@@ -5870,7 +5870,32 @@
     html += renderTeamPreviewCard(away);
     html += renderTeamPreviewCard(home);
     html += "</div>";
-    if (d.injuries_note) {
+    var injLines = [];
+    if (Array.isArray(d.away_injuries) && d.away_injuries.length) {
+      injLines.push(
+        (away.abbr || "AWY") +
+          ": " +
+          d.away_injuries
+            .map(function (r) {
+              return escapeHtml(r.player_name || "Player") + " (" + escapeHtml(r.injury_name || "IR") + ")";
+            })
+            .join(", ")
+      );
+    }
+    if (Array.isArray(d.home_injuries) && d.home_injuries.length) {
+      injLines.push(
+        (home.abbr || "HME") +
+          ": " +
+          d.home_injuries
+            .map(function (r) {
+              return escapeHtml(r.player_name || "Player") + " (" + escapeHtml(r.injury_name || "IR") + ")";
+            })
+            .join(", ")
+      );
+    }
+    if (injLines.length) {
+      html += '<p class="game-preview-foot muted">' + injLines.join("<br>") + "</p>";
+    } else if (d.injuries_note) {
       html +=
         '<p class="game-preview-foot muted">' + escapeHtml(d.injuries_note) + "</p>";
     }

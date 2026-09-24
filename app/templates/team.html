@@ -74,7 +74,7 @@
     </div>
     <div class="team-hero__meta">
       <p class="team-hero__city">{{ hero_city_caps }}</p>
-      <h1 class="team-hero__nickname">{{ hero_display_name }}</h1>
+      <h1 class="team-hero__nickname">{{ hero_display_name }}{% if team_relegation_tier %} <span class="tier-badge tier-badge--{{ team_relegation_tier }}">{{ 'BLUP' if team_relegation_tier == 'upper' else 'BLOW' }}</span>{% endif %}</h1>
       <p class="team-hero__arena">
         {{ arena_name or '—' }} · Capacity {{ '{:,}'.format(arena_capacity) if arena_capacity is not none else '—' }}
       </p>
@@ -500,7 +500,7 @@
   <a class="team-management-tabs__btn{% if active_panel == 'season_records' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='season_records') }}">Season Records</a>
   <a class="team-management-tabs__btn{% if active_panel == 'team_history' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='team_history') }}">Season History</a>
   <a class="team-management-tabs__btn{% if active_panel == 'alumni' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='alumni') }}">Alumni</a>
-  <a class="team-management-tabs__btn{% if active_panel == 'trades' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='trades') }}">Trades</a>
+  <a class="team-management-tabs__btn{% if active_panel == 'transactions' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='transactions') }}">Transactions</a>
   <a class="team-management-tabs__btn{% if active_panel == 'franchise' %} is-active{% endif %}" href="{{ url_for('main.team_page', slug=team.slug, panel='franchise') }}">Franchise History</a>
 </div>
 
@@ -554,12 +554,15 @@
 {% elif active_panel == 'depth' %}
 {% if team_injuries %}
 <div class="card team-injuries-card">
-  <h2>Injured Players</h2>
+  <h2>Injury tracker</h2>
+  <p class="muted"><a href="{{ url_for('main.injuries_page') }}">League injury report</a></p>
   <ul class="team-injuries-list">
     {% for inj in team_injuries %}
-    <li>
+    <li class="team-injuries-list__item">
+      <img class="team-injuries-list__icon" src="{{ url_for('static', filename=inj.status_icon_path) }}" alt="{{ inj.status_label }}" width="18" height="18">
       <a href="{{ url_for('main.player_page', player_id=inj.player_id) }}">{{ inj.player_name }}</a>
       — {{ inj.injury_name }}{% if inj.recovery_days is not none %} ({{ inj.recovery_days }} days){% endif %}
+      <span class="muted">· {{ inj.status_label }}</span>
     </li>
     {% endfor %}
   </ul>
@@ -879,8 +882,8 @@
 {% include "_team_history_panel.html" %}
 {% elif active_panel == 'alumni' %}
 {% include "_team_alumni_panel.html" %}
-{% elif active_panel == 'trades' %}
-{% include "_team_trades_panel.html" %}
+{% elif active_panel == 'transactions' %}
+{% include "_team_transactions_panel.html" %}
 {% elif active_panel == 'staff' %}
 {% include "_team_staff_panel.html" %}
 {% elif active_panel == 'org_development' %}

@@ -80,7 +80,7 @@ def current_season_start_year(session: Session) -> int | None:
 
 def main_league_teams(session: Session) -> list[Team]:
     teams = list(session.scalars(select(Team).order_by(Team.name.asc(), Team.id.asc())).all())
-    return [t for t in teams if is_main_league_team(t)]
+    return [t for t in teams if is_main_league_team(t, session=session)]
 
 
 def budgets_for_season(

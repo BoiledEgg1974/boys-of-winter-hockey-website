@@ -163,6 +163,17 @@ def team_logo_url_for_team(team) -> str:
     return url_for("static", filename="logos/teams/placeholder.svg")
 
 
+def fhm_league_logo_url(fhm_league_id: int) -> str:
+    """Logo for a specific FHM league id (farm / overseas), or empty string if missing."""
+    if not has_app_context():
+        return ""
+    static_root = Path(current_app.static_folder or "")
+    rel = f"logos/leagues/fhm/{int(fhm_league_id)}.png"
+    if (static_root / rel).is_file():
+        return url_for("static", filename=rel)
+    return ""
+
+
 def league_logo_url() -> str:
     """Return URL for the current league logo, or the shared placeholder if missing."""
     static_root = Path(current_app.static_folder or "")

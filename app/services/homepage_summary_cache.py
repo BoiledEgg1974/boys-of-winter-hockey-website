@@ -34,11 +34,13 @@ def _summary_key_suffix(
     segment: str,
     canonical_season: object | None,
     dashboard_season: object | None,
+    relegation_scope: str = "combined",
 ) -> tuple:
     return (
         str(segment).strip(),
         int(getattr(canonical_season, "id", None) or 0),
         int(getattr(dashboard_season, "id", None) or 0),
+        str(relegation_scope or "combined").strip(),
     )
 
 
@@ -88,10 +90,12 @@ def build_homepage_summary_cached(
     canonical_season: object | None,
     dashboard_season: object | None,
     builder,
+    *,
+    relegation_scope: str = "combined",
 ) -> tuple[dict[str, Any], str]:
     """Return dashboard JSON and cache status (HIT-FRESH, HIT-STALE, MISS)."""
     app = current_app
-    suffix = _summary_key_suffix(segment, canonical_season, dashboard_season)
+    suffix = _summary_key_suffix(segment, canonical_season, dashboard_season, relegation_scope)
     fresh_ttl = _homepage_fresh_ttl(app)
     stale_ttl = _homepage_stale_ttl(app)
 

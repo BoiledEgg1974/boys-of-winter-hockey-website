@@ -1049,6 +1049,31 @@ class TradeLogEntry(db.Model):
     team_b: Mapped["Team"] = relationship(foreign_keys=[team_b_id])
 
 
+class LeagueTransaction(db.Model):
+    """Roster moves and other league activity (CSV import or FHM import deltas)."""
+
+    __tablename__ = "league_transactions"
+    __table_args__ = (
+        UniqueConstraint("external_id", name="uq_league_transaction_external_id"),
+        Index("ix_league_transactions_date", "transaction_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    transaction_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), default="other", nullable=False)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True, index=True)
+    other_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), nullable=True)
+    headline: Mapped[str] = mapped_column(String(500), nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    source: Mapped[str] = mapped_column(String(24), default="csv", nullable=False)
+
+    team: Mapped["Team | None"] = relationship(foreign_keys=[team_id])
+    other_team: Mapped["Team | None"] = relationship(foreign_keys=[other_team_id])
+    player: Mapped["Player | None"] = relationship()
+
+
 class ImportLog(db.Model):
     __tablename__ = "import_logs"
 

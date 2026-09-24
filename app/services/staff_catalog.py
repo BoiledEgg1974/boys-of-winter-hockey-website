@@ -254,7 +254,7 @@ def main_league_fhm_team_id_set(session: Session) -> set[str]:
     return {
         str(t.fhm_team_id).strip()
         for t in teams
-        if is_main_league_team(t)
+        if is_main_league_team(t, session=session)
         and t.fhm_team_id is not None
         and str(t.fhm_team_id).strip()
     }

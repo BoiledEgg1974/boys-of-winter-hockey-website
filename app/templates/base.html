@@ -102,17 +102,16 @@
           {% if current_league_slug == 'bowl-fantasy' %}
           <div class="main-nav__row main-nav__row--relegation">
             <a href="{{ url_for('main.home') }}">Overview</a>
-            {% if relegation_under_construction %}
-            <a href="{{ url_for('main.relegation_page') }}">Upper</a>
-            <a href="{{ url_for('main.relegation_page') }}">Lower</a>
-            {% else %}
-            <a href="{{ url_for('main.standings', scope='upper') }}">Upper</a>
-            <a href="{{ url_for('main.standings', scope='lower') }}">Lower</a>
+            {% if not relegation_under_construction %}
+            <a href="{{ url_for('main.standings', scope='upper') }}">BLUP</a>
+            <a href="{{ url_for('main.standings', scope='lower') }}">BLOW</a>
+            <a href="{{ url_for('main.standings', scope='combined') }}">Combined</a>
             {% endif %}
+            <a href="{{ url_for('main.injuries_page') }}">Injuries</a>
+            <a href="{{ url_for('main.home') }}#dash-transactions">Transactions</a>
+            <a href="{{ url_for('main.farm_scoreboard_page') }}">Farm / Overseas</a>
+            <a href="{{ url_for('main.front_office_page') }}">Front Office</a>
             <a href="{{ url_for('main.relegation_page') }}">Promotion/Relegation</a>
-            <a href="{{ url_for('main.statistics') }}">Player Statistics</a>
-            <a href="{{ url_for('main.team_statistics_page') }}">Team Statistics</a>
-            <a href="{{ url_for('main.all_time_records') }}">Combined Records</a>
           </div>
           {% endif %}
           <div class="main-nav__row">
@@ -128,7 +127,7 @@
               <a href="{{ url_for('main.teams_index') }}" class="nav-teams-dropdown__trigger">Teams</a>
               <div class="nav-teams-dropdown__panel" role="group" aria-label="All teams">
                 {% if current_league_slug == 'bowl-fantasy' and nav_teams_upper and nav_teams_lower %}
-                <p class="nav-teams-dropdown__tier-label">BOWL-Upper</p>
+                <p class="nav-teams-dropdown__tier-label">BLUP</p>
                 <div class="nav-teams-dropdown__row">
                   {% for team in nav_teams_upper %}
                   <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.full_display_name() }}">
@@ -136,7 +135,7 @@
                   </a>
                   {% endfor %}
                 </div>
-                <p class="nav-teams-dropdown__tier-label">BOWL-Lower</p>
+                <p class="nav-teams-dropdown__tier-label">BLOW</p>
                 <div class="nav-teams-dropdown__row">
                   {% for team in nav_teams_lower %}
                   <a href="{{ url_for('main.team_page', slug=team.slug) }}" class="nav-teams-dropdown__logo-link" title="{{ team.full_display_name() }}">

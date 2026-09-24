@@ -219,6 +219,7 @@ def standing_row_json(
         div_out = (st.division or "").strip() or None
     return {
         "rank": rank,
+        "team_id": int(tm.id),
         "slug": tm.slug,
         "name": tm.full_display_name(),
         "abbr": tm.abbreviation,

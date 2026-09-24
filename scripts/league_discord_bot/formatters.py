@@ -56,6 +56,7 @@ ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
         "playoff_predictions",
         "playoff_bracket_update",
         "record_broken",
+        "injury_report_delta",
         "achievement_unlocked",
         "achievement_league_first",
         "game_boxscore",
@@ -385,6 +386,39 @@ def _text_only_header_lines(
         record_title = str(payload.get("record_title") or title or "").strip()
         if record_title:
             lines.append(f"**{record_title}**")
+    elif event_key == "injury_report_delta":
+        inj_title = str(payload.get("title") or title or "Injury report update").strip()
+        lines.append(f"**{inj_title}**")
+        added = payload.get("added") if isinstance(payload.get("added"), list) else []
+        removed = payload.get("removed") if isinstance(payload.get("removed"), list) else []
+        changed = payload.get("changed") if isinstance(payload.get("changed"), list) else []
+        if added:
+            lines.append(f"New injuries ({len(added)}):")
+            for row in added[:12]:
+                if not isinstance(row, dict):
+                    continue
+                status = str(row.get("status") or "").replace("_", "-")
+                lines.append(
+                    f"• {row.get('injury_name', 'Injury')} — {status} ({row.get('recovery_days', '?')}d)"
+                )
+        if changed:
+            lines.append(f"Updated ({len(changed)}):")
+            for item in changed[:8]:
+                if not isinstance(item, dict):
+                    continue
+                after = item.get("after") if isinstance(item.get("after"), dict) else {}
+                lines.append(
+                    f"• {after.get('injury_name', 'Injury')} — {after.get('recovery_days', '?')}d"
+                )
+        if removed:
+            lines.append(f"Cleared ({len(removed)}):")
+            for row in removed[:8]:
+                if not isinstance(row, dict):
+                    continue
+                lines.append(f"• Player #{row.get('player_id')} off IR")
+        total = payload.get("total_active")
+        if total is not None:
+            lines.append(f"Active injuries: {total}")
     elif event_key in ("achievement_unlocked", "achievement_league_first"):
         team_line = format_team_label(league_slug, payload)
         if team_line:

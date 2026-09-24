@@ -18,6 +18,16 @@
   <p id="home-dashboard-season-note" class="muted home-dashboard__banner-msg" hidden></p>
   <p id="home-load-error" class="empty-state home-dashboard__banner-msg" hidden>Could not load dashboard.</p>
   <div class="home-dashboard__toc-sticky">
+    {% if relegation_enabled %}
+    <nav class="home-dashboard__scope-tabs tabs relegation-scope-tabs" aria-label="Dashboard scope">
+      <button type="button" class="home-scope-tab is-active" data-home-scope="combined">Combined</button>
+      <button type="button" class="home-scope-tab" data-home-scope="upper">BLUP</button>
+      <button type="button" class="home-scope-tab" data-home-scope="lower">BLOW</button>
+      <a class="home-scope-tab home-scope-tab--link" href="{{ url_for('main.relegation_page') }}" title="Promotion and relegation zones">Promo / Relegation</a>
+      <a class="home-scope-tab home-scope-tab--link" href="#dash-transactions">Transactions</a>
+      <a class="home-scope-tab home-scope-tab--link" href="{{ url_for('main.injuries_page') }}">Injuries</a>
+    </nav>
+    {% endif %}
     <nav class="home-dashboard__toc" aria-label="On this page">
       <a class="home-dashboard__toc-link" href="#dash-schedule">Schedule</a>
       <a class="home-dashboard__toc-link" href="#dash-around">Around The League</a>
@@ -29,18 +39,12 @@
     </nav>
   </div>
   {% if current_league_slug == 'bowl-fantasy' %}
-  <section id="dash-relegation-overview" class="card home-dashboard__card home-relegation-overview" aria-labelledby="relegation-overview-h" data-module-key="relegation_overview">
-    <h2 id="relegation-overview-h" class="home-dashboard__h">Relegation Overview</h2>
-    <div id="home-relegation-overview" class="home-relegation-overview__grid">
+  <section id="dash-transactions" class="card home-dashboard__card" aria-labelledby="home-transactions-h" data-module-key="league_transactions">
+    <h2 id="home-transactions-h" class="home-dashboard__h">Transactions</h2>
+    <div id="home-transactions-body">
       <p class="empty-state loading-with-puck">Loading…</p>
     </div>
-    <a class="link-more" href="{{ url_for('main.relegation_page') }}">Promotion / Relegation details</a>
-  </section>
-  <section id="dash-injuries" class="card home-dashboard__card" aria-labelledby="home-injuries-h" data-module-key="league_injuries">
-    <h2 id="home-injuries-h" class="home-dashboard__h">Injury Report</h2>
-    <div id="home-injuries-body">
-      <p class="empty-state loading-with-puck">Loading…</p>
-    </div>
+    <a class="link-more" href="{{ url_for('main.trade_log_page') }}">Full trade log</a>
   </section>
   {% endif %}
   <div id="dash-schedule" class="home-dash-schedule-ribbon" data-module-key="schedule">
@@ -215,7 +219,7 @@
 
     <aside class="home-dash-col home-dash-col--side" aria-label="Standings, rankings, and league identity">
       <section id="dash-standings" class="card home-dashboard__card home-dash-standings-card" aria-labelledby="std-h" data-module-key="divisional_standings">
-        <h2 id="std-h" class="home-dashboard__h">Divisional Standings</h2>
+        <h2 id="std-h" class="home-dashboard__h">STANDINGS</h2>
         <a class="link-more" href="{{ url_for('main.standings') }}">Full standings</a>
         <div id="home-standings-conf" class="home-dashboard__slot"></div>
       </section>
@@ -958,7 +962,7 @@
     rows.forEach(function (grp) {
       h += '<h3 class="home-conf-h">' + escape(grp.division || grp.conference || 'Division') + '</h3>';
       h += '<table class="data home-conf-table"><thead><tr><th>#</th><th scope="col" title="Team"><span class="visually-hidden">Team</span></th><th>GP</th><th>W</th><th>L</th><th title="Ties">T</th><th>Pts</th></tr></thead><tbody>';
-      (grp.teams || []).forEach(function (r) {
+      (grp.teams || []).forEach(function (r, idx) {
         var lab = String((r.name || r.abbr || 'Team') || '').trim();
         var logo = r.logo_url
           ? '<img src="' + escapeAttr(r.logo_url) + '" alt="' + escapeAttr(lab) + '" class="team-name-lockup__logo home-conf-team-logo">'
@@ -978,7 +982,7 @@
         } else {
           teamCell = logo || escape(r.abbr || lab || '—');
         }
-        h += '<tr><td>' + r.rank + '</td><td>' + teamCell + '</td><td>' + r.gp + '</td><td>' + r.w + '</td><td>' + r.l + '</td><td>' + (r.ties != null ? r.ties : 0) + '</td><td>' + r.pts + '</td></tr>';
+        h += '<tr><td>' + (r.rank != null ? r.rank : idx + 1) + '</td><td>' + teamCell + '</td><td>' + r.gp + '</td><td>' + r.w + '</td><td>' + r.l + '</td><td>' + (r.ties != null ? r.ties : 0) + '</td><td>' + r.pts + '</td></tr>';
       });
       h += '</tbody></table>';
     });
@@ -1993,7 +1997,7 @@
 
   function summaryStorageKey() {
     var root = document.documentElement.getAttribute('data-application-root') || '';
-    return 'bwlHomeSummary:v3:' + root + ':' + seg;
+    return 'bwlHomeSummary:v4:' + root + ':' + seg + ':' + homeScope;
   }
 
   function readStoredSummary() {
@@ -2071,10 +2075,34 @@
       h += '<p class="muted">No lower standings yet.</p>';
     }
     h += '</article>';
-    h += '<article class="home-relegation-card home-relegation-card--watch"><h3>Movement Watch</h3>';
+    h += '<article class="home-relegation-card home-relegation-card--watch"><h3>Promo / Relegation Watch</h3>';
     h += '<p class="muted">Bottom 2 Upper drop · Top 2 Lower rise after playoffs.</p>';
     h += '<p><a href="' + escapeAttr(withRoot('/relegation')) + '">View promotion / relegation board</a></p>';
     h += '</article>';
+    el.innerHTML = h;
+  }
+
+  function paintTransactions(rows) {
+    var el = document.getElementById('home-transactions-body');
+    if (!el) return;
+    if (!rows || !rows.length) {
+      el.innerHTML = '<p class="empty-state muted">No transactions yet. Trades from the Trade Tool, <code>transactions.csv</code>, and roster changes detected on FHM import appear here.</p>';
+      return;
+    }
+    var h = '<ul class="home-transactions-list">';
+    rows.slice(0, 18).forEach(function (row) {
+      h += '<li class="home-transactions-list__item">';
+      if (row.date) h += '<time class="home-transactions-list__date muted">' + escapeHtml(row.date) + '</time> ';
+      h += '<span class="home-transactions-list__kind">' + escapeHtml(row.kind_label || 'Transaction') + '</span> ';
+      h += '<span class="home-transactions-list__headline">' + escapeHtml(row.headline || '') + '</span>';
+      if (row.team_abbr) {
+        h += ' <span class="muted">(' + escapeHtml(row.team_abbr);
+        if (row.other_team_abbr) h += ' · ' + escapeHtml(row.other_team_abbr);
+        h += ')</span>';
+      }
+      h += '</li>';
+    });
+    h += '</ul>';
     el.innerHTML = h;
   }
 
@@ -2087,8 +2115,11 @@
     }
     var h = '<ul class="home-injuries-list">';
     rows.slice(0, 24).forEach(function (row) {
-      var href = row.team_slug ? withRoot('/teams/' + encodeURIComponent(row.team_slug)) : '#';
-      h += '<li><a href="' + escapeAttr(href) + '"><strong>' + escapeHtml(row.team_abbr || row.team_name || 'Team') + '</strong></a> ';
+      var href = row.team_slug ? withRoot('/team/' + encodeURIComponent(row.team_slug)) : '#';
+      var icon = row.status_icon_path ? withRoot('/static/' + row.status_icon_path) : '';
+      h += '<li>';
+      if (icon) h += '<img class="home-injuries-list__icon" src="' + escapeAttr(icon) + '" alt="" width="16" height="16"> ';
+      h += '<a href="' + escapeAttr(href) + '"><strong>' + escapeHtml(row.team_abbr || row.team_name || 'Team') + '</strong></a> ';
       h += escapeHtml(row.player_name || 'Player') + ' — ' + escapeHtml(row.injury_name || 'Injury');
       if (row.recovery_days != null) h += ' <span class="muted">(' + escapeHtml(String(row.recovery_days)) + 'd)</span>';
       h += '</li>';
@@ -2099,8 +2130,7 @@
 
   function applyHomeSummaryData(data) {
     if (!data) return;
-    paintRelegationOverview(data.relegation_overview);
-    paintInjuryReport(data.league_injuries);
+    paintTransactions(data.league_transactions);
     var noteEl = document.getElementById('home-dashboard-season-note');
         if (noteEl) {
           if (data.dashboard_uses_prior_season_data) {
@@ -2199,6 +2229,23 @@
         syncPlayerHoverCards();
   }
 
+  var homeScope = 'combined';
+  (function initHomeScopeFromUrl() {
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var s = p.get('scope');
+      if (s === 'upper' || s === 'lower' || s === 'combined') homeScope = s;
+    } catch (e) { /* ignore */ }
+  })();
+
+  function summaryUrl() {
+    var u = withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg));
+    if (homeScope && homeScope !== 'combined' && homeScope !== 'movement' && homeScope !== 'injuries') {
+      u += '&scope=' + encodeURIComponent(homeScope);
+    }
+    return u;
+  }
+
   function loadSummary() {
     var errEl = document.getElementById('home-load-error');
     if (errEl) errEl.hidden = true;
@@ -2206,7 +2253,7 @@
     if (stored) {
       applyHomeSummaryData(rewriteSummaryStaticUrls(stored));
     }
-    fetch(withRoot('/api/homepage/summary?segment=' + encodeURIComponent(seg)))
+    fetch(summaryUrl())
       .then(function (r) { return r.json(); })
       .then(function (data) {
         data = rewriteSummaryStaticUrls(data);
@@ -2223,18 +2270,34 @@
     });
   }
 
+  function leadersUrl() {
+    var u = withRoot('/api/homepage/leaders?segment=' + encodeURIComponent(seg));
+    if (homeScope && homeScope !== 'combined') {
+      u += '&scope=' + encodeURIComponent(homeScope);
+    }
+    return u;
+  }
+
+  function syncHomeScopeTabs() {
+    document.querySelectorAll('.home-scope-tab[data-home-scope]').forEach(function (btn) {
+      var s = btn.getAttribute('data-home-scope') || 'combined';
+      btn.classList.toggle('is-active', s === homeScope);
+    });
+  }
+
   function loadLeaders() {
     var mySeg = seg;
+    var myScope = homeScope;
     if (elLeaders) {
       elLeaders.innerHTML = '<p class="empty-state loading-with-puck">Loading…</p>';
     }
     paintSegPicks();
-    fetch(withRoot('/api/homepage/leaders?segment=' + encodeURIComponent(mySeg)))
+    fetch(leadersUrl())
       .then(function (r) {
         return r.json();
       })
       .then(function (data) {
-        if (mySeg !== seg) return;
+        if (mySeg !== seg || myScope !== homeScope) return;
         data = rewriteSummaryStaticUrls(data);
         if (data.segment && data.segment !== mySeg) return;
         leaderData = data.leaders || leaderData;
@@ -2277,6 +2340,25 @@
     });
   })();
 
+  document.querySelectorAll('.home-scope-tab[data-home-scope]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      homeScope = btn.getAttribute('data-home-scope') || 'combined';
+      syncHomeScopeTabs();
+      try {
+        var url = new URL(window.location.href);
+        if (homeScope === 'combined') {
+          url.searchParams.delete('scope');
+        } else {
+          url.searchParams.set('scope', homeScope);
+        }
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      } catch (e) { /* ignore */ }
+      loadSummary();
+      loadLeaders();
+    });
+  });
+
+  syncHomeScopeTabs();
   loadSummary();
 })();
 </script>

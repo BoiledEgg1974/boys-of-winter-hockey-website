@@ -199,7 +199,7 @@ def draft_pick_teams_for_grid(league_session: Session) -> list[Team]:
         raw = str(getattr(team, "fhm_team_id", None) or "").strip()
         if not raw.isdigit():
             continue
-        if not is_main_league_team(team):
+        if not is_main_league_team(team, session=league_session):
             continue
         out.append(team)
     return sorted(out, key=_draft_pick_team_sort_key)

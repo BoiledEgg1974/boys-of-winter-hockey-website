@@ -24,11 +24,13 @@ class JoinLeagueAvailabilityTests(unittest.TestCase):
             ["Tokyo Katanas"],
         )
 
-    def test_fantasy_default_only_when_no_admin_file_exists(self) -> None:
+    def test_no_open_teams_until_admin_file_saved(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             app = Flask(__name__, instance_path=tmp)
             app.config["LEAGUE_SLUG"] = "bowl-fantasy"
             with app.app_context():
+                self.assertEqual(join_league_team_options(), [WAITLIST_OPTION])
+                save_join_team_options(["Tokyo Katanas"])
                 self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Tokyo Katanas"])
                 save_join_team_options([])
                 self.assertEqual(join_league_team_options(), [WAITLIST_OPTION])
@@ -48,7 +50,7 @@ class JoinLeagueAvailabilityTests(unittest.TestCase):
                 app.config["LEAGUE_SLUG"] = "bowl-cap"
                 save_join_team_options(["Los Angeles Kings"])
                 app.config["LEAGUE_SLUG"] = "bowl-fantasy"
-                self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Tokyo Katanas"])
+                self.assertEqual(join_league_team_options(), [WAITLIST_OPTION])
                 save_join_team_options(["Tokyo Katanas", "Montreal Canadiens"])
                 app.config["LEAGUE_SLUG"] = "bowl-cap"
                 self.assertEqual(join_league_team_options(), [WAITLIST_OPTION, "Los Angeles Kings"])

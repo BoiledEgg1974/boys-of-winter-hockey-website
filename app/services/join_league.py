@@ -76,13 +76,15 @@ def configured_join_team_options() -> tuple[list[str], bool]:
     ), True
 
 
+def open_join_team_names() -> list[str]:
+    """Teams marked open in admin (``available_teams.txt``); excludes Waitlist."""
+    options, _has_admin_file = configured_join_team_options()
+    return dedupe_team_options(options)
+
+
 def join_league_team_options() -> list[str]:
     """Public Join Our League select options; Waitlist is always available."""
-    options, has_admin_file = configured_join_team_options()
-    if not has_admin_file:
-        if _join_league_slug() == "bowl-fantasy":
-            options = ["Tokyo Katanas"]
-    return [WAITLIST_OPTION, *dedupe_team_options(options)]
+    return [WAITLIST_OPTION, *open_join_team_names()]
 
 
 def _team_option_keys(team: Team) -> set[str]:
@@ -96,7 +98,7 @@ def _team_option_keys(team: Team) -> set[str]:
 
 def join_league_available_team_banner_rows(session) -> list[dict[str, object]]:
     """Open Join League teams mapped to current Team rows for public logo banners."""
-    options = [opt for opt in join_league_team_options() if opt.casefold() != WAITLIST_OPTION.casefold()]
+    options = open_join_team_names()
     if not options:
         return []
 

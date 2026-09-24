@@ -59,6 +59,20 @@ def _primary_league_id(league_filter: LeagueFilter) -> int:
     return min(_league_id_set(league_filter))
 
 
+def all_fhm_league_ids(raw_dir: Path) -> tuple[int, ...]:
+    """Every ``LeagueId`` listed in ``league_data.csv`` (full FHM universe)."""
+    path = raw_dir / "league_data.csv"
+    if not path.is_file():
+        return ()
+    ids: set[int] = set()
+    df = read_csv_normalized(path)
+    for _, row in df.iterrows():
+        lid = to_int(cell_val(row.to_dict(), "leagueid", "league_id"))
+        if lid is not None:
+            ids.add(int(lid))
+    return tuple(sorted(ids))
+
+
 def relegation_tier_league_ids(raw_dir: Path) -> tuple[int, ...] | None:
     """When ``league_data.csv`` defines upper + lower tiers, return their FHM league ids."""
     path = raw_dir / "league_data.csv"
@@ -1674,6 +1688,12 @@ def run_fhm_import(raw_dir: Path, app, league_filter: LeagueFilter = 0) -> dict[
         counts["players"] = len(players_fhm)
     counts["draft"] = import_drafts_fhm(raw_dir, players_fhm, teams_fhm)
     counts["injuries"] = import_injuries(raw_dir, players_fhm, teams_fhm)
+    try:
+        from app.services.league_transactions import record_roster_moves_from_import
+
+        counts["transaction_roster_deltas"] = record_roster_moves_from_import(raw_dir, app)
+    except Exception as exc:
+        log.warning("Roster transaction delta recording failed: %s", exc)
     return counts
 
 

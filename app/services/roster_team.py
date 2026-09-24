@@ -1,4 +1,4 @@
-"""Roster/header team: BOWL/NHL club only (FHM league id 0); excludes minors-only assignments."""
+"""Roster/header team: BOWL/NHL club only; excludes minors-only assignments."""
 
 from __future__ import annotations
 
@@ -8,11 +8,43 @@ from sqlalchemy.orm import Session
 from app.models import Player, Prospect, Team
 
 
-def is_main_league_team(t: Team | None) -> bool:
-    """True for BOWL/NHL clubs (``fhm_league_id`` NULL or 0)."""
+def _relegation_main_league_fhm_ids(session: Session) -> frozenset[int] | None:
+    """BLUP+BLOW tier ids on bowl-fantasy; None on other mounts (legacy id 0 rule)."""
+    slug = ""
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    except RuntimeError:
+        pass
+    if slug != "bowl-fantasy":
+        return None
+    from app.services.all_time_records import bowl_nhl_league_ids
+
+    ids = bowl_nhl_league_ids(session)
+    if not ids:
+        return None
+    return frozenset(int(x) for x in ids)
+
+
+def is_main_league_team(t: Team | None, session: Session | None = None) -> bool:
+    """True for main sim-league clubs (BOWL/NHL id 0, or BLUP+BLOW on Relegation)."""
     if t is None:
         return False
+    sess = session
+    if sess is None:
+        try:
+            from app.models import db
+
+            sess = db.session
+        except Exception:
+            sess = None
+    allowed = _relegation_main_league_fhm_ids(sess) if sess is not None else None
     lid = t.fhm_league_id
+    if allowed is not None:
+        if lid is None:
+            return 0 in allowed
+        return int(lid) in allowed
     return lid is None or int(lid) == 0
 
 

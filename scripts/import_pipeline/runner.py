@@ -88,6 +88,17 @@ _POST_IMPORT_SAFEGUARD_MODULES: tuple[str, ...] = (
 )
 
 
+def _release_league_db_before_safeguards() -> None:
+    """Close pooled SQLite handles before safeguard tests call create_app() again."""
+    try:
+        from app.league_db import db
+
+        db.session.remove()
+        db.engine.dispose()
+    except Exception as exc:
+        log.warning("Pre-safeguard league DB release skipped: %s", exc)
+
+
 def _run_post_import_safeguards() -> None:
     """Run regression checks that protect UI data integrity after imports."""
     try:
@@ -1503,6 +1514,7 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
                 rows_processed=total,
             )
             refresh_after_import(db.engine, app)
+            _release_league_db_before_safeguards()
             _run_post_import_safeguards()
             log.info("FHM import finished. Counts: %s", counts if status == "success" else {})
             return 0 if status == "success" else 1
@@ -1536,6 +1548,7 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
             total += synced
         commit_with_sqlite_retry(db.session)
         refresh_after_import(db.engine, app)
+        _release_league_db_before_safeguards()
         _run_post_import_safeguards()
         log.info("Import finished. Total row operations (approx): %s", total)
     return 0

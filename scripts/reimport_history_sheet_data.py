@@ -94,6 +94,9 @@ def main() -> None:
             f"reimport_history_sheet_data {slug}: "
             f"history_awards={n_aw} row(s); history_all_stars={n_as} row(s)."
         )
+        from scripts.import_pipeline.runner import _release_league_db_before_safeguards
+
+        _release_league_db_before_safeguards()
         _run_post_import_safeguards()
 
 

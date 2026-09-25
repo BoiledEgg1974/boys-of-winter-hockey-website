@@ -301,6 +301,11 @@ def main() -> int:
     )
     ap.add_argument("--allow-stale", action="store_true", help="Pass through to STEP1 stale-source override.")
     ap.add_argument(
+        "--skip-step1",
+        action="store_true",
+        help="Skip CSV copy and hockey STEP1 imports (resume after a partial STEP1 run).",
+    )
+    ap.add_argument(
         "--no-push",
         action="store_true",
         help="Skip git commit/push after local imports (default: commit and push once imports finish).",
@@ -390,7 +395,9 @@ def main() -> int:
     step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy", "--no-push", *league_args]
     if args.allow_stale:
         step1_cmd.append("--allow-stale")
-    if not league or league in HOCKEY_LEAGUE_SLUGS:
+    if args.skip_step1:
+        print("Skipping STEP1 (--skip-step1).")
+    elif not league or league in HOCKEY_LEAGUE_SLUGS:
         _run(step1_cmd)
     else:
         print(f"Skipping hockey STEP1 (selected league is {league}).")

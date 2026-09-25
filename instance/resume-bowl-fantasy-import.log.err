@@ -1,0 +1,45 @@
+INFO SQLite import: pause or reload the league web app on PythonAnywhere if you see 'database is locked' (live workers hold read transactions during long writes).
+INFO League bowl-fantasy using SQLite C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db
+INFO Import using league slug 'bowl-fantasy' (DB + static paths match mounted app).
+INFO Import paths — LEAGUE_SLUG='bowl-fantasy' SQLALCHEMY_DATABASE_URI=sqlite:///C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db RAW_IMPORT_DIR=C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_fantasy
+INFO Synced 16 FHM league logo(s) from C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 12\saved_games\BOWL-Relegation.lg\graphics\logo_leagues -> C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\leagues\fhm
+INFO Synced 289 FHM farm team logo(s) from C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 12\saved_games\BOWL-Relegation.lg\graphics\logo_teams -> C:\Users\keeno\Projects\Boys-Of-Winter-League\app\static\logos\teams\bowl_fantasy
+INFO SQLite bulk-import mode: journal_mode=delete
+INFO Pre-import OVR baseline snapshot for 17283 players.
+INFO Detected FHM export layout (team_data.csv, semicolon CSVs).
+INFO BOWL-Relegation import: loading all FHM leagues (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17) (site tiers (0, 1))
+INFO Cleared player_skater_stats / player_goalie_stats for season_id=2 before FHM segment import.
+WARNING player_skater_stats_rs.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+WARNING player_skater_stats_ps.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+WARNING player_skater_stats_po.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+WARNING player_goalie_stats_rs.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+WARNING player_goalie_stats_ps.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+WARNING player_goalie_stats_po.csv is present but has no data rows — /statistics will be empty for this split until you re-export player season stats from FHM.
+INFO Loading history awards from history_awards.csv
+INFO Removed 0 non-admin history_awards rows before CSV re-import (admin rows kept).
+INFO Applying history_all_stars.csv after FHM import.
+INFO Loading history all-stars from history_all_stars.csv
+INFO Applying transactions.csv after FHM import.
+INFO Applying team_season_records_template.csv after FHM import.
+INFO Removed 0 non-admin team_season_records rows before CSV re-import (admin rows kept).
+INFO Imported 0 rows from team_season_records_template.csv (skipped 0 rows with no resolvable team).
+INFO Applying hall_of_fame.csv after FHM import.
+INFO Recorded analytics snapshots for bowl-fantasy (players=0 teams=389 hubs=1 trends=100 rollover=False year=2025).
+INFO Record-broken Discord after import for bowl-fantasy: {'seeded': 0, 'updated': 192, 'queued': 0, 'game_breaks': 0, 'sidecar': 0}
+INFO Game boxscore Discord after import for bowl-fantasy: {'games': 0, 'queued': 0, 'skipped': 0, 'pending': 0}
+INFO GM achievements after import for bowl-fantasy: {'seeded': 0, 'awarded': 0, 'skipped': 0, 'ledger_synced': 0, 'heritage_races': 0, 'tickets_reopened': 0, 'heritage_career_revoked': 0, 'perfect_attendance_revoked': 0, 'heist_revoked': 0}
+INFO League bowl-fantasy using SQLite C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db
+.
+----------------------------------------------------------------------
+Ran 1 test in 3300.456s
+
+OK
+sINFO League bowl-fantasy using SQLite C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db
+.INFO League bowl-fantasy using SQLite C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db
+sINFO League bowl-fantasy using SQLite C:\Users\keeno\Projects\Boys-Of-Winter-League\instance\bow.db
+s
+----------------------------------------------------------------------
+Ran 4 tests in 10.498s
+
+OK (skipped=3)
+INFO FHM import finished. Counts: {'league_meta': 18, 'teams': 389, 'players': 17282, 'player_jersey_numbers': 0, 'ratings': 13841, 'standings': 389, 'team_aggregates_rs': 389, 'team_aggregates_po': 0, 'games': 12797, 'teams_pruned': 0, 'box_skaters': 0, 'box_goalies': 0, 'scoring_events': 0, 'penalty_events': 0, 'game_record_baselines_promoted': 0, 'skater_rs': 0, 'skater_ps': 0, 'skater_po': 0, 'goalie_rs': 0, 'goalie_ps': 0, 'goalie_po': 0, 'career_skater_rs': 0, 'career_skater_po': 0, 'career_skater_retired_rs': 0, 'career_skater_retired_ps': 0, 'career_skater_retired_po': 0, 'career_goalie_rs': 0, 'career_goalie_ps': 0, 'career_goalie_po': 0, 'career_goalie_retired_rs': 0, 'career_goalie_retired_ps': 0, 'career_goalie_retired_po': 0, 'contracts': 11786, 'draft': 0, 'injuries': 132, 'transaction_roster_deltas': 0, 'history_awards': 0, 'history_all_stars': 0, 'transactions': 0, 'team_season_records': 0, 'hall_of_fame': 0}

@@ -32,6 +32,7 @@ from app.services.bowl_six import (
     _bowl_six_membership_maps,
     blocked_player_ids_from_prior_slate,
     bowl_six_enabled,
+    bowl_six_user_may_participate,
     bowl_six_prize_team_for_lineup_user,
     get_lineup,
     get_or_create_current_slate,
@@ -312,6 +313,9 @@ def bowl_six_lineup():
     if not bowl_six_enabled(db.session, slug):
         flash("BOWL Six is disabled for this league.", "err")
         return redirect(url_for("main.home"))
+    if not bowl_six_user_may_participate(db.session, slug, int(current_user.id)):
+        flash("BOWL Six participation is not enabled for this account.", "err")
+        return redirect(url_for("site_gm.bowl_six_hub"))
     slate = get_or_create_current_slate(db.session, slug)
     if not slate or slate.status == "skipped":
         flash("No active BOWL Six slate this week.", "err")

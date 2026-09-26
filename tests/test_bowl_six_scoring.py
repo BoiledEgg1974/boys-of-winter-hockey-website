@@ -14,6 +14,7 @@ from datetime import date, datetime
 
 from app.services.ap_service import scale_ap
 from app.services.bowl_six import (
+    bowl_six_participating_memberships,
     award_bowl_six_season_prizes,
     list_bowl_six_seasons_with_scored_slates,
     bowl_six_season_bounds_for_week,
@@ -947,6 +948,43 @@ class BowlSixScoringTest(unittest.TestCase):
 
         session.rollback.assert_called_once()
         self.assertEqual(notes, [])
+
+
+class BowlSixExcludedUsersTest(unittest.TestCase):
+    def test_participating_memberships_skip_excluded_and_revoked(self):
+        active_ok = SimpleNamespace(
+            id=1, user_id=10, team_id=1, status="active", league_slug="bowl-cap"
+        )
+        active_excluded = SimpleNamespace(
+            id=2, user_id=8, team_id=2, status="active", league_slug="bowl-cap"
+        )
+        user_ok = SimpleNamespace(id=10, revoked_at=None)
+        user_revoked = SimpleNamespace(id=20, revoked_at=datetime.utcnow())
+        session = MagicMock()
+
+        def _get(model, pk):
+            if pk == 10:
+                return user_ok
+            if pk == 20:
+                return user_revoked
+            if pk == 8:
+                return SimpleNamespace(id=8, revoked_at=None)
+            return None
+
+        session.get.side_effect = _get
+        session.scalars.return_value.all.return_value = [
+            active_ok,
+            active_excluded,
+            SimpleNamespace(id=3, user_id=20, team_id=3, status="active", league_slug="bowl-cap"),
+        ]
+
+        with unittest.mock.patch(
+            "app.services.bowl_six.bowl_six_excluded_user_ids",
+            return_value=frozenset({8}),
+        ):
+            rows = bowl_six_participating_memberships(session, "bowl-cap")
+
+        self.assertEqual([int(r.user_id) for r in rows], [10])
 
 
 if __name__ == "__main__":

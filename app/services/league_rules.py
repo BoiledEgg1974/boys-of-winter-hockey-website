@@ -29,6 +29,8 @@ DEFAULT_LEAGUE_RULES: tuple[dict[str, str], ...] = (
     {"rule_key": "bowl_six_week_start_dow", "rule_value": "0"},
     {"rule_key": "bowl_six_lock_time_utc", "rule_value": "00:00"},
     {"rule_key": "bowl_six_lock_time_et", "rule_value": "19:59"},
+    # Comma-separated site user ids excluded from BOWL Six (submissions, leaders, lineups).
+    {"rule_key": "bowl_six_excluded_user_ids", "rule_value": ""},
 )
 
 

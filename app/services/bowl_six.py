@@ -39,6 +39,7 @@ from app.site_models import (
     BowlSixSlate,
     GmInAppNotification,
     GmLeagueMembership,
+    LeagueRuleSetting,
     User,
 )
 
@@ -69,6 +70,64 @@ class LineupValidation:
 
 def bowl_six_enabled(session: Session, league_slug: str) -> bool:
     return rule_bool(session, league_slug, "bowl_six_enabled", default=True)
+
+
+def bowl_six_excluded_user_ids(session: Session, league_slug: str) -> frozenset[int]:
+    raw = get_rule_value(session, league_slug, "bowl_six_excluded_user_ids", "")
+    out: set[int] = set()
+    for part in str(raw or "").replace(";", ",").split(","):
+        piece = part.strip()
+        if not piece:
+            continue
+        try:
+            out.add(int(piece))
+        except (TypeError, ValueError):
+            continue
+    return frozenset(out)
+
+
+def bowl_six_user_may_participate(
+    session: Session,
+    league_slug: str,
+    user_id: int,
+    *,
+    user: User | None = None,
+) -> bool:
+    if int(user_id) in bowl_six_excluded_user_ids(session, league_slug):
+        return False
+    u = user if user is not None else session.get(User, int(user_id))
+    if u is None:
+        return False
+    if getattr(u, "revoked_at", None) is not None:
+        return False
+    return True
+
+
+def bowl_six_participating_memberships(
+    session: Session,
+    league_slug: str,
+) -> list[GmLeagueMembership]:
+    """Active GMs eligible for BOWL Six (excludes revoked logins and rule exclusions)."""
+    slug = str(league_slug or "").strip()
+    excluded = bowl_six_excluded_user_ids(session, slug)
+    memberships = list(
+        session.scalars(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == slug,
+                GmLeagueMembership.status == "active",
+            )
+        ).all()
+    )
+    out: list[GmLeagueMembership] = []
+    for mem in memberships:
+        uid = int(mem.user_id)
+        if uid in excluded:
+            continue
+        user = session.get(User, uid)
+        if user is None or user.revoked_at is not None:
+            continue
+        out.append(mem)
+    return out
 
 
 def bowl_six_weekly_prize(place: int) -> int:
@@ -1578,14 +1637,7 @@ def _bowl_six_membership_maps(
 ) -> tuple[dict[int, GmLeagueMembership], dict[int, GmLeagueMembership]]:
     """Active team map and lineup-user membership lookup (includes historical rows)."""
     slug = str(league_slug or "").strip()
-    active_memberships = list(
-        session.scalars(
-            select(GmLeagueMembership).where(
-                GmLeagueMembership.league_slug == slug,
-                GmLeagueMembership.status == "active",
-            )
-        ).all()
-    )
+    active_memberships = bowl_six_participating_memberships(session, slug)
     active_by_team: dict[int, GmLeagueMembership] = {}
     for mem in active_memberships:
         active_by_team.setdefault(int(mem.team_id), mem)
@@ -1891,7 +1943,14 @@ def ensure_past_week_bowl_six_prizes(
     }
 
 
+def _bowl_six_ranking_row_allowed(
+    session: Session, league_slug: str, user_id: int
+) -> bool:
+    return bowl_six_user_may_participate(session, league_slug, int(user_id))
+
+
 def slate_rankings(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]]:
+    league_slug = str(slate.league_slug or "")
     rows = session.execute(
         select(
             BowlSixLineup.user_id,
@@ -1907,6 +1966,8 @@ def slate_rankings(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]
     ).all()
     out: list[dict[str, Any]] = []
     for uid, submitted_at, pts in rows:
+        if not _bowl_six_ranking_row_allowed(session, league_slug, int(uid)):
+            continue
         out.append(
             {
                 "user_id": int(uid),
@@ -1918,6 +1979,7 @@ def slate_rankings(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]
 
 
 def slate_rankings_in_progress(session: Session, slate: BowlSixSlate) -> list[dict[str, Any]]:
+    league_slug = str(slate.league_slug or "")
     """Submitted lineups for a locked (not yet scored) slate, including 0 pts before first final game."""
     rows = session.execute(
         select(
@@ -1937,6 +1999,8 @@ def slate_rankings_in_progress(session: Session, slate: BowlSixSlate) -> list[di
     ).all()
     out: list[dict[str, Any]] = []
     for uid, submitted_at, pts in rows:
+        if not _bowl_six_ranking_row_allowed(session, league_slug, int(uid)):
+            continue
         out.append(
             {
                 "user_id": int(uid),
@@ -1955,14 +2019,7 @@ def slate_gm_submission_roster(
     """Active GMs and whether each saved a valid lineup for this slate (names only, not picks)."""
     from app.services.gm_messaging import gm_discord_name
 
-    memberships = list(
-        session.scalars(
-            select(GmLeagueMembership).where(
-                GmLeagueMembership.league_slug == league_slug,
-                GmLeagueMembership.status == "active",
-            )
-        ).all()
-    )
+    memberships = bowl_six_participating_memberships(session, league_slug)
     lineups = {
         int(l.user_id): l
         for l in session.scalars(
@@ -2097,16 +2154,7 @@ def gm_season_standings(
         season_start = season_start or default_start
         season_end = season_end or default_end
 
-    active_memberships = list(
-        session.scalars(
-            select(GmLeagueMembership)
-            .where(
-                GmLeagueMembership.league_slug == league_slug,
-                GmLeagueMembership.status == "active",
-            )
-            .order_by(GmLeagueMembership.team_id, GmLeagueMembership.id)
-        ).all()
-    )
+    active_memberships = bowl_six_participating_memberships(session, league_slug)
     active_by_team: dict[int, GmLeagueMembership] = {}
     for mem in active_memberships:
         active_by_team.setdefault(int(mem.team_id), mem)
@@ -2271,3 +2319,73 @@ def last_scored_slate(session: Session, league_slug: str) -> BowlSixSlate | None
         .order_by(BowlSixSlate.week_start.desc())
         .limit(1)
     )
+
+
+def exclude_users_from_bowl_six(
+    session: Session,
+    league_slug: str,
+    user_ids: set[int],
+    *,
+    remove_open_lineups: bool = True,
+) -> dict[str, int]:
+    """Persist excluded user ids and optionally drop in-progress lineups for those users."""
+    from datetime import datetime
+
+    from app.services.league_rules import ensure_league_rules
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    slug = str(league_slug or "").strip()
+    ids = {int(u) for u in user_ids if u is not None}
+    if not ids:
+        return {"excluded_added": 0, "lineups_removed": 0}
+
+    ensure_league_rules(session, slug)
+    merged = set(bowl_six_excluded_user_ids(session, slug)) | ids
+    value = ",".join(str(i) for i in sorted(merged))
+    row = session.scalar(
+        select(LeagueRuleSetting)
+        .where(
+            LeagueRuleSetting.league_slug == slug,
+            LeagueRuleSetting.rule_key == "bowl_six_excluded_user_ids",
+        )
+        .limit(1)
+    )
+    now = datetime.utcnow()
+    if row is None:
+        session.add(
+            LeagueRuleSetting(
+                league_slug=slug,
+                rule_key="bowl_six_excluded_user_ids",
+                rule_value=value,
+                updated_at=now,
+            )
+        )
+    else:
+        row.rule_value = value
+        row.updated_at = now
+
+    lineups_removed = 0
+    if remove_open_lineups:
+        open_slates = list(
+            session.scalars(
+                select(BowlSixSlate).where(
+                    BowlSixSlate.league_slug == slug,
+                    BowlSixSlate.status.in_(("open", "locked")),
+                )
+            ).all()
+        )
+        slate_ids = [int(s.id) for s in open_slates]
+        if slate_ids:
+            for lineup in list(
+                session.scalars(
+                    select(BowlSixLineup).where(
+                        BowlSixLineup.slate_id.in_(slate_ids),
+                        BowlSixLineup.user_id.in_(ids),
+                    )
+                ).all()
+            ):
+                session.delete(lineup)
+                lineups_removed += 1
+
+    commit_with_sqlite_retry(session)
+    return {"excluded_added": len(ids), "lineups_removed": lineups_removed}

@@ -171,6 +171,7 @@ from app.services.cap_strike_penalties import (
     strike_grid_rows,
 )
 from app.services.ap_service import (
+    LEDGER_KINDS,
     active_redemption_items,
     add_ledger_entry,
     approve_redemption_request,
@@ -651,6 +652,25 @@ def _ap_ledger_template_context(
         "ap_event_points": standard_event_ap(),
         "ap_article_points": news_article_ap_award(),
     }
+
+
+def _admin_ap_ledger_redirect_query() -> dict[str, int | str]:
+    """Keep ledger_team / ledger_kind / ledger_page on admin POST redirects."""
+    out: dict[str, int | str] = {}
+    raw_page = str(request.values.get("ledger_page") or "").strip()
+    if raw_page.isdigit() and int(raw_page) > 1:
+        out["ledger_page"] = int(raw_page)
+    raw_team = str(request.values.get("ledger_team") or "").strip()
+    if raw_team.isdigit():
+        out["ledger_team"] = int(raw_team)
+    kind = str(request.values.get("ledger_kind") or "").strip().lower()
+    if kind in LEDGER_KINDS:
+        out["ledger_kind"] = kind
+    return out
+
+
+def _redirect_admin_ap_ledger():
+    return redirect(url_for("site_admin.admin_ap_ledger", **_admin_ap_ledger_redirect_query()))
 
 
 def _can_view_action_points_page(mem=None) -> bool:
@@ -8162,7 +8182,7 @@ def admin_ap_export_multileague():
     team_slugs = list(dict.fromkeys(s.strip() for s in raw if s and s.strip()))
     if not team_slugs:
         flash("Select at least one team.", "err")
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
     label = league_display_name(cur_slug)
     ap_allowed = True
     ap_block_message = ""
@@ -8196,7 +8216,7 @@ def admin_ap_export_multileague():
             f"Teams: {sample}",
             "ok",
         )
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
 
     def _apply_export_multileague() -> dict[str, object]:
         ap_added = 0
@@ -8298,7 +8318,7 @@ def admin_ap_export_multileague():
             current_app.logger.exception(
                 "sim cycle close enqueue failed after export for %s", cur_slug
             )
-    return redirect(url_for("site_admin.admin_ap_ledger"))
+    return _redirect_admin_ap_ledger()
 
 
 _BATCH_AP_REASONS: dict[str, str] = {
@@ -8321,12 +8341,12 @@ def admin_ap_batch_adjust():
         pe = evaluate_points_economy_mutations_allowed(db.session, cur_slug)
         if not pe.allowed:
             flash(pe.message, "err")
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            return _redirect_admin_ap_ledger()
     league_name = league_display_name(cur_slug)
     reason = (request.form.get("reason_code") or "").strip()
     if reason not in _BATCH_AP_REASONS:
         flash("Invalid batch type.", "err")
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
     teams = list(db.session.scalars(select(Team)).all())
     allowed_slugs = {t.slug for t in teams}
     team_id_by_slug = {
@@ -8342,7 +8362,7 @@ def admin_ap_batch_adjust():
         )
         if not picked:
             flash("PREDICTIONS: select at least one team.", "err")
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            return _redirect_admin_ap_ledger()
         prediction_ap = standard_event_ap()
         entries = 0
         preview: list[tuple[str, int]] = []
@@ -8364,7 +8384,7 @@ def admin_ap_batch_adjust():
                 f"[DRY RUN] PREDICTIONS would add {entries} ledger row(s) in {league_name}. {show}",
                 "ok",
             )
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            return _redirect_admin_ap_ledger()
 
         def _apply_predictions_batch() -> int:
             count = 0
@@ -8393,7 +8413,7 @@ def admin_ap_batch_adjust():
             )
         else:
             flash("PREDICTIONS: no matching teams in this league for that selection.", "err")
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
 
     prefix = "d_"
     entries = 0
@@ -8412,7 +8432,7 @@ def admin_ap_batch_adjust():
             val = int(s)
         except ValueError:
             flash(f"Invalid number for team «{team_slug}».", "err")
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            return _redirect_admin_ap_ledger()
         if val == 0:
             continue
         if reason == "batch_penalties":
@@ -8437,7 +8457,7 @@ def admin_ap_batch_adjust():
             )
         else:
             flash(f"[DRY RUN] {label}: no non-zero adjustments detected.", "err")
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
 
     def _apply_batch_adjustments() -> int:
         count = 0
@@ -8462,7 +8482,7 @@ def admin_ap_batch_adjust():
         )
     else:
         flash(f"{label}: enter at least one non-zero amount.", "err")
-    return redirect(url_for("site_admin.admin_ap_ledger"))
+    return _redirect_admin_ap_ledger()
 
 
 @site_admin_bp.route("/staff-budgets", methods=["GET", "POST"])
@@ -8693,7 +8713,7 @@ def admin_ap_ledger():
             delta = int(request.form.get("delta") or "0")
         except ValueError:
             flash("Invalid numbers.", "err")
-            return redirect(url_for("site_admin.admin_ap_ledger"))
+            return _redirect_admin_ap_ledger()
         note = (request.form.get("note") or "").strip()
         if tid and delta:
             team = db.session.get(Team, tid)
@@ -8703,11 +8723,11 @@ def admin_ap_ledger():
                     f"[DRY RUN] Would add ledger row: {team_label}, delta {delta:+d}, note '{note}'.",
                     "ok",
                 )
-                return redirect(url_for("site_admin.admin_ap_ledger"))
+                return _redirect_admin_ap_ledger()
             pe = evaluate_points_economy_mutations_allowed(db.session, slug)
             if not pe.allowed:
                 flash(pe.message, "err")
-                return redirect(url_for("site_admin.admin_ap_ledger"))
+                return _redirect_admin_ap_ledger()
             def _add_manual_ledger_row() -> None:
                 add_ledger_entry(
                     league_slug=slug,
@@ -8720,7 +8740,7 @@ def admin_ap_ledger():
 
             write_with_sqlite_retry(db.session, _add_manual_ledger_row)
             flash("Ledger entry added.", "ok")
-        return redirect(url_for("site_admin.admin_ap_ledger"))
+        return _redirect_admin_ap_ledger()
     _sync_achievement_ap_ledger(slug)
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_rows = [{"team": t, "balance": team_ap_balance(slug, t.id)} for t in teams]

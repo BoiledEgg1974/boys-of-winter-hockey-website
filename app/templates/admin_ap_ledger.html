@@ -73,10 +73,13 @@
   <h2 class="page-title" style="font-size:1.05rem;margin-top:1.75rem;">Add / Remove AP</h2>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if ledger_team_id %}<input type="hidden" name="ledger_team" value="{{ ledger_team_id }}">{% endif %}
+    {% if ledger_kind %}<input type="hidden" name="ledger_kind" value="{{ ledger_kind }}">{% endif %}
+    {% if ledger_page > 1 %}<input type="hidden" name="ledger_page" value="{{ ledger_page }}">{% endif %}
     <label>Team<br>
       <select name="team_id" required>
         {% for t in teams %}
-        <option value="{{ t.id }}">{{ t.full_display_name() }}</option>
+        <option value="{{ t.id }}"{% if ledger_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
         {% endfor %}
       </select>
     </label>

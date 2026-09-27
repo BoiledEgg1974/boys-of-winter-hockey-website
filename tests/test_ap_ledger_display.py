@@ -100,11 +100,14 @@ class ApEconomyScaleTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         ap = (root / "app" / "templates" / "action_points.html").read_text(encoding="utf-8")
         ledger = (root / "app" / "templates" / "admin_ap_ledger.html").read_text(encoding="utf-8")
+        ledger_history = (root / "app" / "templates" / "_ap_ledger_history.html").read_text(encoding="utf-8")
         self.assertIn("+{{ ap_event_points }} AP each", ap)
         self.assertIn("+{{ ap_article_points }} AP each", ap)
         self.assertIn("-{{ ap_event_points }} AP penalty each", ap)
         self.assertIn("award +{{ ap_event_points }} AP", ledger)
         self.assertIn("+{{ ap_event_points }} Action Points", ledger)
+        self.assertIn("_ap_ledger_history.html", ledger)
+        self.assertIn('name="ledger_team"', ledger_history)
         self.assertNotIn("+1 AP each", ap)
         self.assertNotIn("award +1 AP", ledger)
 

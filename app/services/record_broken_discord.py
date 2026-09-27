@@ -36,7 +36,7 @@ _log = logging.getLogger(__name__)
 
 RECORD_BROKEN_EVENT_KEY = "record_broken"
 # Full roster / DB replacement can diff hundreds of stale snapshots; do not spam Discord.
-MAX_RECORD_BREAKS_DISCORD_ENQUEUE = 25
+MAX_RECORD_BREAKS_DISCORD_ENQUEUE = 100
 
 _SKATER_ALL_TIME_STATS: tuple[tuple[str, str], ...] = (
     ("goals", "Goals"),

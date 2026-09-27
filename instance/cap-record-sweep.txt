@@ -1,0 +1,199 @@
+﻿=== bowl-cap snapshot breaks (league3.db -> bowl-cap.db): 48 ===
+
+- Franchise Season Record ΓÇö +/- (Regular Season) ┬╖ PIT
+  Old: Chris Chelios (PIT) ΓÇö 52 ┬╖ 2000ΓÇô01
+  New: Joe Thornton (PIT) ΓÇö 81 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Goalie Wins (Regular Season) ┬╖ PIT
+  Old: Martin Brodeur (PIT) ΓÇö 42 ┬╖ 2000ΓÇô01
+  New: Martin Brodeur (PIT) ΓÇö 43 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö SH Points (Regular Season) ┬╖ STL
+  Old: Ron Francis (STL) ΓÇö 8 ┬╖ 1993ΓÇô94
+  New: Mark Parrish (STL) ΓÇö 9 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ BUF
+  Old: Steve Shields (BUF) ΓÇö 2.06 ┬╖ 2000ΓÇô01
+  New: Dwayne Roloson (BUF) ΓÇö 1.94 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Shutouts (Regular Season) ┬╖ BUF
+  Old: Ed Belfour (BUF) ΓÇö 9 ┬╖ 1999ΓÇô00
+  New: Dwayne Roloson (BUF) ΓÇö 14 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ VAN
+  Old: Ken Lockett (VAN) ΓÇö 1.92 ┬╖ 1974ΓÇô75
+  New: Fredrik Norrena (VAN) ΓÇö 1.90 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Shutouts (Regular Season) ┬╖ VAN
+  Old: Kirk McLean (VAN) ΓÇö 10 ┬╖ 1997ΓÇô98
+  New: Fredrik Norrena (VAN) ΓÇö 11 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ VAN
+  Old: Kirk McLean (VAN) ΓÇö .917 ┬╖ 1997ΓÇô98
+  New: Fredrik Norrena (VAN) ΓÇö .921 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ EDM
+  Old: Roman Turek (EDM) ΓÇö 1.90 ┬╖ 1999ΓÇô00
+  New: Patrick Lalime (EDM) ΓÇö 1.73 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Shutouts (Regular Season) ┬╖ EDM
+  Old: Roman Turek (EDM) ΓÇö 9 ┬╖ 1999ΓÇô00
+  New: Patrick Lalime (EDM) ΓÇö 14 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ COL
+  Old: Jamie Storr (COL) ΓÇö .918 ┬╖ 1999ΓÇô00
+  New: Manny Fernandez (COL) ΓÇö .922 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ SJS
+  Old: Norm Maracle (SJS) ΓÇö 2.39 ┬╖ 1998ΓÇô99
+  New: Byron Dafoe (SJS) ΓÇö 1.77 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ SJS
+  Old: Mike Richter (SJS) ΓÇö .910 ┬╖ 1996ΓÇô97
+  New: Byron Dafoe (SJS) ΓÇö .918 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Goalie Losses (Regular Season) ┬╖ TBL
+  Old: Tommy Salo (TBL) ΓÇö 25 ┬╖ 1994ΓÇô95
+  New: Chris Osgood (TBL) ΓÇö 26 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ ANA
+  Old: Nikolai Khabibulin (ANA) ΓÇö 2.16 ┬╖ 1997ΓÇô98
+  New: Nikolai Khabibulin (ANA) ΓÇö 2.10 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ ANA
+  Old: Nikolai Khabibulin (ANA) ΓÇö .915 ┬╖ 1999ΓÇô00
+  New: Nikolai Khabibulin (ANA) ΓÇö .920 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Hits (Regular Season) ┬╖ NAS
+  Old: Adam Graves (NAS) ΓÇö 192 ┬╖ 1998ΓÇô99
+  New: Brenden Morrow (NAS) ΓÇö 202 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Goalie Wins (Regular Season) ┬╖ NAS
+  Old: Tomas Vokoun (NAS) ΓÇö 24 ┬╖ 2000ΓÇô01
+  New: Tomas Vokoun (NAS) ΓÇö 26 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ NAS
+  Old: Tomas Vokoun (NAS) ΓÇö 2.46 ┬╖ 1998ΓÇô99
+  New: Tomas Vokoun (NAS) ΓÇö 2.38 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Shutouts (Regular Season) ┬╖ NAS
+  Old: Tomas Vokoun (NAS) ΓÇö 3 ┬╖ 1998ΓÇô99
+  New: Tomas Vokoun (NAS) ΓÇö 7 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ NAS
+  Old: Roman Cechmanek (NAS) ΓÇö .904 ┬╖ 1998ΓÇô99
+  New: Tomas Vokoun (NAS) ΓÇö .909 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö GWG (Regular Season) ┬╖ ATL
+  Old: Shayne Corson (ATL) ΓÇö 2 ┬╖ 1999ΓÇô00
+  New: Byron Ritchie (ATL) ΓÇö 3 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Goalie Wins (Regular Season) ┬╖ ATL
+  Old: Martin Biron (ATL) ΓÇö 7 ┬╖ 2000ΓÇô01
+  New: Martin Biron (ATL) ΓÇö 10 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Points (Regular Season) ┬╖ CBJ
+  Old: Eric Boguniecki (CBJ) ΓÇö 50 ┬╖ 2000ΓÇô01
+  New: Eric Boguniecki (CBJ) ΓÇö 52 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö PPG (Regular Season) ┬╖ CBJ
+  Old: Eric Boguniecki (CBJ) ΓÇö 9 ┬╖ 2000ΓÇô01
+  New: Sean Berens (CBJ) ΓÇö 10 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö SHG (Regular Season) ┬╖ CBJ
+  Old: Pascal Rheaume (CBJ) ΓÇö 2 ┬╖ 2000ΓÇô01
+  New: Pascal Rheaume (CBJ) ΓÇö 3 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö SH Points (Regular Season) ┬╖ CBJ
+  Old: Chris Therien (CBJ) ΓÇö 3 ┬╖ 2000ΓÇô01
+  New: Pascal Rheaume (CBJ) ΓÇö 6 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Hits (Regular Season) ┬╖ CBJ
+  Old: Niclas Havelid (CBJ) ΓÇö 123 ┬╖ 2000ΓÇô01
+  New: Mike Johnson (CBJ) ΓÇö 132 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Fights (Regular Season) ┬╖ CBJ
+  Old: Niclas Havelid (CBJ) ΓÇö 9 ┬╖ 2000ΓÇô01
+  New: Ty Jones (CBJ) ΓÇö 12 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Fights Won (Regular Season) ┬╖ CBJ
+  Old: Niclas Havelid (CBJ) ΓÇö 3 ┬╖ 2000ΓÇô01
+  New: Ty Jones (CBJ) ΓÇö 9 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Lowest GAA (Min. 20 GP) (Regular Season) ┬╖ MIN
+  Old: David Aebischer (MIN) ΓÇö 2.72 ┬╖ 2000ΓÇô01
+  New: Patrick Roy (MIN) ΓÇö 2.50 ┬╖ 2001ΓÇô02
+
+- Franchise Season Record ΓÇö Save % (Min. 20 GP) (Regular Season) ┬╖ MIN
+  Old: David Aebischer (MIN) ΓÇö .905 ┬╖ 2000ΓÇô01
+  New: Patrick Roy (MIN) ΓÇö .911 ┬╖ 2001ΓÇô02
+
+- All-Time Record ΓÇö Goals (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 1299 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 1319 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö Assists (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 1788 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 1805 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö Points (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 3087 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 3124 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö PIM (Regular Season)
+  Old: Tiger Williams ΓÇö 3966 ┬╖ 1974-1987
+  New: Scott Stevens (WAS) ΓÇö 4034 ┬╖ 1982-2001
+
+- All-Time Record ΓÇö PP Goals (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 289 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 298 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö PP Assists (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 349 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 358 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö GWG (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 174 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 182 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö Fights (Regular Season)
+  Old: Scott Stevens (WAS) ΓÇö 238 ┬╖ 1982-2001
+  New: Scott Stevens (WAS) ΓÇö 249 ┬╖ 1982-2001
+
+- All-Time Record ΓÇö Hits (Regular Season)
+  Old: Brendan Shanahan (COL) ΓÇö 2253 ┬╖ 1987-2001
+  New: Gary Roberts (SJS) ΓÇö 2376 ┬╖ 1986-2001
+
+- All-Time Record ΓÇö Giveaways (Regular Season)
+  Old: Joe Sakic (COL) ΓÇö 994 ┬╖ 1988-2001
+  New: Joe Sakic (COL) ΓÇö 1042 ┬╖ 1988-2001
+
+- All-Time Record ΓÇö Takeaways (Regular Season)
+  Old: Chris Chelios (PIT) ΓÇö 1130 ┬╖ 1983-2001
+  New: Chris Chelios (PIT) ΓÇö 1184 ┬╖ 1983-2001
+
+- All-Time Record ΓÇö Blocked Shots (Regular Season)
+  Old: Luke Richardson (ANA) ΓÇö 2121 ┬╖ 1987-2001
+  New: Luke Richardson (ANA) ΓÇö 2211 ┬╖ 1987-2001
+
+- All-Time Record ΓÇö Shots (Regular Season)
+  Old: Wayne Gretzky (SJS) ΓÇö 5794 ┬╖ 1979-2001
+  New: Wayne Gretzky (SJS) ΓÇö 5883 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö Games Played (Regular Season)
+  Old: Gordie Howe ΓÇö 1767 ┬╖ 1946-1979
+  New: Wayne Gretzky (SJS) ΓÇö 1782 ┬╖ 1979-2001
+
+- All-Time Record ΓÇö Goalie Wins (Regular Season)
+  Old: Terry Sawchuk ΓÇö 447 ┬╖ 1949-1969
+  New: Patrick Roy (MIN) ΓÇö 456 ┬╖ 1984-2001
+
+- All-Time Record ΓÇö Goalie Games Started (Regular Season)
+  Old: Ed Belfour (ANA) ΓÇö 753 ┬╖ 1988-2001
+  New: Ed Belfour (ANA) ΓÇö 785 ┬╖ 1988-2001
+
+=== Full live_state diff (league3 collect ΓåÆ bowl-cap collect) ===
+Events: 0
+
+=== Import pipeline summary (from logs) ===
+bowl-historical: 22 record breaks queued at deploy (sidecar); bowl-cap: 29 detected at deploy (live_diff) but ALL suppressed (>25 cap); bowl-fantasy: 0 breaks.

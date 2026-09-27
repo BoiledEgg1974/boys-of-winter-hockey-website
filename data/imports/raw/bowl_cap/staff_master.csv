@@ -44,7 +44,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 42;12;Jim;Nill;;1958-4-11;Hanna;AB;Canada;;;0
 43;215;Jacques;Caron;;1939-4-21;Rouyn-Noranda;QC;Canada;;;0
 44;5;David;Conte;;1948-8-3;Niagara Falls;ON;Canada;;;0
-45;-1;Pete;Peeters;;1957-8-17;Edmonton;AB;Canada;;;0
+45;5;Pete;Peeters;;1957-8-17;Edmonton;AB;Canada;;;0
 46;-1;Craig;Hartsburg;;1959-6-29;Stratford;ON;Canada;;;0
 47;-1;Guy;Charron;;1949-1-24;Montreal;QC;Canada;;;0
 48;19;Doug;Risebrough;;1954-1-29;Kitchener;ON;Canada;;;0
@@ -100,7 +100,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 98;18;Réjean;Houle;;1949-10-25;Rouyn-Noranda;QC;Canada;;;0
 99;-1;André;Savard;;1953-9-2;Temiskaming Shores;ON;Canada;;;0
 100;229;Mike;O'Connell;;1955-11-25;Chicago;IL;The United States;;;0
-101;8;Tom;Watt;;1935-6-17;Toronto;ON;Canada;;;0
+101;-1;Tom;Watt;;1935-6-17;Toronto;ON;Canada;;;0
 102;8;Gerry;Cheevers;Cheesy;1940-12-7;St. Catharines;ON;Canada;;;0
 103;-1;Keith;Magnuson;;1947-4-27;Saskatoon;SK;Canada;;;0
 104;22;Bill;Goldsworthy;;1944-8-24;Waterloo;ON;Canada;;;0
@@ -242,7 +242,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 240;3;Kjell;Larsson;;1944-4-22;Nyköping;SöD;Sweden;;;0
 241;20;Marcel;Pronovost;;1930-6-15;Shawinigan;QC;Canada;;;0
 242;10;Frank;Moberg;;1940-3-27;Turku;SOU;Finland;;;0
-243;5;Jim;Morrison;;1931-10-11;Montreal;QC;Canada;;;0
+243;-1;Jim;Morrison;;1931-10-11;Montreal;QC;Canada;;;0
 244;23;Simon;Nolet;;1941-9-23;Saint-Odilon-de-Cranbourne;QC;Canada;;;0
 245;224;Bob;Crocker;;1928-8-3;Boston;MA;The United States;;;0
 246;15;Vladimir;Repnyov;;1949-1-9;Moscow;MOS;Russia;;;0
@@ -305,7 +305,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 303;-1;Bob;Naegele;;1939-1-1;Minnetonka;MN;The United States;;;0
 304;-1;Tom;Thompson;;1953-6-24;Sorel-Tracy;QC;Canada;;;0
 305;228;Barry;MacKenzie;;1941-8-16;Toronto;ON;Canada;;;0
-306;25;Ted;Green;Terrible Ted;1940-3-23;Winnipeg;MB;Canada;;;0
+306;-1;Ted;Green;Terrible Ted;1940-3-23;Winnipeg;MB;Canada;;;0
 307;-1;Don;Paarup;;1953-1-1;Calgary;AB;Canada;;;0
 308;-1;Nelson;Skalbania;;1938-2-12;Vancouver;BC;Canada;;;0
 309;20;Barry;Fraser;;1944-1-1;Edmonton;AB;Canada;;;0
@@ -379,7 +379,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 377;-1;Les;Binkley;;1934-6-6;Owen Sound;ON;Canada;;;0
 378;15;Doug;McCauley;;1953-1-1;Toronto;ON;Canada;;;0
 379;-1;Mario;Saraceno;;1958-8-18;Montreal;QC;Canada;;;0
-380;25;Yuri;Moiseyev;;1940-7-15;Penza;PEN;Russia;;;0
+380;-1;Yuri;Moiseyev;;1940-7-15;Penza;PEN;Russia;;;0
 381;-1;Tom;Cigarran;;1943-1-1;New York;NY;The United States;;;0
 382;18;Al;McDonald;;1953-1-1;Montreal;QC;Canada;;;0
 383;-1;Bill;LaForge;;1951-9-2;Edmonton;AB;Canada;;;0
@@ -429,7 +429,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 427;-1;Bruce;Levenson;;1949-10-1;Washington;IL;The United States;;;0
 428;24;Walt;McKechnie;;1947-6-19;London;ON;Canada;;;0
 429;-1;Brad;Park;;1948-6-6;Toronto;ON;Canada;;;0
-430;-1;Gilles;Gilbert;;1949-3-31;Saint-Lin-Laurentides;QC;Canada;;;0
+430;5;Gilles;Gilbert;;1949-3-31;Saint-Lin-Laurentides;QC;Canada;;;0
 431;-1;Dave;McDowall;;1956-1-1;Toronto;ON;Canada;;;0
 432;-1;Jim;Ramsay;;1965-1-17;Toronto;ON;Canada;;;0
 433;-1;Billy;Smith;;1950-12-12;Perth;ON;Canada;;;0
@@ -532,7 +532,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 530;8;Julien;Gagné;;1939-12-19;Montreal;QC;Canada;;;0
 531;8;Willis;Barnes;;1939-8-7;Flower Mound;TX;The United States;;;0
 532;8;Guillaume;Girard;;1939-9-26;Quebec City;QC;Canada;;;0
-533;8;Ben;Swanson;;1948-8-5;Beaverton;OR;The United States;;;0
+533;-1;Ben;Swanson;;1948-8-5;Beaverton;OR;The United States;;;0
 534;-1;Flint;Nichols;;1941-8-30;Simi Valley;CA;The United States;;;0
 535;-1;Andrew;O'Reilly;;1939-9-20;Albion;MI;The United States;;;0
 536;225;James;Madden;;1940-10-28;Stillwater;OK;The United States;;;0
@@ -2221,7 +2221,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2219;-1;Denny;Scanlon;;1978-2-17;Granby;MO;The United States;;;0
 2220;11;Lucas;Bergman;;1974-8-20;Södertälje;STO;Sweden;;;0
 2221;19;Martin;Divis;;1966-1-1;Prague;PRA;Czech Republic;;;0
-2222;5;Reid;Mitchell;;1971-2-2;Vernon;BC;Canada;;;0
+2222;-1;Reid;Mitchell;;1971-2-2;Vernon;BC;Canada;;;0
 2223;-1;John;Whitesides;;1966-1-1;Franklin;WI;The United States;;;0
 2224;-1;Artyom;Telepin;;1964-1-1;Saratov;SAR;Russia;;;0
 2225;-1;Ruslan;Shabanov;;1976-1-4;Bogandinskiy;TYU;Russia;;;0

@@ -17,6 +17,7 @@ from app.services.record_broken_discord import (
     RecordHolderState,
     detect_snapshot_breaks,
     format_game_holder_line,
+    record_broken_discord_payload_is_complete,
 )
 from scripts.league_discord_bot.formatters import format_discord_messages
 
@@ -125,6 +126,35 @@ class FormatGameHolderLineTest(unittest.TestCase):
         self.assertIn("Connor McDavid (EDM)", line)
         self.assertIn("6 vs CGY", line)
         self.assertIn("2024–25", line)
+
+
+class RecordBrokenPayloadCompleteTest(unittest.TestCase):
+    def test_incomplete_payload_detected(self) -> None:
+        self.assertFalse(record_broken_discord_payload_is_complete({}))
+        self.assertFalse(
+            record_broken_discord_payload_is_complete(
+                {"title": "Game Record — Goals", "old_record_line": "a", "new_record_line": "—"}
+            )
+        )
+        self.assertTrue(
+            record_broken_discord_payload_is_complete(
+                {
+                    "title": "Game Record — Goals",
+                    "new_record_line": "Player (EDM) — 6 · 2025–26",
+                }
+            )
+        )
+
+    def test_formatter_skips_incomplete_payload(self) -> None:
+        parts = format_discord_messages(
+            {
+                "event_key": "record_broken",
+                "league_slug": "bowl-historical",
+                "payload": {"message": "test only"},
+            },
+            max_parts=1,
+        )
+        self.assertEqual(parts, [])
 
 
 class RecordBrokenFormatterTest(unittest.TestCase):
@@ -303,6 +333,31 @@ class RecordBrokenChannelConflictTest(unittest.TestCase):
 
 
 class NotifyIdempotencyTest(unittest.TestCase):
+    def test_enqueue_skips_incomplete_payload(self) -> None:
+        from app.services.record_broken_discord import enqueue_record_broken_event
+
+        session = MagicMock()
+        with patch(
+            "app.services.record_broken_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.record_broken_discord._record_broken_delivery_channel",
+            return_value="111111111111111111",
+        ), patch(
+            "app.services.discord_events.record_broken_channel_conflict",
+            return_value=None,
+        ), patch(
+            "app.services.record_broken_discord.enqueue_discord_event",
+        ) as enqueue:
+            ok = enqueue_record_broken_event(
+                session,
+                league_slug="bowl-historical",
+                payload={"title": "missing new line"},
+                source_id="season:league:rs:goals:player:2:55.0",
+            )
+        self.assertFalse(ok)
+        enqueue.assert_not_called()
+
     def test_enqueue_uses_source_idempotency(self) -> None:
         from app.services.record_broken_discord import enqueue_record_broken_event
 
@@ -323,7 +378,10 @@ class NotifyIdempotencyTest(unittest.TestCase):
             ok = enqueue_record_broken_event(
                 session,
                 league_slug="bowl-historical",
-                payload={"title": "x"},
+                payload={
+                    "title": "League Season Record — Goals (Regular Season)",
+                    "new_record_line": "Player (MTL) — 55 · 2025–26",
+                },
                 source_id="season:league:rs:goals:player:2:55.0",
             )
         self.assertTrue(ok)

@@ -38,6 +38,38 @@ RECORD_BROKEN_EVENT_KEY = "record_broken"
 # Full roster / DB replacement can diff hundreds of stale snapshots; do not spam Discord.
 MAX_RECORD_BREAKS_DISCORD_ENQUEUE = 100
 
+_EMPTY_RECORD_LINE = frozenset({"", "—", "-"})
+
+
+def record_broken_discord_payload_is_complete(payload: dict[str, Any] | None) -> bool:
+    """True when a queued payload has enough text for #broken-records (not a stub/test row)."""
+    p = dict(payload or {})
+    new_line = str(p.get("new_record_line") or "").strip()
+    if new_line in _EMPTY_RECORD_LINE:
+        return False
+    title = str(p.get("record_title") or p.get("title") or "").strip()
+    return bool(title)
+
+
+def describe_record_broken_source(
+    *,
+    payload: dict[str, Any] | None = None,
+    source_id: str = "",
+) -> str:
+    """Short label for logs / inspect output (board type + title + idempotency source_id)."""
+    p = dict(payload or {})
+    sid = str(source_id or p.get("source_id") or "").strip()
+    category = str(p.get("record_category") or "unknown").strip() or "unknown"
+    title = str(p.get("record_title") or p.get("title") or "").strip() or "(no title)"
+    scope = str(p.get("record_scope") or "").strip()
+    bits = [category]
+    if scope:
+        bits.append(scope)
+    bits.append(title)
+    if sid:
+        bits.append(f"id={sid}")
+    return " · ".join(bits)
+
 _SKATER_ALL_TIME_STATS: tuple[tuple[str, str], ...] = (
     ("goals", "Goals"),
     ("assists", "Assists"),
@@ -701,11 +733,20 @@ def enqueue_record_broken_event(
             conflict,
         )
         return False
+    payload_ready = _refresh_record_payload_urls(league_slug, payload)
+    if not record_broken_discord_payload_is_complete(payload_ready):
+        _log.warning(
+            "%s: skipping record_broken Discord enqueue (incomplete payload); %s keys=%s",
+            slug,
+            describe_record_broken_source(payload=payload_ready, source_id=source_id),
+            sorted(payload_ready.keys()),
+        )
+        return False
     row = enqueue_discord_event(
         site_session,
         league_slug=league_slug,
         event_key=RECORD_BROKEN_EVENT_KEY,
-        payload=_refresh_record_payload_urls(league_slug, payload),
+        payload=payload_ready,
         created_by_user_id=None,
         source_type="record_broken",
         source_id=source_id,
@@ -720,7 +761,7 @@ def enqueue_record_broken_events_from_deploy(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, int]:
     """Enqueue sidecar / reconstructed record-break events against live Discord routes."""
-    stats = {"events": 0, "queued": 0, "suppressed": 0}
+    stats = {"events": 0, "queued": 0, "suppressed": 0, "skipped_incomplete": 0}
     normalized: list[tuple[str, dict[str, Any]]] = []
     for raw in events or []:
         source_id = str(raw.get("source_id") or "").strip()
@@ -739,7 +780,16 @@ def enqueue_record_broken_events_from_deploy(
             MAX_RECORD_BREAKS_DISCORD_ENQUEUE,
         )
         return stats
+    slug = str(league_slug or "").strip()
     for source_id, payload in normalized:
+        if not record_broken_discord_payload_is_complete(payload):
+            stats["skipped_incomplete"] += 1
+            _log.warning(
+                "%s: deploy record-broken sidecar/diff event skipped (incomplete payload); %s",
+                slug,
+                describe_record_broken_source(payload=payload, source_id=source_id),
+            )
+            continue
         if enqueue_record_broken_event(
             site_session,
             league_slug=league_slug,

@@ -7334,6 +7334,18 @@ def admin_discord_integration():
                 "requested_by_user_id": int(current_user.id),
                 "requested_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
             }
+            if event_key == "record_broken":
+                test_payload.update(
+                    {
+                        "title": "Test — League Season Record — Goals (Regular Season)",
+                        "record_title": "Test — League Season Record — Goals (Regular Season)",
+                        "record_category": "season",
+                        "record_scope": "league",
+                        "old_record_line": "Previous Holder (TST) — 99 · 2024–25",
+                        "new_record_line": "New Holder (TST) — 100 · 2025–26",
+                        "record_path": "/season-records?segment=rs",
+                    }
+                )
             created = enqueue_discord_event(
                 db.session,
                 league_slug=slug,

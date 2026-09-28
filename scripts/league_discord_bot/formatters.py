@@ -22,6 +22,7 @@ _USER_MENTION_RE = re.compile(r"<@!?(\d{17,20})>")
 DISCORD_SITE_MORE_FOOTER = (
     "For more news, stats and more, go to https://www.bowlhockey.com"
 )
+_RECORD_BROKEN_EMPTY_LINE = frozenset({"", "—", "-"})
 ACHIEVEMENT_SCRATCH_CTA = (
     "Log on to Achievements to scratch the ticket for your prize."
 )
@@ -135,6 +136,14 @@ def format_direct_message(event: dict[str, Any]) -> dict[str, Any]:
     if url:
         lines.append(f"Open it here: {url}")
     return sanitize_discord_message_body({"content": "\n".join(lines)})
+
+
+def _record_broken_payload_is_complete(payload: dict[str, Any]) -> bool:
+    new_line = str(payload.get("new_record_line") or "").strip()
+    if new_line in _RECORD_BROKEN_EMPTY_LINE:
+        return False
+    title = str(payload.get("record_title") or payload.get("title") or "").strip()
+    return bool(title)
 
 
 def _preview(text: str, limit: int = 280) -> str:
@@ -1183,6 +1192,8 @@ def format_discord_messages(event: dict[str, Any], *, max_parts: int = 2) -> lis
     league_slug = str(event.get("league_slug") or "")
     event_key = str(event.get("event_key") or "")
     payload = event.get("payload") or {}
+    if event_key == "record_broken" and not _record_broken_payload_is_complete(payload):
+        return []
     title = str(payload.get("title") or event_key.replace("_", " ").title())
     body_short = _preview(
         payload.get("body_preview") or payload.get("message") or payload.get("body") or ""

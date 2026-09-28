@@ -15,8 +15,8 @@ def test_site_bind_mysql_returns_engine_options_dict():
     cfg = site_bind_engine_config("mysql+pymysql://user:pass@localhost/testdb")
     assert isinstance(cfg, dict)
     assert str(cfg["url"]).startswith("mysql")
-    assert cfg["pool_size"] == 3
-    assert cfg["max_overflow"] == 5
+    assert cfg["pool_size"] == 1
+    assert cfg["max_overflow"] == 2
 
 
 def test_shared_site_mysql_engine_is_singleton():

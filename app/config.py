@@ -210,12 +210,18 @@ def normalize_site_database_url(db_uri: str) -> str:
 
 
 def _mysql_site_pool_options() -> dict[str, object]:
-    """Conservative pool limits for shared hosting (e.g. PythonAnywhere max_user_connections)."""
+    """Conservative pool limits for shared hosting (e.g. PythonAnywhere max_user_connections).
+
+    One shared pool per uWSGI worker process (see ``shared_site_mysql_engine``). With ~10
+    workers and a MySQL cap of 49 connections, defaults target ~30 web connections so the
+    Discord bot and one-off scripts keep headroom. Override via ``SITE_MYSQL_POOL_*`` env vars.
+    """
     return {
         "pool_pre_ping": True,
         "pool_recycle": 280,
-        "pool_size": int(os.environ.get("SITE_MYSQL_POOL_SIZE", "3")),
-        "max_overflow": int(os.environ.get("SITE_MYSQL_MAX_OVERFLOW", "5")),
+        "pool_reset_on_return": "rollback",
+        "pool_size": int(os.environ.get("SITE_MYSQL_POOL_SIZE", "1")),
+        "max_overflow": int(os.environ.get("SITE_MYSQL_MAX_OVERFLOW", "2")),
         "pool_timeout": int(os.environ.get("SITE_MYSQL_POOL_TIMEOUT", "30")),
     }
 

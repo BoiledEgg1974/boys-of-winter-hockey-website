@@ -16,8 +16,9 @@ import threading
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from app import create_app
-from app.config import league_slugs, make_league_config
+from app.config import BASE_DIR, league_slugs, make_league_config
 from app.perfect_squad_mount import wrap_league_wsgi_with_perfect_squad
+from app.static_wsgi import wrap_combined_static_files
 from hub import create_hub_app
 
 _init_locks: dict[str, threading.Lock] = {}
@@ -54,7 +55,13 @@ def _lazy_league_wsgi(slug: str):
 def create_combined_application():
     hub = create_hub_app()
     mounts = {f"/{slug}": _lazy_league_wsgi(slug) for slug in league_slugs()}
-    return DispatcherMiddleware(hub.wsgi_app, mounts)
+    combined = DispatcherMiddleware(hub.wsgi_app, mounts)
+    static_root = BASE_DIR / "app" / "static"
+    return wrap_combined_static_files(
+        combined,
+        static_root=static_root,
+        league_slugs=frozenset(league_slugs()),
+    )
 
 
 application = create_combined_application()

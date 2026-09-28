@@ -506,7 +506,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6114;59;59;Rolf;Edberg;The Rat;70;174;1950-9-29;Stockholm;STO;Sweden;;;0;Left;0
 6834;89;89;Jeff;Carlson;;75;210;1953-7-20;Zim;MN;The United States;;;0;Right;0
 4750;131;131;Bert;Marshall;Moose;75;205;1943-11-22;Kent;BC;Canada;;;0;Left;0
-5422;130;130;Gary;Gresdal;;72;195;1947-1-15;Kingston;ON;Canada;;;0;Left;1
+5422;132;130;Gary;Gresdal;;72;195;1947-1-15;Kingston;ON;Canada;;;0;Left;0
 4068;90;90;Mel;Pearson;;70;175;1938-4-29;Flin Flon;MB;Canada;;;0;Left;0
 4069;90;90;Noel;Picard;;73;195;1938-12-25;Montreal;QC;Canada;;;0;Right;0
 5663;124;123;Doug;Grant;;74;240;1948-7-27;Channel-Port aux Basques;NL;Canada;;;0;Left;0
@@ -1357,7 +1357,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 4653;90;90;Terry;Casey;;69;172;1941-11-11;West Yellowstone;MT;The United States;;;0;Left;0
 5468;119;119;Fred;Speck;;69;161;1947-7-22;Thorold;ON;Canada;;;0;Left;1
 4654;66;66;Dieter;Kalt;;69;172;1941-7-29;Klagenfurt;K‰R;Austria;;;0;Left;0
-6146;5;5;Reggie;Leach;The Riverton Rifle;72;181;1950-4-23;Louise;MB;Canada;;;0;Right;1
+6146;24;5;Reggie;Leach;The Riverton Rifle;72;181;1950-4-23;Louise;MB;Canada;;;0;Right;0
 5469;90;90;Jim;Stanfield;;70;165;1947-1-1;Toronto;ON;Canada;;;0;Left;0
 5108;90;90;Doug;Volmar;;73;216;1945-1-9;Cuyahoga Falls;OH;The United States;;;0;Right;0
 5685;118;118;Joe;Lundrigan;;71;181;1948-9-12;Channel-Port aux Basques;NL;Canada;;;0;Left;1
@@ -1759,7 +1759,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6395;69;69;Andre;Peloffy;;68;168;1951-2-25;SËte;LAN;France;Canada;;0;Left;0
 6396;24;5;Pierre;Plante;Pepe;73;190;1951-5-14;Sayabec;QC;Canada;;;0;Right;1
 6397;3;3;Craig;Ramsay;Rammer;70;175;1951-3-17;Toronto;ON;Canada;;;0;Left;1
-6398;128;121;Ken;Richardson;;72;190;1951-4-12;North Bay;ON;Canada;;;0;Left;1
+6398;121;121;Ken;Richardson;;72;190;1951-4-12;North Bay;ON;Canada;;;0;Left;1
 6639;89;89;George;Kuzmicz;;73;200;1952-5-24;Murdochville;QC;Canada;;;0;Left;0
 6640;84;84;Ron;Lalonde;;70;170;1952-10-30;Toronto;ON;Canada;;;0;Left;0
 6641;85;85;Michel;Larocque;Bunny;71;200;1952-4-6;Longueuil;QC;Canada;;;0;Left;0

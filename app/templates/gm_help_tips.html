@@ -215,14 +215,19 @@
 
       <section id="help-training" class="card gm-help-tips__section" aria-labelledby="help-training-h">
         <h2 id="help-training-h" class="gm-help-tips__section-title">Training</h2>
-        <p><strong>Training Programs</strong> (preseason) and <strong>Targeted Training</strong> (in-season skill focus) guide player development.</p>
+        <p>The <strong>Training</strong> screen guides how your players develop. It has two tabs: <strong>Training Programs</strong> (preseason focus—replacing the old bonus training-camp period) and <strong>Targeted Training</strong> (in-season skill focus on the regular training screen).</p>
+
+        <h3 class="gm-help-tips__subsection-title">Training Programs tab</h3>
+        <p>Eligible contracted players appear on the left. Right-click a name and choose a program type. The right pane lists everyone assigned to something other than <strong>General Training</strong>.</p>
+        <p>Assign programs on any date from <strong>July 7</strong> through the <strong>last day of preseason</strong>. Later starts leave less time to finish and are more dangerous on difficult programs. Any player under contract can be chosen.</p>
+        <p>Only a limited number of players can use non-General programs at once—typically about 5–10, and up to roughly 14 with a strong coaching staff. A player may change program type only while currently on General Training; once on a specific program, they must stay on it until it completes.</p>
 
         <h3 class="gm-help-tips__subsection-title">Program types</h3>
         <ul class="gm-help-tips__def-list">
-          <li><strong>Skill-specific</strong> — one skill; slowest but most precise.</li>
-          <li><strong>Skill group</strong> — three related skills; medium speed.</li>
-          <li><strong>Skill category</strong> — broad category; faster than group training.</li>
-          <li><strong>General</strong> — fastest, no control over which skill improves.</li>
+          <li><strong>Skill-specific</strong> — one skill; slowest progress, most precise targeting.</li>
+          <li><strong>Skill group</strong> — three related skills; faster than skill-specific.</li>
+          <li><strong>Skill category</strong> — one overall category (see table below); faster than group training.</li>
+          <li><strong>General</strong> — no targeted area; fastest progress, but you do not control which skill improves.</li>
         </ul>
 
         <h3 class="gm-help-tips__subsection-title">Skill groups</h3>
@@ -243,12 +248,55 @@
           </table>
         </div>
 
-        <h3 class="gm-help-tips__subsection-title">Progress &amp; timing</h3>
-        <p>Assign programs between July 7 and the last preseason day—later starts are less effective and riskier. Non-general slots are limited (often 5–10, up to ~14 with strong coaches). Players can only switch programs while on General Training.</p>
-        <p>Progress runs 0→100 from games, development camp, preseason days, and slow off-season gains. Hitting 100 before preseason ends grants an immediate +1 and ends the program. If incomplete at preseason end, improvement chance equals progress%; failure can rarely reduce a targeted attribute.</p>
+        <h3 class="gm-help-tips__subsection-title">Skill categories</h3>
+        <p>Used by <strong>Skill category</strong> training (and by <strong>General</strong> when the game picks a category at random).</p>
+        <div class="table-wrap">
+          <table class="data gm-help-tips__table">
+            <thead><tr><th scope="col">Category</th><th scope="col">Skills</th></tr></thead>
+            <tbody>
+              <tr><td>Mental</td><td>Aggression, Bravery, Determination, Team Player, Leadership, Temperament, Professionalism</td></tr>
+              <tr><td>Physical</td><td>Acceleration, Agility, Balance, Speed, Stamina, Strength, Fighting</td></tr>
+              <tr><td>Offensive</td><td>Screening, Getting Open, Passing, Puckhandling, Shooting Accuracy, Shooting Range, Offensive Read</td></tr>
+              <tr><td>Defensive</td><td>Checking, Faceoffs, Hitting, Positioning, Shot Blocking, Stickchecking, Defensive Read</td></tr>
+              <tr><td>Goalie mental</td><td>Aggression, Mental Toughness, Determination, Team Player, Leadership, Stamina, Professionalism</td></tr>
+              <tr><td>Goalie</td><td>Positioning, Passing, Pokecheck, Blocker, Glove, Rebound, Recovery, Puckhandling, Low Shots, Skating, Reflexes</td></tr>
+            </tbody>
+          </table>
+        </div>
 
-        <h3 class="gm-help-tips__subsection-title">Targeted training</h3>
-        <p>Pick a specific skill (or General) per category column. Targeting slows development slightly—more so above 15—and heavily favors that skill on improvement rolls. Attributes already at 20+ cannot be targeted.</p>
+        <h3 class="gm-help-tips__subsection-title">Progress &amp; timing</h3>
+        <p>Program progress runs from <strong>0 to 100</strong>. It increases from:</p>
+        <ul class="gm-help-tips__def-list">
+          <li><strong>Games</strong> — +1 to +6 per game (program, Coachability, and coaching quality).</li>
+          <li><strong>Development camp</strong> — up to +20 when named to a camp roster (Coachability and a random element).</li>
+          <li><strong>Preseason days</strong> — +1 to +4 per day (program and coaching quality).</li>
+          <li><strong>Before preseason</strong> — a very small amount each calendar day.</li>
+        </ul>
+        <p>If progress reaches <strong>100 before preseason ends</strong>, the player gets an improvement immediately, the program ends, and they return to General Training—eligible to start another A–C program if you want.</p>
+        <p>If progress is still below 100 when preseason ends, the player may still improve; the chance equals <strong>current progress ÷ 100</strong>. If that roll fails, there is a small chance a targeted attribute <strong>declines</strong>—another reason not to start a hard program late.</p>
+        <aside class="gm-help-tips__callout gm-help-tips__callout--warn">
+          <strong>GM tip:</strong> Finish or avoid risky specific programs before the preseason clock runs out. Incomplete progress is a gamble, and failure can cost a rating point.
+        </aside>
+
+        <h3 class="gm-help-tips__subsection-title">Training effects</h3>
+        <p>A successful program adds <strong>+1</strong> to one rating in the target set:</p>
+        <ul class="gm-help-tips__def-list">
+          <li><strong>Skill-specific</strong> — always the one targeted skill.</li>
+          <li><strong>Skill group</strong> — chosen at random from the three skills in the group.</li>
+          <li><strong>Skill category</strong> — chosen from the category, favoring the attribute least developed for that player’s template and skill level.</li>
+          <li><strong>General</strong> — a category is chosen at random, then the same least-developed logic within that category.</li>
+        </ul>
+        <p>Younger players and better coaching also raise the chance of <strong>extra</strong> skill improvements from a successful program.</p>
+
+        <h3 class="gm-help-tips__subsection-title">Targeted Training tab</h3>
+        <p>This works like the legacy training screen, except each attribute column uses a <strong>dropdown</strong> (every skill in that column’s category plus <strong>General</strong>) instead of a simple checkbox.</p>
+        <p>Selecting a skill makes it the player’s training focus and applies a training bonus toward that category’s overall <strong>Coaching Bonus</strong>—the more players you target in a category, the lower the bonus per player.</p>
+        <ul class="gm-help-tips__def-list">
+          <li>Targeting slows development somewhat (coaching staff skill reduces the penalty).</li>
+          <li>Targeting a skill already above <strong>15</strong> adds extra slowdown.</li>
+          <li>Attributes at <strong>20 or higher</strong> cannot be targeted.</li>
+          <li>When the player earns an improvement, the targeted skill is much more likely to be chosen, but another attribute can still improve.</li>
+        </ul>
       </section>
 
       <section id="help-chemistry" class="card gm-help-tips__section" aria-labelledby="help-chemistry-h">

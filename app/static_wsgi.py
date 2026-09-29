@@ -49,15 +49,23 @@ def _wsgi_file_response(path: Path, environ, start_response):
     fobj = path.open("rb")
     wrapper = environ.get("wsgi.file_wrapper")
     if wrapper is not None:
-        return wrapper(fobj, "rb")
-    try:
-        while True:
-            chunk = fobj.read(65536)
-            if not chunk:
-                break
-            yield chunk
-    finally:
-        fobj.close()
+        # PEP 3333: wsgi.file_wrapper(filelike, block_size) — uWSGI expects an int, not a mode.
+        try:
+            return wrapper(fobj, 8192)
+        except TypeError:
+            return wrapper(fobj)
+
+    def _iter_and_close():
+        try:
+            while True:
+                chunk = fobj.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            fobj.close()
+
+    return _iter_and_close()
 
 
 def wrap_combined_static_files(wsgi_app, *, static_root: Path, league_slugs: frozenset[str]):

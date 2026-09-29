@@ -60,3 +60,41 @@ def test_wrap_combined_static_files_serves_without_inner_app(tmp_path: Path):
     body = b"".join(app(environ, start))
     assert status == ["200 OK"]
     assert body == b"\x89PNG"
+
+
+def test_wrap_combined_static_files_uses_wsgi_file_wrapper_block_size(tmp_path: Path):
+    root = tmp_path / "static"
+    root.mkdir()
+    (root / "x.bin").write_bytes(b"ab")
+
+    def inner(environ, start_response):
+        raise AssertionError("inner must not run")
+
+    app = wrap_combined_static_files(
+        inner,
+        static_root=root,
+        league_slugs=frozenset({"bowl-fantasy"}),
+    )
+    seen: list[tuple[object, object]] = []
+
+    def fake_wrapper(fobj, block_size):
+        seen.append((fobj, block_size))
+        return [fobj.read()]
+
+    environ = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": "/bowl-fantasy/static/x.bin",
+        "wsgi.input": BytesIO(b""),
+        "wsgi.errors": open("NUL" if Path("NUL").exists() else "/dev/null", "w"),
+        "wsgi.file_wrapper": fake_wrapper,
+    }
+    status: list[str] = []
+
+    def start(s, h):
+        status.append(s)
+
+    body = b"".join(app(environ, start))
+    assert status == ["200 OK"]
+    assert body == b"ab"
+    assert len(seen) == 1
+    assert seen[0][1] == 8192

@@ -171,6 +171,7 @@ def notify_trade_proposal_partner(
             article_id=int(proposal_id),
         )
     )
+    _commit_notifications()
 
 
 def notify_trade_proposal_commissioners(
@@ -190,6 +191,7 @@ def notify_trade_proposal_commissioners(
                 article_id=int(proposal_id),
             )
         )
+    _commit_notifications()
 
 
 def notify_trade_outcome_proposer(
@@ -252,6 +254,25 @@ def notify_transfer_outcome_proposer(
             kind="transfer_outcome_proposer",
             title=title[:400],
             body=body[:4000],
+            article_id=int(proposal_id),
+        )
+    )
+    _commit_notifications()
+
+
+def notify_transfer_partner_review(
+    league_slug: str, *, partner_user_id: int, proposal_id: int, summary_preview: str
+) -> None:
+    body = (summary_preview or "").strip().replace("\r\n", "\n")
+    if len(body) > 900:
+        body = body[:900] + "…"
+    _add_notification(
+        GmInAppNotification(
+            league_slug=league_slug,
+            user_id=int(partner_user_id),
+            kind="transfer_partner_review",
+            title="Cross-league transfer — your approval needed",
+            body=body or "Another GM submitted a transfer offer for a player on your roster.",
             article_id=int(proposal_id),
         )
     )

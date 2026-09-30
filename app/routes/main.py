@@ -3184,19 +3184,33 @@ def prospects():
 
     def _effective_team(pl: Player) -> Team | None:
         return pl.current_team or resolved_team_by_player_id.get(pl.id)
+
+    from app.services.relegation import relegation_signing_pools_enabled
+
+    relegation_radar = relegation_signing_pools_enabled(league_slug_cfg)
     young: list[Player] = []
-    for p in players:
-        eff_team = _effective_team(p)
-        if not eff_team or eff_team.fhm_league_id not in league_ids:
-            continue
-        if selected_team and eff_team.id != selected_team.id:
-            continue
-        age = _player_age_years(p.birth_date, age_ref)
-        if age is None or age > 22:
-            continue
-        if not _prospect_pos_matches(p.position, pos):
-            continue
-        young.append(p)
+    if relegation_radar:
+        from app.services.relegation_signing_pools import fetch_radar_prospect_players
+
+        for p in fetch_radar_prospect_players(session):
+            if selected_team and (not p.current_team or p.current_team.id != selected_team.id):
+                continue
+            if not _prospect_pos_matches(p.position, pos):
+                continue
+            young.append(p)
+    else:
+        for p in players:
+            eff_team = _effective_team(p)
+            if not eff_team or eff_team.fhm_league_id not in league_ids:
+                continue
+            if selected_team and eff_team.id != selected_team.id:
+                continue
+            age = _player_age_years(p.birth_date, age_ref)
+            if age is None or age > 22:
+                continue
+            if not _prospect_pos_matches(p.position, pos):
+                continue
+            young.append(p)
 
     items: list[dict] = []
     for pl in young:
@@ -3297,12 +3311,245 @@ def prospects():
         system_rank_snapshot_at=system_rank_snapshot_at,
         prospect_league_snapshot_at=prospect_league_snapshot_at,
         prospect_logo_season=season,
+        relegation_radar_mode=relegation_radar,
+    )
+
+
+def _render_overseas_transfers_page(league_slug: str):
+    from app.services.relegation_signing_pools import (
+        fetch_overseas_transfer_players,
+        overseas_league_filter_options,
+    )
+
+    session = db.session
+    season = get_current_season()
+    age_ref = season_age_reference_date(season)
+    pos = request.args.get("position")
+    ud_expanded = request.args.get("expanded") == "1"
+    page_limit = 50
+    league_filter_raw = (request.args.get("league") or "").strip()
+    league_fhm_id: int | None = int(league_filter_raw) if league_filter_raw.isdigit() else None
+    eligible_only = request.args.get("eligible") == "1"
+
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
+    attr_sort_keys = frozenset(h[2] for h in overview_headers)
+    valid_sorts = frozenset(
+        {
+            "rank",
+            "player",
+            "abi",
+            "pot",
+            "ova",
+            "pta",
+            "league",
+            "team",
+            *PROSPECT_PROJECTION_SORT_KEYS,
+            *attr_sort_keys,
+        }
+    )
+    sort_default_desc = frozenset(
+        {"rank", "abi", "pot", "ova", "pta", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_col = request.args.get("sort") or "pot"
+    order = request.args.get("order") or "desc"
+    if sort_col not in valid_sorts:
+        sort_col = "pot"
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    pairs = fetch_overseas_transfer_players(
+        session,
+        league_slug,
+        league_fhm_id=league_fhm_id,
+        eligible_only=eligible_only,
+    )
+    items: list[dict] = []
+    for pl, extra in pairs:
+        if not _prospect_pos_matches(pl.position, pos):
+            continue
+        base = _build_prospect_item_dict(
+            pl,
+            overview_headers,
+            _player_age_years(pl.birth_date, age_ref),
+            league_slug=league_slug,
+            season=season,
+        )
+        base["transfer"] = extra
+        base["current_team"] = pl.current_team
+        items.append(base)
+
+    rev = order == "desc"
+
+    def sort_key(it: dict) -> tuple:
+        pl = it["pl"]
+        extra = it["transfer"]
+        if sort_col == "player":
+            return ((pl.full_name or "").lower(), pl.id)
+        if sort_col == "league":
+            return (extra.external_league_label or "", pl.full_name or "", pl.id)
+        if sort_col == "team":
+            team = it.get("current_team")
+            return ((team.name if team else ""), pl.full_name or "", pl.id)
+        if sort_col == "pta":
+            return (extra.pta_fee_usd, pl.full_name or "", pl.id)
+        return _prospect_num_sort_key(it, sort_col, rev=rev)
+
+    items.sort(key=sort_key, reverse=rev)
+
+    rows_out: list[dict] = []
+    for i, it in enumerate(items, start=1):
+        pl = it["pl"]
+        extra = it["transfer"]
+        rows_out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "team": it.get("current_team"),
+                "age": it["age"],
+                "attrs": it["attrs_display"],
+                "abi": it["abi"],
+                "pot": it["pot"],
+                "projection": it.get("projection"),
+                "pta_fee_usd": extra.pta_fee_usd,
+                "transfer_eligible": extra.transfer_eligible,
+                "transfer_blocked": extra.blocked,
+                "transfer_block_reason": extra.block_reason,
+                "transfer_notes": extra.rule_notes,
+                "external_league_label": extra.external_league_label,
+            }
+        )
+
+    total_n = len(rows_out)
+    display_rows = rows_out if ud_expanded or total_n <= page_limit else rows_out[:page_limit]
+    ud_pls = [r["player"] for r in display_rows]
+    player_overall_by_id = build_overall_cell_map_from_players(session, ud_pls)
+    return render_template(
+        "overseas_transfers.html",
+        prospect_rows=display_rows,
+        total_prospects=total_n,
+        prospect_page_limit=page_limit,
+        prospect_expanded=ud_expanded,
+        prospect_overview_headers=overview_headers,
+        position=pos,
+        prospect_sort=sort_col,
+        prospect_order=order,
+        prospect_sort_desc_defaults=sort_default_desc,
+        overseas_league_options=overseas_league_filter_options(session, league_slug),
+        overseas_league_filter=league_filter_raw,
+        overseas_eligible_only=eligible_only,
+        player_overall_by_id=player_overall_by_id,
+        prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
+        prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
+    )
+
+
+@main_bp.get("/signable")
+def signable():
+    """BOWL-Relegation: amateur signings ages 18–20 (no entry draft)."""
+    from app.services.relegation import relegation_signing_pools_enabled
+    from app.services.relegation_signing_pools import fetch_signable_players
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    if not relegation_signing_pools_enabled(league_slug):
+        abort(404)
+    session = db.session
+    season = get_current_season()
+    age_ref = season_age_reference_date(season)
+    pos = request.args.get("position")
+    expanded = request.args.get("expanded") == "1"
+    page_limit = 50
+    overview_headers = PROSPECT_OVERVIEW_HEADERS
+    attr_sort_keys = frozenset(h[2] for h in overview_headers)
+    valid_sorts = frozenset(
+        {"rank", "player", "abi", "pot", "ova", "team", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_default_desc = frozenset(
+        {"rank", "abi", "pot", "ova", *PROSPECT_PROJECTION_SORT_KEYS, *attr_sort_keys}
+    )
+    sort_col = request.args.get("sort") or "pot"
+    order = request.args.get("order") or "desc"
+    if sort_col not in valid_sorts:
+        sort_col = "pot"
+    if order not in ("asc", "desc"):
+        order = "desc"
+
+    pool = fetch_signable_players(session, league_slug)
+    items: list[dict] = []
+    for pl in pool:
+        if not _prospect_pos_matches(pl.position, pos):
+            continue
+        items.append(
+            _build_prospect_item_dict(
+                pl,
+                overview_headers,
+                _player_age_years(pl.birth_date, age_ref),
+                league_slug=league_slug,
+                season=season,
+            )
+        )
+    rev = order == "desc"
+    if sort_col == "player":
+
+        def str_key(it: dict) -> tuple:
+            pl = it["pl"]
+            return ((pl.full_name or "").lower(), pl.id)
+
+        items.sort(key=str_key, reverse=rev)
+    elif sort_col == "team":
+
+        def team_key(it: dict) -> tuple:
+            pl = it["pl"]
+            t = pl.current_team
+            return ((t.name if t else ""), pl.full_name or "", pl.id)
+
+        items.sort(key=team_key, reverse=rev)
+    else:
+        items.sort(key=lambda it: _prospect_num_sort_key(it, sort_col, rev=rev), reverse=rev)
+
+    rows_out: list[dict] = []
+    for i, it in enumerate(items, start=1):
+        pl = it["pl"]
+        rows_out.append(
+            {
+                "rank": i,
+                "player": pl,
+                "team": pl.current_team,
+                "age": it["age"],
+                "attrs": it["attrs_display"],
+                "abi": it["abi"],
+                "pot": it["pot"],
+                "projection": it.get("projection"),
+            }
+        )
+    total_n = len(rows_out)
+    display_rows = rows_out if expanded or total_n <= page_limit else rows_out[:page_limit]
+    signable_pls = [r["player"] for r in display_rows]
+    player_overall_by_id = build_overall_cell_map_from_players(session, signable_pls)
+    return render_template(
+        "signable.html",
+        prospect_rows=display_rows,
+        total_prospects=total_n,
+        prospect_page_limit=page_limit,
+        prospect_expanded=expanded,
+        prospect_overview_headers=overview_headers,
+        position=pos,
+        prospect_sort=sort_col,
+        prospect_order=order,
+        prospect_sort_desc_defaults=sort_default_desc,
+        player_overall_by_id=player_overall_by_id,
+        prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
+        prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
     )
 
 
 @main_bp.get("/undrafted-prospects")
 def undrafted_prospects():
     """Players with no NHL/BOWL draft pick, no NHL/BOWL org rights, age within league cap, optional filters."""
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    from app.services.relegation import relegation_signing_pools_enabled
+
+    if relegation_signing_pools_enabled(league_slug):
+        return _render_overseas_transfers_page(league_slug)
     pos = request.args.get("position")
     age_param = (request.args.get("age") or "").strip()
     ud_expanded = request.args.get("expanded") == "1"
@@ -3601,6 +3848,9 @@ def _can_export_draft_eligible_csv(league_slug: str) -> bool:
 @main_bp.get("/draft-eligible")
 def draft_eligible():
     """Draft-eligible pool from the current league database and timeline rules."""
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     active_tab = (request.args.get("tab") or "eligible").strip().lower()
     if active_tab not in ("eligible", "mock"):
         active_tab = "eligible"
@@ -3707,6 +3957,9 @@ def draft_eligible():
 @main_bp.get("/draft-eligible.csv")
 def draft_eligible_csv():
     """GM/admin CSV export of the full draft-eligible list (respects page filters and sort)."""
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     if not _can_export_draft_eligible_csv(league_slug):
         abort(403)
@@ -3801,33 +4054,67 @@ def free_agents():
     page_limit = 80
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    ud_cap = undrafted_prospects_max_age(league_slug)
-    pool = fetch_free_agent_players(
-        session, role, age_ref=age_ref, undrafted_max_age=ud_cap, league_slug=league_slug
-    )
+    from app.services.relegation import relegation_signing_pools_enabled
 
-    items: list[dict[str, object]] = []
-    for pl in pool:
-        rr = get_player_ratings_row(pl.fhm_player_id)
-        abi = _player_abi_pot_value(pl, rr, "ability")
-        pot = _player_abi_pot_value(pl, rr, "potential")
-        attrs: dict[str, float | None] = {}
-        attrs_display: dict[str, object | None] = {}
-        for _full, _abbr, key in active_headers:
-            raw_cell = rr.get(key) if rr else None
-            attrs_display[key] = raw_cell
-            attrs[key] = _prospect_float(raw_cell)
-        items.append(
-            {
-                "pl": pl,
-                "attrs": attrs,
-                "attrs_display": attrs_display,
-                "age": _player_age_years(pl.birth_date, age_ref),
-                "rr": rr,
-                "abi": abi,
-                "pot": pot,
-            }
+    if relegation_signing_pools_enabled(league_slug):
+        from app.services.relegation_signing_pools import fetch_relegation_free_agent_players
+
+        pool_with_meta = fetch_relegation_free_agent_players(session, league_slug, role)
+        items = []
+        for pl, meta in pool_with_meta:
+            rr = get_player_ratings_row(pl.fhm_player_id)
+            abi = _player_abi_pot_value(pl, rr, "ability")
+            pot = _player_abi_pot_value(pl, rr, "potential")
+            attrs: dict[str, float | None] = {}
+            attrs_display: dict[str, object | None] = {}
+            for _full, _abbr, key in active_headers:
+                raw_cell = rr.get(key) if rr else None
+                attrs_display[key] = raw_cell
+                attrs[key] = _prospect_float(raw_cell)
+            items.append(
+                {
+                    "pl": pl,
+                    "attrs": attrs,
+                    "attrs_display": attrs_display,
+                    "age": _player_age_years(pl.birth_date, age_ref),
+                    "rr": rr,
+                    "abi": abi,
+                    "pot": pot,
+                    "fa_status": meta.get("status_bucket") or "ufa",
+                    "rights_holder_label": meta.get("rights_holder_label") or "None",
+                    "pta_fee_usd": meta.get("pta_fee_usd") or 0,
+                    "fee_required": bool(meta.get("fee_required")),
+                    "transfer_blocked": bool(meta.get("transfer_blocked")),
+                    "transfer_block_reason": meta.get("transfer_block_reason") or "",
+                }
+            )
+    else:
+        ud_cap = undrafted_prospects_max_age(league_slug)
+        pool = fetch_free_agent_players(
+            session, role, age_ref=age_ref, undrafted_max_age=ud_cap, league_slug=league_slug
         )
+        items = []
+        for pl in pool:
+            rr = get_player_ratings_row(pl.fhm_player_id)
+            abi = _player_abi_pot_value(pl, rr, "ability")
+            pot = _player_abi_pot_value(pl, rr, "potential")
+            attrs = {}
+            attrs_display = {}
+            for _full, _abbr, key in active_headers:
+                raw_cell = rr.get(key) if rr else None
+                attrs_display[key] = raw_cell
+                attrs[key] = _prospect_float(raw_cell)
+            items.append(
+                {
+                    "pl": pl,
+                    "attrs": attrs,
+                    "attrs_display": attrs_display,
+                    "age": _player_age_years(pl.birth_date, age_ref),
+                    "rr": rr,
+                    "abi": abi,
+                    "pot": pot,
+                }
+            )
 
     rev = order == "desc"
     if sort_col == "rank":
@@ -3888,17 +4175,23 @@ def free_agents():
     rows_out: list[dict[str, object]] = []
     for i, it in enumerate(items, start=1):
         pl = it["pl"]
-        rows_out.append(
-            {
-                "rank": i,
-                "player": pl,
-                "age": it["age"],
-                "attrs": it["attrs_display"],
-                "abi": it["abi"],
-                "pot": it["pot"],
-                "fa_status": free_agent_status_key(pl),
-            }
-        )
+        status = it.get("fa_status") or free_agent_status_key(pl)
+        row: dict[str, object] = {
+            "rank": i,
+            "player": pl,
+            "age": it["age"],
+            "attrs": it["attrs_display"],
+            "abi": it["abi"],
+            "pot": it["pot"],
+            "fa_status": status,
+        }
+        if "rights_holder_label" in it:
+            row["rights_holder_label"] = it.get("rights_holder_label")
+            row["pta_fee_usd"] = it.get("pta_fee_usd")
+            row["fee_required"] = it.get("fee_required")
+            row["transfer_blocked"] = it.get("transfer_blocked")
+            row["transfer_block_reason"] = it.get("transfer_block_reason")
+        rows_out.append(row)
 
     total_n = len(rows_out)
     if fa_expanded or total_n <= page_limit:
@@ -3906,22 +4199,29 @@ def free_agents():
     else:
         display_rows = rows_out[:page_limit]
 
-    fa_status_labels = {
-        "rfa": "RFA (Restricted Free Agents)",
-        "ufa": "UFA (Unrestricted Free Agents)",
-    }
-    fa_status_counts = {
-        "rfa": sum(1 for row in rows_out if row.get("fa_status") == "rfa"),
-        "ufa": sum(1 for row in rows_out if row.get("fa_status") == "ufa"),
-    }
+    relegation_fa = relegation_signing_pools_enabled(league_slug)
+    if relegation_fa:
+        fa_status_labels = {
+            "ufa": "UFA (Unrestricted Free Agents)",
+            "rfa": "RFA (Restricted Free Agents)",
+            "rights_held": "Rights held elsewhere",
+        }
+        group_keys = ("ufa", "rfa", "rights_held")
+    else:
+        fa_status_labels = {
+            "rfa": "RFA (Restricted Free Agents)",
+            "ufa": "UFA (Unrestricted Free Agents)",
+        }
+        group_keys = ("ufa", "rfa")
+    fa_status_counts = {key: sum(1 for row in rows_out if row.get("fa_status") == key) for key in group_keys}
     fa_groups = [
         {
             "key": key,
             "label": fa_status_labels[key],
-            "total": fa_status_counts[key],
+            "total": fa_status_counts.get(key, 0),
             "rows": [row for row in display_rows if row.get("fa_status") == key],
         }
-        for key in ("ufa", "rfa")
+        for key in group_keys
     ]
 
     fa_pls = [r["player"] for r in display_rows]
@@ -3940,11 +4240,15 @@ def free_agents():
         fa_order=order,
         fa_sort_desc_defaults=sort_default_desc,
         player_overall_by_id=player_overall_by_id,
+        relegation_fa_mode=relegation_fa,
     )
 
 
 @main_bp.get("/draft")
 def draft():
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     years = fetch_nhl_bowl_draft_years(db.session)
     year = request.args.get("year", type=int)
     if year is None and years:

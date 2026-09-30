@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "macros/player_overall.html" import overall_cell %}
+{% from "macros/prospect_projection.html" import prospect_projection_headers_row, prospect_projection_cells, prospect_projection_footnote_block %}
+{% block title %}Signable (18–20) — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% macro attr_pill(val) -%}
+{% if val is none or val == '' %}—{% else %}
+<span class="stats-badge stats-badge--rating prospects-rankings__attr-pill" style="{{ val|attr_rating_style }}">{{ val|float|round(0)|int }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro abi_pot_pill(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro sign_sort_th(sk, label, tip='') -%}
+{% set ord = ('asc' if prospect_order == 'desc' else 'desc') if sk == prospect_sort else ('desc' if sk in prospect_sort_desc_defaults else 'asc') %}
+{% if prospect_expanded %}
+{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none, expanded=1) %}
+{% else %}
+{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none) %}
+{% endif %}
+<th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
+  <a href="{{ href }}"
+     class="stats-th-link{% if sk == prospect_sort %} is-sorted {{ 'is-sorted-asc' if prospect_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
+</th>
+{%- endmacro %}
+{% block content %}
+<div class="prospects-rankings-page">
+  <h1 class="page-title">Signable (18–20)</h1>
+  <p class="muted">Amateur-aged players who are not on a BLUP/BLOW roster and are not held on another BOWL club’s rights list. BOWL-Relegation does not run an entry draft.</p>
+  <form method="get" class="card prospects-rankings-page__filters">
+    <input type="hidden" name="sort" value="{{ prospect_sort }}">
+    <input type="hidden" name="order" value="{{ prospect_order }}">
+    {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
+    <label class="prospects-rankings-page__field">Position
+      <select name="position" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for p in ['C','LW','RW','D','G'] %}
+        <option value="{{ p }}" {{ 'selected' if position == p else '' }}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  <div class="card">
+    {% if prospect_rows %}
+    <div class="table-wrap">
+      <table class="data prospects-rankings-table">
+        <thead>
+          <tr>
+            {{ sign_sort_th('rank', '#') }}
+            {{ sign_sort_th('team', 'CLUB') }}
+            {{ sign_sort_th('player', 'PLAYER') }}
+            <th scope="col">AGE</th>
+            {{ sign_sort_th('abi', 'ABI.') }}
+            {{ sign_sort_th('pot', 'POT.') }}
+            {{ sign_sort_th('ova', 'OVR') }}
+            {{ prospect_projection_headers_row(sign_sort_th, prospect_projection_headers) }}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in prospect_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td>{{ row.rank }}</td>
+            <td>{% if row.team %}{{ row.team.name }}{% else %}Unsigned{% endif %}</td>
+            <td><a href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a></td>
+            <td>{{ row.age if row.age is not none else '—' }}</td>
+            <td>{{ abi_pot_pill(row.abi) }}</td>
+            <td>{{ abi_pot_pill(row.pot) }}</td>
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id), prospect_sort == 'ova') }}
+            {{ prospect_projection_cells(row, prospect_sort) }}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total_prospects > prospect_page_limit %}
+    <p class="stats-list-foot muted">
+      {% if prospect_expanded %}
+      Showing all {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none) }}">Top {{ prospect_page_limit }}</a>
+      {% else %}
+      Top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none, expanded=1) }}">Show all</a>
+      {% endif %}
+    </p>
+    {% endif %}
+    {{ prospect_projection_footnote_block() }}
+    {% else %}
+    <p class="empty-state">No signable players match this filter.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

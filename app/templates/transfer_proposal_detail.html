@@ -4,13 +4,33 @@
 <div class="card" style="max-width:52rem;margin:0 auto;">
   <p><a href="{{ url_for('site_gm.transfer_tool_page') }}">← Transfer Tool</a></p>
   <h1 class="page-title">Transfer proposal #{{ proposal.id }}</h1>
-  <p class="muted">Status: <strong>{{ proposal.status }}</strong> · AI: {{ proposal.ai_verdict or '—' }}</p>
+  <p class="muted">Status: <strong>{{ proposal.status }}</strong>
+    {% if proposal.status == 'pending_partner' %} · Awaiting selling GM{% elif proposal.ai_verdict %} · {{ proposal.ai_verdict }}{% endif %}
+  </p>
   <pre style="white-space:pre-wrap;background:var(--row-alt);padding:0.75rem;border-radius:var(--radius);">{{ summary }}</pre>
-  {% if proposal.ai_rationale %}
-  <h2>AI partner response</h2>
+  {% if proposal.ai_rationale and proposal.status not in ('pending_partner', 'pending_commissioner') %}
+  <h2>External club response</h2>
   <p>{{ proposal.ai_rationale }}</p>
   {% endif %}
-  {% if proposal.status == 'ai_counter' and counter %}
+  {% if proposal.status == 'pending_partner' and is_selling_partner %}
+  <div class="transfer-proposal-detail__partner card">
+    <h2>Your approval needed</h2>
+    <p class="muted">You are the selling GM. Accept to forward this offer to the league office (PTA and compensation shown above must still be applied in FHM after publish).</p>
+    <form method="post" action="{{ url_for('site_gm.transfer_tool_respond_partner', pid=proposal.id) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="accept">
+      <button type="submit" class="trade-tool-submit">Accept transfer offer</button>
+    </form>
+    <form method="post" action="{{ url_for('site_gm.transfer_tool_respond_partner', pid=proposal.id) }}" style="display:inline;margin-left:0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="decline">
+      <button type="submit" class="btn btn--ghost">Decline</button>
+    </form>
+  </div>
+  {% elif proposal.status == 'pending_partner' %}
+  <p class="muted">Waiting for the selling GM to accept or decline.</p>
+  {% endif %}
+  {% if proposal.status == 'ai_counter' and counter and not is_selling_partner %}
   <div class="transfer-proposal-detail__counter card">
     <h2>Counter-offer</h2>
     <p class="muted">Minimum ask: ${{ counter.minimum_ask_usd or 0 }} · Your offer: ${{ counter.current_offer_usd or 0 }}</p>

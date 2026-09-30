@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "macros/player_overall.html" import overall_cell %}
+{% from "macros/prospect_projection.html" import prospect_projection_headers_row, prospect_projection_cells, prospect_projection_footnote_block %}
+{% block title %}Overseas Transfers — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% macro attr_pill(val) -%}
+{% if val is none or val == '' %}—{% else %}
+<span class="stats-badge stats-badge--rating prospects-rankings__attr-pill" style="{{ val|attr_rating_style }}">{{ val|float|round(0)|int }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro abi_pot_pill(val) -%}
+{% if val is none %}—{% else %}
+<span class="stats-badge stats-badge--rating stats-badge--overall" style="{{ val|rating_pill_style }}">{{ '%.1f'|format(val|float) }}</span>
+{% endif %}
+{%- endmacro %}
+{% macro ot_sort_th(sk, label, tip='') -%}
+{% set ord = ('asc' if prospect_order == 'desc' else 'desc') if sk == prospect_sort else ('desc' if sk in prospect_sort_desc_defaults else 'asc') %}
+{% if prospect_expanded %}
+{% set href = url_for('main.undrafted_prospects', sort=sk, order=ord, league=overseas_league_filter or none, eligible=1 if overseas_eligible_only else none, position=position or none, expanded=1) %}
+{% else %}
+{% set href = url_for('main.undrafted_prospects', sort=sk, order=ord, league=overseas_league_filter or none, eligible=1 if overseas_eligible_only else none, position=position or none) %}
+{% endif %}
+<th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
+  <a href="{{ href }}"
+     class="stats-th-link{% if sk == prospect_sort %} is-sorted {{ 'is-sorted-asc' if prospect_order == 'asc' else 'is-sorted-desc' }}{% endif %}">{{ label }}</a>
+</th>
+{%- endmacro %}
+{% block content %}
+<div class="prospects-rankings-page">
+  <h1 class="page-title">Overseas Transfers</h1>
+  <p class="muted">Players on transfer-eligible leagues (including BLUP/BLOW). PTA fees scale with the live salary cap. Human-GM clubs negotiate off-site; fees still apply when the league publishes the move.</p>
+  <div class="prospects-rankings-page__sticky-head">
+  <form method="get" class="card prospects-rankings-page__filters">
+    <input type="hidden" name="sort" value="{{ prospect_sort }}">
+    <input type="hidden" name="order" value="{{ prospect_order }}">
+    {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
+    <label class="prospects-rankings-page__field">League
+      <select name="league" onchange="this.form.submit()">
+        <option value="">All eligible</option>
+        {% for opt in overseas_league_options %}
+        <option value="{{ opt.fhm_league_id }}" {{ 'selected' if overseas_league_filter == (opt.fhm_league_id ~ '') else '' }}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="prospects-rankings-page__field">Position
+      <select name="position" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for p in ['C','LW','RW','D','G'] %}
+        <option value="{{ p }}" {{ 'selected' if position == p else '' }}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="prospects-rankings-page__field">
+      <input type="checkbox" name="eligible" value="1" {% if overseas_eligible_only %}checked{% endif %} onchange="this.form.submit()"> Eligible only
+    </label>
+  </form>
+  </div>
+  <div class="card prospects-rankings-table-card">
+    {% if prospect_rows %}
+    <div class="prospects-rankings-table-card__scroll">
+      <table class="data prospects-rankings-table prospects-rankings-table--undrafted">
+        <thead>
+          <tr>
+            {{ ot_sort_th('rank', '#') }}
+            {{ ot_sort_th('league', 'LGE') }}
+            {{ ot_sort_th('team', 'TEAM') }}
+            {{ ot_sort_th('player', 'PLAYER') }}
+            <th scope="col">AGE</th>
+            {{ ot_sort_th('pta', 'PTA $') }}
+            <th scope="col">Status</th>
+            {{ ot_sort_th('abi', 'ABI.') }}
+            {{ ot_sort_th('pot', 'POT.') }}
+            {{ ot_sort_th('ova', 'OVR') }}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in prospect_rows %}
+          {% set pl = row.player %}
+          <tr>
+            <td>{{ row.rank }}</td>
+            <td>{{ row.external_league_label or '—' }}</td>
+            <td>{% if row.team %}<a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.name }}</a>{% else %}—{% endif %}</td>
+            <td><a href="{{ url_for('main.player_page', player_id=pl.id) }}">{{ pl.full_name }}</a></td>
+            <td>{{ row.age if row.age is not none else '—' }}</td>
+            <td>${{ '{:,}'.format(row.pta_fee_usd) }}</td>
+            <td>{% if row.transfer_blocked %}<span class="muted" title="{{ row.transfer_block_reason|e }}">Blocked</span>{% elif row.transfer_eligible %}Eligible{% else %}—{% endif %}</td>
+            <td>{{ abi_pot_pill(row.abi) }}</td>
+            <td>{{ abi_pot_pill(row.pot) }}</td>
+            {{ overall_cell((player_overall_by_id or {}).get(pl.id), prospect_sort == 'ova') }}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total_prospects > prospect_page_limit %}
+    <p class="stats-list-foot muted prospects-rankings-page__foot">
+      {% if prospect_expanded %}
+      Showing all {{ total_prospects }} players. <a href="{{ url_for('main.undrafted_prospects', sort=prospect_sort, order=prospect_order, league=overseas_league_filter or none, eligible=1 if overseas_eligible_only else none, position=position or none) }}">Show top {{ prospect_page_limit }} only</a>
+      {% else %}
+      Showing top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.undrafted_prospects', sort=prospect_sort, order=prospect_order, league=overseas_league_filter or none, eligible=1 if overseas_eligible_only else none, position=position or none, expanded=1) }}">Show all</a>
+      {% endif %}
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">No players match this filter on transfer-eligible leagues.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

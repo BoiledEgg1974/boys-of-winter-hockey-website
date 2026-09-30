@@ -20,7 +20,9 @@ from app.services.trade_tool import (
 from app.services.transfer_ai_partner import apply_ai_review_to_proposal, evaluate_transfer_proposal
 from app.services.transfer_rules import (
     STATUS_COMMISSIONER_DECLINED,
+    STATUS_PARTNER_DECLINED,
     STATUS_PENDING_COMMISSIONER,
+    STATUS_PENDING_PARTNER,
     STATUS_PUBLISHED,
     bowl_team_budget_snapshot,
     build_player_transfer_context,
@@ -60,14 +62,20 @@ def parse_player_ids(raw: str | list | None) -> list[int]:
 
 
 def external_team_has_human_gm(session: Session, league_slug: str, team_id: int) -> bool:
+    return external_team_gm_user_id(session, league_slug, team_id) is not None
+
+
+def external_team_gm_user_id(session: Session, league_slug: str, team_id: int) -> int | None:
     mem = session.scalar(
         select(GmLeagueMembership).where(
             GmLeagueMembership.league_slug == league_slug,
             GmLeagueMembership.team_id == int(team_id),
             GmLeagueMembership.status == "active",
-        )
+        ).limit(1)
     )
-    return mem is not None
+    if mem is None:
+        return None
+    return int(mem.user_id)
 
 
 def transfer_roster_for_team(session: Session, team_id: int) -> list[dict[str, Any]]:
@@ -117,8 +125,8 @@ def validate_transfer_submission(
         return "Draft picks cannot be used as transfer compensation. Offer cash and/or players only."
     if external_league_fhm_id not in cfg.eligible_external_league_fhm_ids:
         return "That external league is not eligible for transfers."
-    if external_team_has_human_gm(site_session, league_slug, external_team_id):
-        return "That team has a human GM — negotiate directly, not through the AI transfer tool."
+    if int(bowl_team_id) == int(external_team_id):
+        return "Select a different club — you cannot transfer a player from your own team."
     bowl_team = session.get(Team, int(bowl_team_id))
     ext_team = session.get(Team, int(external_team_id))
     if not bowl_team or not ext_team:
@@ -176,6 +184,170 @@ def validate_transfer_submission(
     if snap.get("any_blocked"):
         reasons = snap.get("block_reasons") or []
         return reasons[0] if reasons else "Transfer blocked by rules."
+    return None
+
+
+def validate_transfer_proposer(
+    site_session: Session,
+    *,
+    league_slug: str,
+    proposer_user_id: int,
+    bowl_team_id: int,
+    external_team_id: int,
+) -> str | None:
+    partner_uid = external_team_gm_user_id(site_session, league_slug, external_team_id)
+    if partner_uid is not None and int(partner_uid) == int(proposer_user_id):
+        return "You cannot submit a transfer proposal to your own team."
+    return None
+
+
+def user_may_view_transfer_proposal(
+    site_session: Session,
+    *,
+    league_slug: str,
+    proposal: GmTransferProposal,
+    user_id: int,
+    is_admin: bool,
+) -> bool:
+    if is_admin:
+        return True
+    if int(proposal.proposer_user_id) == int(user_id):
+        return True
+    partner_uid = external_team_gm_user_id(site_session, league_slug, int(proposal.external_team_id))
+    return partner_uid is not None and int(partner_uid) == int(user_id)
+
+
+def user_is_transfer_selling_partner(
+    site_session: Session,
+    *,
+    league_slug: str,
+    proposal: GmTransferProposal,
+    user_id: int,
+) -> bool:
+    partner_uid = external_team_gm_user_id(site_session, league_slug, int(proposal.external_team_id))
+    return partner_uid is not None and int(partner_uid) == int(user_id)
+
+
+def submit_transfer_proposal(
+    session: Session,
+    site_session: Session,
+    *,
+    league_slug: str,
+    proposer_user_id: int,
+    bowl_team_id: int,
+    external_team_id: int,
+    external_league_fhm_id: int,
+    player_ids: list[int],
+    compensation: dict[str, Any],
+    rules_snapshot: dict[str, Any],
+    notes: str,
+    raw_dir: Path | None,
+) -> tuple[GmTransferProposal | None, str | None]:
+    err = validate_transfer_proposer(
+        site_session,
+        league_slug=league_slug,
+        proposer_user_id=int(proposer_user_id),
+        bowl_team_id=int(bowl_team_id),
+        external_team_id=int(external_team_id),
+    )
+    if err:
+        return None, err
+    err = validate_transfer_submission(
+        session,
+        site_session,
+        league_slug=league_slug,
+        bowl_team_id=int(bowl_team_id),
+        external_team_id=int(external_team_id),
+        external_league_fhm_id=int(external_league_fhm_id),
+        player_ids=player_ids,
+        compensation=compensation,
+        raw_dir=raw_dir,
+    )
+    if err:
+        return None, err
+    prop = GmTransferProposal(
+        league_slug=league_slug,
+        proposer_user_id=int(proposer_user_id),
+        bowl_team_id=int(bowl_team_id),
+        external_league_fhm_id=int(external_league_fhm_id),
+        external_team_id=int(external_team_id),
+        player_ids_json=json.dumps(player_ids),
+        compensation_json=json.dumps(compensation),
+        rules_snapshot_json=json.dumps(rules_snapshot or {}),
+        notes=notes,
+        status="pending_ai",
+    )
+    site_session.add(prop)
+    site_session.flush()
+    partner_uid = external_team_gm_user_id(site_session, league_slug, int(external_team_id))
+    if partner_uid is not None:
+        prop.status = STATUS_PENDING_PARTNER
+        prop.ai_verdict = "pending_partner"
+        prop.ai_rationale = "Awaiting selling GM approval."
+        from app.services.gm_notifications import notify_transfer_partner_review
+
+        summary = format_transfer_summary(session, prop)
+        notify_transfer_partner_review(
+            league_slug,
+            partner_user_id=int(partner_uid),
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
+    else:
+        run_ai_review_for_proposal(session, prop, league_slug=league_slug, raw_dir=raw_dir)
+    return prop, None
+
+
+def partner_respond_to_transfer(
+    session: Session,
+    site_session: Session,
+    *,
+    league_slug: str,
+    proposal: GmTransferProposal,
+    partner_user_id: int,
+    action: str,
+    raw_dir: Path | None,
+) -> str | None:
+    if proposal.status != STATUS_PENDING_PARTNER:
+        return "This proposal is not awaiting partner approval."
+    if not user_is_transfer_selling_partner(
+        site_session,
+        league_slug=league_slug,
+        proposal=proposal,
+        user_id=int(partner_user_id),
+    ):
+        return "Only the selling club's GM can respond."
+    if action == "decline":
+        proposal.status = STATUS_PARTNER_DECLINED
+        proposal.ai_verdict = "declined"
+        proposal.ai_rationale = "Selling GM declined the transfer offer."
+        notify_transfer_outcome_proposer(
+            league_slug,
+            proposer_user_id=int(proposal.proposer_user_id),
+            proposal_id=int(proposal.id),
+            title="Transfer declined by selling GM",
+            body="The other GM declined your cross-league transfer offer.",
+        )
+        return None
+    if action != "accept":
+        return "Unknown action."
+    err = validate_transfer_submission(
+        session,
+        site_session,
+        league_slug=league_slug,
+        bowl_team_id=int(proposal.bowl_team_id),
+        external_team_id=int(proposal.external_team_id),
+        external_league_fhm_id=int(proposal.external_league_fhm_id),
+        player_ids=parse_player_ids(proposal.player_ids_json),
+        compensation=parse_compensation_payload(proposal.compensation_json),
+        raw_dir=raw_dir,
+    )
+    if err:
+        return err
+    proposal.status = STATUS_PENDING_COMMISSIONER
+    proposal.ai_verdict = "accept"
+    proposal.ai_rationale = "Selling GM accepted. Awaiting league office approval."
+    proposal.ai_acted_at = datetime.utcnow()
     return None
 
 
@@ -404,14 +576,27 @@ def list_external_leagues(session: Session, league_slug: str) -> list[dict[str, 
     return external_leagues_for_transfer(session, league_slug)
 
 
-def list_external_teams(session: Session, fhm_league_id: int) -> list[dict[str, Any]]:
+def list_external_teams(
+    session: Session,
+    fhm_league_id: int,
+    *,
+    league_slug: str | None = None,
+    site_session: Session | None = None,
+) -> list[dict[str, Any]]:
     teams = external_teams_for_league(session, int(fhm_league_id))
-    return [
-        {
-            "team_id": int(t.id),
-            "name": t.full_display_name(),
-            "abbreviation": t.abbreviation or "",
-            "fhm_league_id": int(t.fhm_league_id or 0),
-        }
-        for t in teams
-    ]
+    slug = (league_slug or "").strip()
+    out: list[dict[str, Any]] = []
+    for t in teams:
+        partner_uid = None
+        if slug and site_session is not None:
+            partner_uid = external_team_gm_user_id(site_session, slug, int(t.id))
+        out.append(
+            {
+                "team_id": int(t.id),
+                "name": t.full_display_name(),
+                "abbreviation": t.abbreviation or "",
+                "fhm_league_id": int(t.fhm_league_id or 0),
+                "has_human_gm": partner_uid is not None,
+            }
+        )
+    return out

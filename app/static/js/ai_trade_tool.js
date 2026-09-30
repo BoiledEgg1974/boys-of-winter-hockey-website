@@ -3,6 +3,8 @@
   if (!root) return;
   var assetsUrl = root.getAttribute("data-assets-url") || "";
   var evaluateUrl = root.getAttribute("data-evaluate-url") || "";
+  var ptaDryRunUrl = root.getAttribute("data-pta-dry-run-url") || "";
+  var submitProposalUrl = root.getAttribute("data-submit-proposal-url") || "";
   var csrf = root.getAttribute("data-csrf") || "";
   var maxN = parseInt(root.getAttribute("data-max") || "5", 10) || 5;
   var draftRoundCap = parseInt(root.getAttribute("data-draft-rounds") || "8", 10) || 8;
@@ -32,6 +34,8 @@
   var bubblePh = document.getElementById("ai-bubble-placeholder");
   var bubbleLoad = document.getElementById("ai-bubble-loading");
   var btnEval = document.getElementById("btn-ai-evaluate");
+  var btnPtaDryRun = document.getElementById("btn-pta-dry-run");
+  var btnSubmitProposal = document.getElementById("btn-submit-proposal");
   var botFigure = document.querySelector(".ai-trade-tool-bot-figure");
   var botDialog = document.getElementById("ai-trade-bot-dialog");
   var btnDialogClose = document.getElementById("ai-trade-dialog-close");
@@ -176,6 +180,7 @@
   }
 
   function syncLedgerField() {
+    if (window.BowlTradePta) window.BowlTradePta.attachTransferCompensation(ledger);
     if (ledgerField) ledgerField.value = JSON.stringify(ledger);
   }
 
@@ -701,6 +706,105 @@
           setBubbleLoading(false);
           alert("Network error.");
           if (bubblePh) bubblePh.hidden = false;
+        });
+    });
+  }
+
+  if (window.BowlTradePta) window.BowlTradePta.wirePtaInputs(syncLedgerField);
+
+  if (btnPtaDryRun && ptaDryRunUrl) {
+    btnPtaDryRun.addEventListener("click", function () {
+      syncLedgerField();
+      if (!partnerSel.value) {
+        alert("Choose a trading partner.");
+        return;
+      }
+      setBubbleLoading(true);
+      if (bubblePh) bubblePh.hidden = true;
+      if (bubbleVerdict) bubbleVerdict.hidden = true;
+      if (bubbleOpinion) bubbleOpinion.textContent = "";
+      fetch(ptaDryRunUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRFToken": csrf,
+        },
+        body: JSON.stringify({
+          csrf_token: csrf,
+          partner_team_id: parseInt(partnerSel.value, 10),
+          ledger: ledger,
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (data) {
+            return { ok: r.ok, data: data };
+          });
+        })
+        .then(function (res) {
+          setBubbleLoading(false);
+          if (!res.ok) {
+            alert((res.data && res.data.error) || "Dry run failed.");
+            if (bubblePh) bubblePh.hidden = false;
+            return;
+          }
+          renderOpinion({
+            verdict: res.data.valid ? "PTA dry run — passed" : "PTA dry run — failed",
+            opinion: res.data.summary || "",
+            suggestions: res.data.errors || [],
+          });
+        })
+        .catch(function () {
+          setBubbleLoading(false);
+          alert("Network error.");
+          if (bubblePh) bubblePh.hidden = false;
+        });
+    });
+  }
+
+  if (btnSubmitProposal && submitProposalUrl) {
+    btnSubmitProposal.addEventListener("click", function () {
+      syncLedgerField();
+      if (!partnerSel.value) {
+        alert("Choose a trading partner.");
+        return;
+      }
+      if (!window.confirm("Submit this trade to your partner for approval?")) return;
+      btnSubmitProposal.disabled = true;
+      fetch(submitProposalUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-CSRFToken": csrf,
+        },
+        body: JSON.stringify({
+          csrf_token: csrf,
+          partner_team_id: parseInt(partnerSel.value, 10),
+          ledger: ledger,
+          notes: (notesEl && notesEl.value) || "",
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (data) {
+            return { ok: r.ok, data: data };
+          });
+        })
+        .then(function (res) {
+          btnSubmitProposal.disabled = false;
+          if (!res.ok) {
+            alert((res.data && res.data.error) || "Could not submit trade.");
+            return;
+          }
+          if (res.data.detail_url) {
+            window.location.href = res.data.detail_url;
+          }
+        })
+        .catch(function () {
+          btnSubmitProposal.disabled = false;
+          alert("Network error.");
         });
     });
   }

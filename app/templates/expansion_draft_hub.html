@@ -4,9 +4,11 @@
 <div class="draft-hub-page draft-hub-page--expansion" id="draft-hub-page-root">
   <h1 class="page-title">Expansion Draft Hub</h1>
   <p class="muted" style="margin:0 0 1rem;">
-    For league GMs and admins. The commissioner records every pick on this board (same as the entry Draft Hub).
+    For league GMs and admins. The commissioner records every pick on this board.
+    {% if entry_draft_enabled %}
     Prospect draft: <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
     · <a href="{{ url_for('main.draft') }}">FHM Draft History</a>
+    {% endif %}
   </p>
 
   {% with msgs = get_flashed_messages(with_categories=true) %}

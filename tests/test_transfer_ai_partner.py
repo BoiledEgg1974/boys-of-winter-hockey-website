@@ -183,7 +183,7 @@ class TransferAiPartnerTests(unittest.TestCase):
         self.assertTrue(cfg.allow_player_sweeteners)
         self.assertTrue(cfg.allow_cash_sweetener)
         self.assertEqual(cfg.reference_salary_cap_usd, 95_500_000)
-        self.assertEqual(cfg.eligible_external_league_fhm_ids, (5, 6, 7, 8, 9, 16))
+        self.assertEqual(cfg.eligible_external_league_fhm_ids, (0, 1, 5, 6, 7, 8, 9, 16))
 
     def test_pta_matches_confirmed_table_at_reference_cap(self):
         cfg = load_transfer_rules_config("bowl-fantasy")
@@ -224,6 +224,94 @@ class TransferAiPartnerTests(unittest.TestCase):
         )
         self.assertIsNotNone(err)
         self.assertIn("Draft picks", err or "")
+
+    def test_blup_blow_in_eligible_league_ids(self):
+        cfg = load_transfer_rules_config("bowl-fantasy")
+        self.assertIn(0, cfg.eligible_external_league_fhm_ids)
+        self.assertIn(1, cfg.eligible_external_league_fhm_ids)
+
+    def test_human_seller_not_blocked_by_validate(self):
+        from unittest.mock import MagicMock, patch
+
+        from app.services.transfer_tool import validate_transfer_submission
+
+        session = MagicMock()
+        bowl = _FakeTeam(tid=5, league_id=0)
+        ext = _FakeTeam(tid=10, league_id=1)
+        player = _FakePlayer(team_id=10)
+
+        def _get(model, pk):
+            if pk == 5:
+                return bowl
+            if pk == 10:
+                return ext
+            if pk == 1:
+                return player
+            return None
+
+        session.get.side_effect = _get
+        site_session = MagicMock()
+        with patch(
+            "app.services.transfer_tool.external_team_gm_user_id",
+            return_value=99,
+        ):
+            with patch(
+                "app.services.transfer_tool.tradable_drag_keys_for_team",
+                return_value=set(),
+            ):
+                with patch(
+                    "app.services.transfer_tool.rules_snapshot_for_players",
+                    return_value={
+                        "required_pta_fee_usd": 350000,
+                        "any_blocked": False,
+                        "block_reasons": [],
+                    },
+                ):
+                    with patch(
+                        "app.services.transfer_tool.bowl_team_budget_snapshot",
+                        return_value={"remaining_budget_usd": 5_000_000, "salary_cap_usd": 95_500_000},
+                    ):
+                        with patch(
+                            "app.services.all_time_records.bowl_nhl_league_ids",
+                            return_value=(0, 1),
+                        ):
+                            err = validate_transfer_submission(
+                                session,
+                                site_session,
+                                league_slug="bowl-fantasy",
+                                bowl_team_id=5,
+                                external_team_id=10,
+                                external_league_fhm_id=1,
+                                player_ids=[1],
+                                compensation={"pta_transfer_fee": 350000, "cash_sweetener": 0},
+                                raw_dir=None,
+                            )
+        self.assertIsNone(err)
+
+    def test_cannot_acquire_from_own_team(self):
+        session = MagicMock()
+        err = validate_transfer_submission(
+            session,
+            session,
+            league_slug="bowl-fantasy",
+            bowl_team_id=5,
+            external_team_id=5,
+            external_league_fhm_id=0,
+            player_ids=[1],
+            compensation={"pta_transfer_fee": 350000},
+            raw_dir=None,
+        )
+        self.assertIn("own team", (err or "").lower())
+
+    def test_pta_fee_for_blup_league_id(self):
+        fee = _pta_fee_for_player(
+            load_transfer_rules_config("bowl-fantasy"),
+            league_fhm_id=0,
+            age=24,
+            session=None,
+            league_slug="bowl-fantasy",
+        )
+        self.assertEqual(fee, 350000)
 
 
 if __name__ == "__main__":

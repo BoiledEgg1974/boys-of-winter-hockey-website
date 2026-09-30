@@ -4,7 +4,13 @@
 <div class="trade-tool-page card ai-trade-tool-page">
   <header class="trade-tool-page__header">
     <h1 class="trade-tool-page__title">AI Trade Tool</h1>
-    <p class="trade-tool-page__sub muted">For <strong>entertainment only</strong>. This scenario is <strong>not</strong> submitted for league approval and does not message your trade partner or commissioners.</p>
+    <p class="trade-tool-page__sub muted">
+      {% if gm_trade_proposals_enabled and relegation_trade_pta %}
+      Build a trade with your partner, enter <strong>transfer fees</strong> when players change sides, then <strong>Submit to partner</strong> for approval. After you both agree, the league office publishes. AI opinion and PTA dry-run are optional checks.
+      {% else %}
+      For <strong>entertainment only</strong>. This scenario is <strong>not</strong> submitted for league approval and does not message your trade partner or commissioners.
+      {% endif %}
+    </p>
     <p class="ai-trade-tool-official muted" style="margin-top:0.35rem;font-size:0.88rem;">{% if site_can_process_trades %}Official trades → <a href="{{ url_for('site_gm.trade_tool') }}">Trade Tool</a>{% else %}Official trades are entered and published by the league office.{% endif %}</p>
   </header>
 
@@ -32,6 +38,8 @@
     <div class="trade-tool-layout" id="ai-trade-tool-root"
          data-assets-url="{{ url_for('site_gm.trade_tool_assets') }}?ai=1"
          data-evaluate-url="{{ url_for('site_gm.ai_trade_tool_evaluate') }}"
+         data-pta-dry-run-url="{{ url_for('site_gm.ai_trade_tool_pta_dry_run') if relegation_trade_pta else '' }}"
+         data-submit-proposal-url="{{ url_for('site_gm.ai_trade_tool_submit_proposal') if gm_trade_proposals_enabled else '' }}"
          data-csrf="{{ csrf_token() }}"
          data-max="5"
          data-draft-rounds="{{ draft_round_cap }}"
@@ -125,8 +133,40 @@
           <label class="trade-tool-notes-label">Notes (optional flavor for the bot)
             <textarea id="trade-notes" rows="4" maxlength="8000" placeholder="Salary thoughts, timeline, what you’re trying to fix…"></textarea>
           </label>
+          {% if relegation_trade_pta %}
+          <section class="card trade-tool-pta-panel" style="margin:0.5rem 0;padding:0.75rem;">
+            <h2 class="trade-tool-page__section-title" style="font-size:1rem;margin:0 0 0.35rem;">Transfer fees (dry run)</h2>
+            <p class="muted" style="margin:0 0 0.5rem;">Enter PTA and cash for each side acquiring players — same as Transfer Tool. <strong>Dry-run PTA check</strong> validates only; it does not submit a trade.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+              <div>
+                <strong>Your team acquiring</strong>
+                <label>PTA / fee (USD)
+                  <input type="number" id="pta-left-fee" min="0" step="1000" value="0">
+                </label>
+                <label>Cash (USD)
+                  <input type="number" id="pta-left-cash" min="0" step="1000" value="0">
+                </label>
+              </div>
+              <div>
+                <strong>Partner acquiring</strong>
+                <label>PTA / fee (USD)
+                  <input type="number" id="pta-right-fee" min="0" step="1000" value="0">
+                </label>
+                <label>Cash (USD)
+                  <input type="number" id="pta-right-cash" min="0" step="1000" value="0">
+                </label>
+              </div>
+            </div>
+          </section>
+          {% endif %}
           <div class="trade-tool-actions">
             <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear Table</button>
+            {% if relegation_trade_pta %}
+            <button type="button" class="trade-tool-submit" id="btn-pta-dry-run">Dry-run PTA check</button>
+            {% endif %}
+            {% if gm_trade_proposals_enabled %}
+            <button type="button" class="trade-tool-submit" id="btn-submit-proposal">Submit to partner</button>
+            {% endif %}
             <button type="button" class="trade-tool-submit" id="btn-ai-evaluate">Get AI opinion</button>
           </div>
           <p class="muted ai-trade-tool-eval-hint">The bot’s reply opens in a pop-up so your partner’s roster stays unobstructed.</p>
@@ -180,5 +220,6 @@
     </div>
   </dialog>
 </div>
+<script src="{{ url_for('static', filename='js/trade_pta_dry_run.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ai_trade_tool.js') }}" defer></script>
 {% endblock %}

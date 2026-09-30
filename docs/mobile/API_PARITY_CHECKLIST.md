@@ -88,3 +88,12 @@ Already useful for widgets / shell: player search, hover cards, box score, game 
 4. **Operations queue** (GM-facing reads) — optional JSON for mobile dashboard later.
 
 Keep this file updated when you add a JSON twin for an HTML POST so mobile and automation stay aligned.
+
+## BOWL-Relegation (`bowl-fantasy`) signing pools
+
+On this mount only:
+
+- **404:** `/draft`, `/draft-eligible`, `/draft-eligible.csv`, `/draft-hub/**`, `/draft-lottery/preview`, admin `/admin/draft-hub`, `/admin/draft-eligible-settings`, boost lottery redirects.
+- **Active HTML:** `/prospects` (radar ≤17), `/undrafted-prospects` (overseas transfers + PTA columns), `/signable` (18–20), `/free-agents` (unsigned + rights/PTA columns).
+
+See **[docs/BOWL-Relegation-Signing-Pools.md](../BOWL-Relegation-Signing-Pools.md)**.

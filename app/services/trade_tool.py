@@ -16,6 +16,7 @@ from app.auth_login import ADMIN_ROLE_LEAGUE, ADMIN_ROLE_SUPER, has_admin_role
 from app.models import DraftPick, Player, Prospect, Team
 from app.services.free_agents import player_ids_from_player_rights_csv_for_team
 from app.services.league_rules import rule_int
+from app.services.transfer_rules import is_transfer_tool_league
 from app.services.draft_pick_ownership import (
     DRAFT_PICK_DRAG_PREFIX,
     describe_draft_pick_row,
@@ -658,6 +659,22 @@ def publish_trade_proposal(
     )
     if err:
         return None, [], err
+
+    if is_transfer_tool_league(league_slug):
+        from app.services.trade_transfer_pta import run_trade_pta_dry_run
+
+        pta = run_trade_pta_dry_run(
+            session,
+            league_slug=league_slug,
+            left_team_id=int(proposal.from_team_id),
+            right_team_id=int(proposal.to_team_id),
+            ledger_raw=proposal.ledger_json,
+            raw_dir=raw_dir,
+            ledger_error=None,
+        )
+        if not pta.get("valid"):
+            errs = pta.get("errors") or []
+            return None, [], errs[0] if errs else "Transfer fee validation failed."
 
     from_article_id, _to_article_id = publish_trade_news_articles(
         session,

@@ -21,6 +21,8 @@
   </form>
   {% elif is_proposer %}
   <p class="muted">You proposed this trade. When your partner responds, both of you will be notified here and in GM Messages.</p>
+  {% elif proposal.status == 'pending_commissioner' %}
+  <p class="muted">Both GMs accepted. The league office will publish or deny this trade.</p>
   {% elif is_partner %}
   <p class="muted">You have already responded to this proposal.</p>
   {% endif %}

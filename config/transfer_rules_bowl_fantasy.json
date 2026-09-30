@@ -1,8 +1,10 @@
 {
   "league_slug": "bowl-fantasy",
-  "eligible_external_league_fhm_ids": [5, 6, 7, 8, 9, 16],
+  "eligible_external_league_fhm_ids": [0, 1, 5, 6, 7, 8, 9, 16],
   "excluded_external_league_fhm_ids": [2, 3, 4, 10, 11, 12, 13, 14, 15, 17],
   "eligible_external_league_names": {
+    "0": "BLUP",
+    "1": "BLOW",
     "5": "SHL",
     "6": "KHL",
     "7": "DEL",
@@ -25,6 +27,8 @@
   "european_pta_fees_usd": {
     "default": 350000,
     "by_league_fhm_id": {
+      "0": 350000,
+      "1": 350000,
       "5": 400000,
       "7": 325000,
       "8": 375000,
@@ -49,6 +53,6 @@
     "asset_usd_per_point": 10000
   },
   "bowl_overrides": {
-    "notes": "Confirmed house rules: six European leagues; players + cash only (no picks); KHL must be off contract; AI toughness unchanged; Discord #confirm-trade. PTA table is the dollar amount at reference_salary_cap_usd ($95.5M) and scales with the live cap / team budget ceiling."
+    "notes": "Confirmed house rules: BLUP, BLOW, and six European leagues; players + cash only (no picks); KHL must be off contract; human BLUP/BLOW sellers approve via Transfer Tool (same PTA/fees/budget/sweeteners as AI); Discord #confirm-trade. PTA table is the dollar amount at reference_salary_cap_usd ($95.5M) and scales with the live cap / team budget ceiling."
   }
 }

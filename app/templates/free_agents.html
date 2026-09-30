@@ -38,6 +38,11 @@
         {{ fa_sort_th('rank', '#', 'Rank (potential, ability, name)') }}
         {{ fa_sort_th('player', 'PLAYER', 'Player') }}
         <th scope="col" title="Age">AGE</th>
+        {% if relegation_fa_mode %}
+        <th scope="col" title="Another club or league holds rights">Rights</th>
+        <th scope="col" title="PTA / transfer fee at current cap">PTA $</th>
+        <th scope="col" title="Fee or transfer required to sign">Fee?</th>
+        {% endif %}
         {{ fa_sort_th('abi', 'ABI.', 'Ability') }}
         {{ fa_sort_th('pot', 'POT.', 'Potential') }}
         {{ fa_sort_th('ova', 'OVR', 'Composite 1-100 overall') }}
@@ -67,6 +72,11 @@
           </span>
         </td>
         <td {% if fa_sort == 'age' %}class="stats-td-sorted"{% endif %}>{{ row.age if row.age is not none else '—' }}</td>
+        {% if relegation_fa_mode %}
+        <td>{{ row.rights_holder_label or 'None' }}</td>
+        <td>{% if row.pta_fee_usd %}${{ '{:,}'.format(row.pta_fee_usd) }}{% else %}—{% endif %}</td>
+        <td>{% if row.transfer_blocked %}<span class="muted" title="{{ row.transfer_block_reason|e }}">Blocked</span>{% elif row.fee_required %}Yes{% else %}No{% endif %}</td>
+        {% endif %}
         <td {% if fa_sort == 'abi' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.abi) }}</td>
         <td {% if fa_sort == 'pot' %}class="stats-td-sorted"{% endif %}>{{ abi_pot_pill(row.pot) }}</td>
         {{ overall_cell((player_overall_by_id or {}).get(pl.id), fa_sort == 'ova') }}
@@ -82,6 +92,9 @@
 {% block content %}
 <div class="prospects-rankings-page free-agents-page">
   <h1 class="page-title">Free Agents</h1>
+  {% if relegation_fa_mode %}
+  <p class="muted">Players with no team assignment in FHM. Rights holder and PTA columns reflect cross-league transfer rules when another club holds the player.</p>
+  {% endif %}
 
   <div class="free-agents-page__tabs" role="navigation" aria-label="Position">
     <a class="free-agents-page__tab{% if fa_role == 'fwd' %} is-active{% endif %}"

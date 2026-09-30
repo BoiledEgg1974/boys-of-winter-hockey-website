@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Trade PTA dry run — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:52rem;margin:0 auto;">
+  <p><a href="{{ return_url }}">← Back to Trade Tool</a></p>
+  <h1 class="page-title">Trade PTA dry run</h1>
+  <p class="muted">No trade was published. This only validates transfer fees and budgets for the ledger you built.</p>
+  <p class="{% if result.valid %}relegation-uc-banner{% else %}flash flash--err{% endif %}" role="status">
+    {% if result.valid %}<strong>Passed</strong> — ready for live publish when dry-run mode is turned off.{% else %}<strong>Failed</strong> — fix the issues below and run dry run again.{% endif %}
+  </p>
+  <pre style="white-space:pre-wrap;background:var(--row-alt);padding:0.75rem;border-radius:var(--radius);">{{ result.summary }}</pre>
+  {% if left_team and right_team %}
+  <p class="muted">{{ left_team.full_display_name() }} (Team A) ↔ {{ right_team.full_display_name() }} (Team B)</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -7,8 +7,10 @@
 </div>
 
 <nav class="front-office-links card" aria-label="Front office tools">
+  {% if entry_draft_enabled %}
   <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
   <span aria-hidden="true">·</span>
+  {% endif %}
   <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
   <span aria-hidden="true">·</span>
   <a href="{{ url_for('main.relegation_page') }}">Promotion / Relegation</a>

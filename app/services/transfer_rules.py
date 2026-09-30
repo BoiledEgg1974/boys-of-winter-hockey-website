@@ -19,6 +19,8 @@ from app.services.seasons import get_current_season, season_age_reference_date
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "transfer_rules_bowl_fantasy.json"
 
 STATUS_PENDING_AI = "pending_ai"
+STATUS_PENDING_PARTNER = "pending_partner"
+STATUS_PARTNER_DECLINED = "partner_declined"
 STATUS_AI_DECLINED = "ai_declined"
 STATUS_AI_COUNTER = "ai_counter"
 STATUS_PENDING_COMMISSIONER = "pending_commissioner"
@@ -235,16 +237,14 @@ def bowl_main_league_fhm_ids(session: Session) -> frozenset[int]:
 
 
 def external_leagues_for_transfer(session: Session, league_slug: str) -> list[dict[str, Any]]:
-    """External FHM leagues eligible for cross-league acquisition."""
+    """External FHM leagues eligible for cross-league acquisition (includes BLUP/BLOW when configured)."""
     cfg = load_transfer_rules_config(league_slug)
-    main_ids = bowl_main_league_fhm_ids(session)
+    eligible = frozenset(cfg.eligible_external_league_fhm_ids)
     rows = session.scalars(select(LeagueMeta).order_by(LeagueMeta.name)).all()
     out: list[dict[str, Any]] = []
     for lm in rows:
         lid = int(lm.fhm_league_id)
-        if lid in main_ids:
-            continue
-        if cfg.eligible_external_league_fhm_ids and lid not in cfg.eligible_external_league_fhm_ids:
+        if eligible and lid not in eligible:
             continue
         if lid in cfg.excluded_external_league_fhm_ids:
             continue
@@ -256,6 +256,12 @@ def external_leagues_for_transfer(session: Session, league_slug: str) -> list[di
             }
         )
     return out
+
+
+def transfer_eligible_league_fhm_ids(league_slug: str = "bowl-fantasy") -> frozenset[int]:
+    """FHM league ids used for overseas transfer browse pages and tool eligibility."""
+    cfg = load_transfer_rules_config(league_slug)
+    return frozenset(int(x) for x in cfg.eligible_external_league_fhm_ids)
 
 
 def external_teams_for_league(session: Session, fhm_league_id: int) -> list[Team]:

@@ -45,13 +45,27 @@ class RelegationTierResolverTests(unittest.TestCase):
                 SimpleNamespace(fhm_league_id=0, fhm_conference_id=1, fhm_team_id="8"),
             ],
         ]
-        raw_dir = Path(__file__).resolve().parents[1] / "data" / "imports" / "raw" / "bowl_fantasy"
         with patch("app.services.relegation.bowl_nhl_league_ids", return_value=(0,)):
-            cfg = get_tier_config(session, raw_import_dir=raw_dir)
+            cfg = get_tier_config(session, raw_import_dir=Path("."))
         self.assertEqual(cfg.mode, "conference_id")
         self.assertEqual(cfg.upper_conference_ids, frozenset({0}))
         self.assertEqual(cfg.lower_conference_ids, frozenset({1}))
-        self.assertIn("Wales", cfg.upper_label)
+        self.assertEqual(cfg.upper_label, "Upper League")
+
+    def test_league_id_mode_blup_blow_from_meta(self) -> None:
+        session = MagicMock()
+        session.scalars.return_value.all.side_effect = [
+            [
+                SimpleNamespace(fhm_league_id=0, name="BOWL-Upper", abbreviation="BLUP"),
+                SimpleNamespace(fhm_league_id=1, name="BOWL-Lower", abbreviation="BLOW"),
+            ],
+            [],
+        ]
+        with patch("app.services.relegation.bowl_nhl_league_ids", return_value=(0, 1)):
+            cfg = get_tier_config(session, raw_import_dir=Path("."))
+        self.assertEqual(cfg.mode, "league_id")
+        self.assertEqual(cfg.upper_league_ids, frozenset({0}))
+        self.assertEqual(cfg.lower_league_ids, frozenset({1}))
 
     def test_league_id_mode_when_upper_lower_meta_present(self) -> None:
         session = MagicMock()

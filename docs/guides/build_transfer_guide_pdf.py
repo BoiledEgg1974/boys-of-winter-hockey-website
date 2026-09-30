@@ -187,7 +187,7 @@ def page_cover(c: Canvas, *, gm_only: bool = False) -> None:
     y -= 18
     y = wrapped_text(
         c,
-        "It is not a trade between two human GMs. Those still go through the Trade Tool. It is also not "
+        "It is not a balanced trade between two human GMs with picks on both sides — those still go through the commissioner Trade Tool. It is also not "
         "a loan office, junior/AHL pipeline, or a way to send a BOWL player out of the league.",
         LEFT,
         y,
@@ -233,8 +233,8 @@ def page_rules(c: Canvas) -> None:
     y -= 22
     items = [
         "Relegation only. Logged-in GMs with an active team membership.",
-        "Direction: you acquire one player from an AI external club. Human GMs on the other side are blocked — talk to them directly.",
-        "Eligible leagues: SHL, KHL, DEL, Liiga, National League (NL), and ELH. Juniors, NCAA, and AHL are out of this tool.",
+        "Direction: you acquire one player from an external club. AI clubs (SHL, KHL, etc.) are simulated; human BLUP/BLOW sellers approve on the Transfer Tool with the same PTA, budget, and sweeteners. The league office publishes approved deals.",
+        "Eligible leagues: BOWL Upper (BLUP), BOWL Lower (BLOW), SHL, KHL, DEL, Liiga, National League (NL), and ELH. Juniors, NCAA, and AHL are out of this tool.",
         "Compensation is cash and up to two BOWL players. Draft picks are not allowed.",
         "KHL: the player must be off contract. There is no PTA agreement, so a player still under KHL contract is blocked.",
         "European players under contract pay a PTA / transfer fee. European UFAs age 22+ follow the no-fee UFA path.",
@@ -255,6 +255,7 @@ def page_rules(c: Canvas) -> None:
 
     rows = [
         ("League", "Fee"),
+        ("BLUP / BLOW", "$350,000"),
         ("SHL", "$400,000"),
         ("Liiga", "$375,000"),
         ("NL", "$350,000"),

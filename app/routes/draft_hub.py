@@ -76,6 +76,13 @@ draft_hub_bp = Blueprint("draft_hub", __name__, url_prefix="/draft-hub")
 ELIGIBLE_HUB_FULL_POOL_LIMIT = 5000
 
 
+@draft_hub_bp.before_request
+def _draft_hub_require_entry_draft():
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
+
+
 def _league_slug() -> str:
     return str(current_app.config.get("LEAGUE_SLUG") or "")
 

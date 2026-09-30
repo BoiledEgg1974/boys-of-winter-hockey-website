@@ -106,9 +106,41 @@
         <label class="trade-tool-notes-label">Trade Notes &amp; Conditions
           <textarea name="notes" id="trade-notes" rows="4" maxlength="8000" placeholder="Conditions, salary retention, future considerations…"></textarea>
         </label>
+        {% if relegation_trade_pta %}
+        <section class="card trade-tool-pta-panel" style="margin:0.75rem 0;padding:0.75rem;">
+          <h2 class="trade-tool-page__section-title" style="font-size:1rem;margin:0 0 0.35rem;">Transfer fees (BOWL-Relegation)</h2>
+          {% if relegation_trade_pta_dry_run %}
+          <p class="muted" style="margin:0 0 0.5rem;"><strong>Dry-run mode</strong> — Publish is disabled. Use <em>Dry-run PTA check</em> to validate fees and budgets. Set <code>RELEGATION_TRADE_PTA_DRY_RUN=0</code> on the server to allow live publishes with PTA checks.</p>
+          {% endif %}
+          <p class="muted" style="margin:0 0 0.5rem;">Per incoming players on each side: PTA / transfer fee plus optional cash (same rules as the Transfer Tool).</p>
+          <div class="transfer-tool-page__grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+            <div>
+              <strong>Team A acquiring</strong>
+              <label>PTA / fee (USD)
+                <input type="number" id="pta-left-fee" min="0" step="1000" value="0">
+              </label>
+              <label>Cash sweetener (USD)
+                <input type="number" id="pta-left-cash" min="0" step="1000" value="0">
+              </label>
+            </div>
+            <div>
+              <strong>Team B acquiring</strong>
+              <label>PTA / fee (USD)
+                <input type="number" id="pta-right-fee" min="0" step="1000" value="0">
+              </label>
+              <label>Cash sweetener (USD)
+                <input type="number" id="pta-right-cash" min="0" step="1000" value="0">
+              </label>
+            </div>
+          </div>
+        </section>
+        {% endif %}
         <div class="trade-tool-actions">
           <button type="button" class="trade-tool-clear" id="btn-clear-table">Clear Table</button>
-          <button type="submit" class="trade-tool-submit">Publish trade</button>
+          {% if relegation_trade_pta %}
+          <button type="submit" class="trade-tool-submit" formaction="{{ url_for('site_gm.trade_tool_pta_dry_run') }}">Dry-run PTA check</button>
+          {% endif %}
+          <button type="submit" class="trade-tool-submit" {% if relegation_trade_pta_dry_run %}disabled title="Disabled while RELEGATION_TRADE_PTA_DRY_RUN is on"{% endif %}>Publish trade</button>
         </div>
       </form>
     </div>
@@ -155,6 +187,7 @@
   {% endif %}
 </div>
 
+<script src="{{ url_for('static', filename='js/trade_pta_dry_run.js') }}"></script>
 <script>
 (function () {
   var root = document.getElementById("trade-tool-root");
@@ -185,7 +218,6 @@
   var cached = null;
   var ledger = { from_left_to_right: [], from_right_to_left: [] };
   var dragKey = null;
-  var PLAYER_URL_PH = "988776655";
 
   if (adminTeamSel) {
     adminTeamSel.addEventListener("change", function () {
@@ -323,6 +355,7 @@
   }
 
   function syncLedgerField() {
+    if (window.BowlTradePta) window.BowlTradePta.attachTransferCompensation(ledger);
     ledgerField.value = JSON.stringify(ledger);
   }
 
@@ -704,6 +737,8 @@
       })
       .catch(function () { alert("Could not load assets."); });
   });
+
+  if (window.BowlTradePta) window.BowlTradePta.wirePtaInputs(syncLedgerField);
 
   form.addEventListener("submit", function (ev) {
     syncLedgerField();

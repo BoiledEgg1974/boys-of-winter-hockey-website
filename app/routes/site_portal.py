@@ -11,7 +11,7 @@ from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import joinedload
 from app.auth_login import (
     ADMIN_ROLE_CONTENT,
@@ -207,6 +207,18 @@ from app.services.trade_ai_opinion import (
     recent_trades_prompt_block,
 )
 from app.services.trade_log import resolve_trade_log_row, trade_log_rows as build_trade_log_rows
+from app.services.trade_transfer_pta import (
+    format_transfer_compensation_summary,
+    gm_trade_proposals_enabled,
+    parse_trade_ledger_object,
+    relegation_trade_pta_dry_run_only,
+    run_trade_pta_dry_run,
+)
+from app.services.gm_trade_proposals import (
+    partner_respond_gm_trade,
+    submit_gm_trade_proposal,
+    user_may_view_trade_proposal,
+)
 from app.services.trade_market import (
     BUYING_CATEGORIES,
     active_buying_rows,
@@ -227,7 +239,9 @@ from app.services.trade_market import (
 )
 from app.services.trade_tool import (
     STATUS_COMMISSIONER_DECLINED,
+    STATUS_PARTNER_DECLINED,
     STATUS_PENDING_COMMISSIONER,
+    STATUS_PENDING_PARTNER,
     STATUS_PUBLISHED,
     enrich_trade_player_row,
     format_trade_discord_body,
@@ -244,7 +258,9 @@ from app.services.trade_tool import (
 from app.services.transfer_rules import (
     STATUS_AI_COUNTER as TRANSFER_STATUS_AI_COUNTER,
     STATUS_AI_DECLINED as TRANSFER_STATUS_AI_DECLINED,
+    STATUS_PARTNER_DECLINED as TRANSFER_STATUS_PARTNER_DECLINED,
     STATUS_PENDING_COMMISSIONER as TRANSFER_STATUS_PENDING_COMMISSIONER,
+    STATUS_PENDING_PARTNER as TRANSFER_STATUS_PENDING_PARTNER,
     STATUS_PUBLISHED as TRANSFER_STATUS_PUBLISHED,
     is_transfer_tool_league,
     load_transfer_rules_config,
@@ -257,10 +273,14 @@ from app.services.transfer_tool import (
     list_external_teams,
     parse_compensation_payload,
     parse_player_ids,
+    partner_respond_to_transfer,
     preview_transfer_fees,
     publish_transfer_proposal,
     run_ai_review_for_proposal,
+    submit_transfer_proposal,
     transfer_roster_for_team,
+    user_is_transfer_selling_partner,
+    user_may_view_transfer_proposal,
     validate_transfer_submission,
 )
 from app.site_models import (
@@ -1507,6 +1527,9 @@ def trade_tool():
         gm_display_name=gm_display_name,
         draft_round_cap=draft_round_cap,
         player_page_url_template=player_page_url_template,
+        relegation_trade_pta=is_transfer_tool_league(slug),
+        relegation_trade_pta_dry_run=relegation_trade_pta_dry_run_only(slug),
+        gm_trade_proposals_enabled=gm_trade_proposals_enabled(slug),
     )
 
 
@@ -1591,6 +1614,14 @@ def trade_tool_submit():
     if not _can_use_official_trade_tool():
         flash("The Trade Tool is available to league administrators only.", "err")
         return redirect(url_for("main.home"))
+    if relegation_trade_pta_dry_run_only(slug):
+        flash(
+            "BOWL-Relegation Trade Tool is in PTA dry-run mode. Use “Dry-run PTA check” instead of Publish. "
+            "Set RELEGATION_TRADE_PTA_DRY_RUN=0 to allow live publishes with PTA validation.",
+            "warn",
+        )
+        admin_team_id = _admin_trade_team_id()
+        return redirect(url_for("site_gm.trade_tool", admin_team_id=admin_team_id or None))
     admin_team_id = _admin_trade_team_id()
     if not admin_team_id:
         flash("Choose the left-side team before publishing.", "err")
@@ -1619,7 +1650,22 @@ def trade_tool_submit():
     if err:
         flash(err, "err")
         return redirect(return_url)
-    payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
+    payload_obj = parse_trade_ledger_object(ledger_raw)
+    if is_transfer_tool_league(slug):
+        pta_result = run_trade_pta_dry_run(
+            db.session,
+            league_slug=slug,
+            left_team_id=int(left_team_id),
+            right_team_id=int(partner_team_id),
+            ledger_raw=ledger_raw,
+            raw_dir=_trade_tool_raw_dir(),
+            ledger_error=None,
+        )
+        if not pta_result.get("valid"):
+            flash(pta_result.get("summary") or "Transfer fee validation failed.", "err")
+            return redirect(return_url)
+    else:
+        payload_obj = {"from_left_to_right": left_out, "from_right_to_left": right_out}
     admin_uid = int(current_user.id)
     from_uid = _trade_user_id_for_team(slug, left_team_id, fallback_user_id=admin_uid)
     to_uid = _trade_user_id_for_team(slug, int(partner_team_id), fallback_user_id=admin_uid)
@@ -1680,6 +1726,56 @@ def trade_tool_submit():
         msg += f" Draft ownership updated for {moved_count} pick(s)."
     flash(msg, "ok")
     return redirect(return_url)
+
+
+@site_gm_bp.post("/operations/trade-tool/pta-dry-run")
+@login_required
+def trade_tool_pta_dry_run():
+    slug = _league_slug()
+    if not _can_use_official_trade_tool():
+        flash("The Trade Tool is available to league administrators only.", "err")
+        return redirect(url_for("main.home"))
+    if not is_transfer_tool_league(slug):
+        abort(404)
+    admin_team_id = _admin_trade_team_id()
+    if not admin_team_id:
+        flash("Choose the left-side team before running a dry run.", "err")
+        return redirect(url_for("site_gm.trade_tool"))
+    left_team_id = int(admin_team_id)
+    return_url = url_for("site_gm.trade_tool", admin_team_id=left_team_id)
+    partner_team_id = request.form.get("partner_team_id", type=int)
+    ledger_raw = (request.form.get("ledger_json") or "").strip()
+    if not partner_team_id or partner_team_id <= 0:
+        flash("Choose Team B before running a dry run.", "err")
+        return redirect(return_url)
+    left_out, right_out = parse_ledger_payload(ledger_raw)
+    ledger_err = validate_ledger(
+        db.session,
+        int(left_team_id),
+        int(partner_team_id),
+        left_out,
+        right_out,
+        raw_dir=_trade_tool_raw_dir(),
+        league_slug=slug,
+    )
+    result = run_trade_pta_dry_run(
+        db.session,
+        league_slug=slug,
+        left_team_id=int(left_team_id),
+        right_team_id=int(partner_team_id),
+        ledger_raw=ledger_raw,
+        raw_dir=_trade_tool_raw_dir(),
+        ledger_error=ledger_err,
+    )
+    left_team = db.session.get(Team, int(left_team_id))
+    right_team = db.session.get(Team, int(partner_team_id))
+    return render_template(
+        "trade_pta_dry_run.html",
+        result=result,
+        left_team=left_team,
+        right_team=right_team,
+        return_url=return_url,
+    )
 
 
 def _trade_market_prev_discord_hash(rows, attr: str = "discord_payload_hash") -> str:
@@ -2080,7 +2176,61 @@ def ai_trade_tool():
         draft_round_cap=draft_round_cap,
         player_page_url_template=player_page_url_template,
         recent_trade_rows=recent_trade_rows,
+        relegation_trade_pta=is_transfer_tool_league(slug),
+        relegation_trade_pta_dry_run=relegation_trade_pta_dry_run_only(slug),
+        gm_trade_proposals_enabled=gm_trade_proposals_enabled(slug),
     )
+
+
+@site_gm_bp.post("/operations/ai-trade-tool/pta-dry-run")
+@login_required
+def ai_trade_tool_pta_dry_run():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    if not is_transfer_tool_league(slug):
+        return jsonify({"error": "PTA dry-run is only on BOWL-Relegation."}), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    left_team_id = int(mem.team_id)
+    try:
+        partner_team_id = int(data.get("partner_team_id") or 0)
+    except (TypeError, ValueError):
+        partner_team_id = 0
+    if not partner_team_id or partner_team_id == left_team_id:
+        return jsonify({"error": "partner_team_id required"}), 400
+    ledger_obj = data.get("ledger")
+    if not isinstance(ledger_obj, dict):
+        return jsonify({"error": "ledger object required"}), 400
+    ledger_raw = json.dumps(ledger_obj)
+    left_out, right_out = parse_ledger_payload(ledger_raw)
+    cap = _ai_trade_draft_round_cap(db.session, slug)
+    ledger_err = validate_ledger(
+        db.session,
+        int(left_team_id),
+        int(partner_team_id),
+        left_out,
+        right_out,
+        raw_dir=_trade_tool_raw_dir(),
+        league_slug=slug,
+        draft_round_cap=cap,
+    )
+    result = run_trade_pta_dry_run(
+        db.session,
+        league_slug=slug,
+        left_team_id=int(left_team_id),
+        right_team_id=int(partner_team_id),
+        ledger_raw=ledger_raw,
+        raw_dir=_trade_tool_raw_dir(),
+        ledger_error=ledger_err,
+    )
+    return jsonify(result)
 
 
 @site_gm_bp.post("/operations/ai-trade-tool/evaluate")
@@ -2272,7 +2422,13 @@ def transfer_tool_page():
             select(GmTransferProposal)
             .where(
                 GmTransferProposal.league_slug == slug,
-                GmTransferProposal.proposer_user_id == int(current_user.id),
+                or_(
+                    GmTransferProposal.proposer_user_id == int(current_user.id),
+                    and_(
+                        GmTransferProposal.external_team_id == int(mem.team_id),
+                        GmTransferProposal.status == TRANSFER_STATUS_PENDING_PARTNER,
+                    ),
+                ),
             )
             .order_by(GmTransferProposal.created_at.desc())
             .limit(15)
@@ -2307,7 +2463,7 @@ def transfer_tool_teams():
     fhm_league_id = request.args.get("fhm_league_id", type=int)
     if not fhm_league_id:
         return jsonify({"error": "fhm_league_id required"}), 400
-    return jsonify({"teams": list_external_teams(db.session, int(fhm_league_id))})
+    return jsonify({"teams": list_external_teams(db.session, int(fhm_league_id), league_slug=slug, site_session=db.session)})
 
 
 @site_gm_bp.get("/operations/transfer-tool/assets")
@@ -2394,40 +2550,23 @@ def transfer_tool_submit():
     )
     required_pta = int(preview.get("required_pta_fee_usd") or 0)
     compensation.setdefault("pta_transfer_fee", required_pta)
-    err = validate_transfer_submission(
+    prop, err = submit_transfer_proposal(
         db.session,
         db.session,
         league_slug=slug,
+        proposer_user_id=int(current_user.id),
         bowl_team_id=int(mem.team_id),
         external_team_id=int(external_team_id),
         external_league_fhm_id=int(external_league_fhm_id),
         player_ids=player_ids,
         compensation=compensation,
-        raw_dir=_trade_tool_raw_dir(),
-    )
-    if err:
-        flash(err, "err")
-        return redirect(url_for("site_gm.transfer_tool_page"))
-    prop = GmTransferProposal(
-        league_slug=slug,
-        proposer_user_id=int(current_user.id),
-        bowl_team_id=int(mem.team_id),
-        external_league_fhm_id=int(external_league_fhm_id),
-        external_team_id=int(external_team_id),
-        player_ids_json=json.dumps(player_ids),
-        compensation_json=json.dumps(compensation),
-        rules_snapshot_json=json.dumps(preview.get("rules_snapshot") or {}),
+        rules_snapshot=preview.get("rules_snapshot") or {},
         notes=notes,
-        status="pending_ai",
-    )
-    db.session.add(prop)
-    db.session.flush()
-    run_ai_review_for_proposal(
-        db.session,
-        prop,
-        league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
     )
+    if err or prop is None:
+        flash(err or "Could not submit transfer.", "err")
+        return redirect(url_for("site_gm.transfer_tool_page"))
     if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
         summary = format_transfer_summary(db.session, prop)
         notify_transfer_proposal_commissioners(
@@ -2437,12 +2576,66 @@ def transfer_tool_submit():
             summary_preview=summary,
         )
         flash("External club accepted your offer. Awaiting league office approval.", "ok")
+    elif prop.status == TRANSFER_STATUS_PENDING_PARTNER:
+        flash("Offer sent to the selling GM for approval.", "ok")
     elif prop.status == TRANSFER_STATUS_AI_COUNTER:
         flash("Counter-offer received — review the proposal and adjust your package.", "warn")
     else:
         flash(prop.ai_rationale or "Transfer declined by external club.", "err")
     commit_with_sqlite_retry(db.session)
     return redirect(url_for("site_gm.transfer_proposal_detail", pid=int(prop.id)))
+
+
+@site_gm_bp.post("/operations/transfer-tool/respond-partner/<int:pid>")
+@login_required
+def transfer_tool_respond_partner(pid: int):
+    slug = _league_slug()
+    mem = _membership()
+    if not _transfer_page_allowed(mem):
+        abort(404)
+    prop = db.session.get(GmTransferProposal, int(pid))
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    if not user_is_transfer_selling_partner(
+        db.session,
+        league_slug=slug,
+        proposal=prop,
+        user_id=int(current_user.id),
+    ):
+        abort(403)
+    action = (request.form.get("action") or "").strip().lower()
+    err = partner_respond_to_transfer(
+        db.session,
+        db.session,
+        league_slug=slug,
+        proposal=prop,
+        partner_user_id=int(current_user.id),
+        action=action,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    if err:
+        flash(err, "err")
+        return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
+    if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
+        summary = format_transfer_summary(db.session, prop)
+        notify_transfer_proposal_commissioners(
+            slug,
+            commissioner_user_ids=league_commissioner_user_ids(db.session),
+            proposal_id=int(prop.id),
+            summary_preview=summary,
+        )
+        notify_transfer_outcome_proposer(
+            slug,
+            proposer_user_id=int(prop.proposer_user_id),
+            proposal_id=int(prop.id),
+            title="Selling GM accepted your transfer",
+            body="Your offer was accepted. Awaiting league office approval.",
+        )
+        flash("Transfer accepted — forwarded to the league office.", "ok")
+    else:
+        flash("Transfer declined.", "ok")
+    commit_with_sqlite_retry(db.session)
+    return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
 
 
 @site_gm_bp.post("/operations/transfer-tool/respond-counter/<int:pid>")
@@ -2516,12 +2709,24 @@ def transfer_proposal_detail(pid: int):
     prop = db.session.get(GmTransferProposal, int(pid))
     if not prop or prop.league_slug != slug:
         abort(404)
-    if not _is_site_admin() and (not mem or int(prop.proposer_user_id) != int(current_user.id)):
+    if not user_may_view_transfer_proposal(
+        db.session,
+        league_slug=slug,
+        proposal=prop,
+        user_id=int(current_user.id),
+        is_admin=_is_site_admin(),
+    ):
         abort(403)
     bowl_team = db.session.get(Team, int(prop.bowl_team_id))
     ext_team = db.session.get(Team, int(prop.external_team_id))
     summary = format_transfer_summary(db.session, prop)
     counter = parse_compensation_payload(prop.ai_counter_json)
+    is_selling_partner = user_is_transfer_selling_partner(
+        db.session,
+        league_slug=slug,
+        proposal=prop,
+        user_id=int(current_user.id),
+    )
     return render_template(
         "transfer_proposal_detail.html",
         proposal=prop,
@@ -2530,6 +2735,7 @@ def transfer_proposal_detail(pid: int):
         summary=summary,
         counter=counter,
         membership=mem,
+        is_selling_partner=is_selling_partner,
     )
 
 
@@ -3202,6 +3408,9 @@ def _boost_lottery_csrf_error(data: dict | None):
 @login_required
 def draft_lottery():
     """Official lottery now lives on the Draft Hub (BOWL-Relegation)."""
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     slug = _league_slug()
     if slug != "bowl-fantasy":
         abort(404)
@@ -3211,6 +3420,9 @@ def draft_lottery():
 @site_gm_bp.get("/draft-lottery/preview")
 def draft_lottery_preview():
     """Interactive NHL lottery demo — browser-only; official demo draws are staff-only."""
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     slug = _league_slug()
     if slug != "bowl-fantasy":
         abort(404)
@@ -3247,6 +3459,9 @@ def draft_lottery_preview():
 @login_required
 def boost_lottery():
     """Legacy admin page — boost lottery now runs on the public Draft Hub."""
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     slug = _league_slug()
     if slug not in ("bowl-fantasy", "bowl-cap", "bowl-historical"):
         abort(404)
@@ -3716,15 +3931,128 @@ def staff_profile_page(staff_fhm_id: str):
 @site_gm_bp.get("/operations/trade-proposal/<int:pid>")
 @login_required
 def trade_proposal_detail(pid: int):
-    flash("Official trades are entered and published by the league office.", "err")
-    return redirect(url_for("main.trade_log_page"))
+    slug = _league_slug()
+    mem = _membership()
+    prop = db.session.get(GmTradeProposal, int(pid))
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    if not user_may_view_trade_proposal(
+        prop, user_id=int(current_user.id), is_admin=_is_site_admin()
+    ):
+        abort(403)
+    from_team = db.session.get(Team, int(prop.from_team_id))
+    to_team = db.session.get(Team, int(prop.to_team_id))
+    left_out, right_out = parse_ledger_payload(prop.ledger_json)
+    summary = format_ledger_summary(
+        db.session, from_team, to_team, left_out, right_out, league_slug=slug
+    )
+    payload = parse_trade_ledger_object(prop.ledger_json)
+    pta_line = format_transfer_compensation_summary(payload.get("transfer_compensation") or {})
+    if pta_line:
+        summary = summary + "\n\n" + pta_line
+    from_user = db.session.get(User, int(prop.from_user_id))
+    to_user = db.session.get(User, int(prop.to_user_id))
+    is_proposer = int(prop.from_user_id) == int(current_user.id)
+    is_partner = int(prop.to_user_id) == int(current_user.id)
+    can_partner_act = (
+        is_partner
+        and prop.status == STATUS_PENDING_PARTNER
+        and gm_trade_proposals_enabled(slug)
+    )
+    return render_template(
+        "trade_proposal_detail.html",
+        proposal=prop,
+        from_team=from_team,
+        to_team=to_team,
+        summary=summary,
+        proposer_display=gm_display_name(from_user) if from_user else str(prop.from_user_id),
+        partner_display=gm_display_name(to_user) if to_user else str(prop.to_user_id),
+        is_proposer=is_proposer,
+        is_partner=is_partner,
+        can_partner_act=can_partner_act,
+    )
 
 
 @site_gm_bp.post("/operations/trade-proposal/<int:pid>/respond")
 @login_required
 def trade_proposal_partner_respond(pid: int):
-    flash("Official trades are entered and published by the league office.", "err")
-    return redirect(url_for("main.trade_log_page"))
+    slug = _league_slug()
+    if not _membership() and not _is_site_admin():
+        abort(403)
+    prop = db.session.get(GmTradeProposal, int(pid))
+    if not prop or prop.league_slug != slug:
+        abort(404)
+    action = (request.form.get("action") or "").strip().lower()
+    if action == "approve":
+        action = "approve"
+    err = partner_respond_gm_trade(
+        db.session,
+        league_slug=slug,
+        proposal=prop,
+        partner_user_id=int(current_user.id),
+        action=action,
+        raw_dir=_trade_tool_raw_dir(),
+    )
+    if err:
+        flash(err, "err")
+    elif prop.status == STATUS_PENDING_COMMISSIONER:
+        flash("Trade accepted — forwarded to the league office.", "ok")
+    else:
+        flash("Trade declined.", "ok")
+    commit_with_sqlite_retry(db.session)
+    return redirect(url_for("site_gm.trade_proposal_detail", pid=pid))
+
+
+@site_gm_bp.post("/operations/ai-trade-tool/submit-proposal")
+@login_required
+def ai_trade_tool_submit_proposal():
+    from flask_wtf.csrf import validate_csrf
+
+    slug = _league_slug()
+    mem = _membership()
+    if not mem:
+        return jsonify({"error": "No active GM membership for this league."}), 403
+    if not gm_trade_proposals_enabled(slug):
+        return jsonify({"error": "GM trade proposals are not enabled on this league."}), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        validate_csrf(data.get("csrf_token"))
+    except Exception:
+        return jsonify({"error": "Invalid or missing CSRF token."}), 400
+    left_team_id = int(mem.team_id)
+    try:
+        partner_team_id = int(data.get("partner_team_id") or 0)
+    except (TypeError, ValueError):
+        partner_team_id = 0
+    if not partner_team_id or partner_team_id == left_team_id:
+        return jsonify({"error": "partner_team_id required"}), 400
+    ledger_obj = data.get("ledger")
+    if not isinstance(ledger_obj, dict):
+        return jsonify({"error": "ledger object required"}), 400
+    ledger_raw = json.dumps(ledger_obj)
+    notes = str(data.get("notes") or "").strip()[:8000]
+    cap = _ai_trade_draft_round_cap(db.session, slug)
+    prop, err = submit_gm_trade_proposal(
+        db.session,
+        league_slug=slug,
+        proposer_user_id=int(current_user.id),
+        from_team_id=int(left_team_id),
+        to_team_id=int(partner_team_id),
+        ledger_raw=ledger_raw,
+        notes=notes,
+        raw_dir=_trade_tool_raw_dir(),
+        draft_round_cap=cap,
+    )
+    if err or prop is None:
+        return jsonify({"error": err or "Could not submit trade."}), 400
+    commit_with_sqlite_retry(db.session)
+    return jsonify(
+        {
+            "ok": True,
+            "proposal_id": int(prop.id),
+            "detail_url": url_for("site_gm.trade_proposal_detail", pid=int(prop.id)),
+        }
+    )
 
 
 @site_gm_bp.get("/gm-messages")
@@ -3853,6 +4181,10 @@ def gm_notification_open(nid: int):
         return redirect(url_for("site_gm.rfa_offer_respond", rid=int(article_id)))
     if kind in ("trade_partner_review", "trade_outcome_proposer", "trade_outcome_partner") and article_id:
         return redirect(url_for("site_gm.trade_proposal_detail", pid=int(article_id)))
+    if kind in ("transfer_partner_review", "transfer_outcome_proposer") and article_id:
+        return redirect(url_for("site_gm.transfer_proposal_detail", pid=int(article_id)))
+    if kind == "transfer_commish_review" and article_id:
+        return redirect(url_for("site_admin.admin_transfer_proposal_detail", pid=int(article_id)))
     if kind == "trade_commish_review" and article_id:
         return redirect(url_for("site_admin.admin_trade_proposal_detail", pid=int(article_id)))
     return redirect(url_for("site_gm.gm_messages_inbox"))
@@ -3947,6 +4279,10 @@ def admin_trade_proposal_detail(pid: int):
     summary = format_ledger_summary(
         db.session, from_team, to_team, left_out, right_out, league_slug=slug
     )
+    payload = parse_trade_ledger_object(prop.ledger_json)
+    pta_line = format_transfer_compensation_summary(payload.get("transfer_compensation") or {})
+    if pta_line:
+        summary = summary + "\n\n" + pta_line
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         if action == "republish_news":
@@ -9372,6 +9708,9 @@ def _purge_draft_soundbite_dir(slug: str, draft_id: int) -> None:
 @site_admin_bp.route("/draft-hub", methods=["GET", "POST"])
 @login_required
 def admin_draft_hub():
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     if request.method == "POST" and request.form.get("action") == "delete":
@@ -9494,6 +9833,9 @@ def admin_draft_hub():
 @site_admin_bp.route("/draft-eligible-settings", methods=["GET", "POST"])
 @login_required
 def admin_draft_eligible_settings():
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     from app.services.draft_eligible_settings import (
@@ -9622,6 +9964,9 @@ def admin_draft_eligible_settings():
 @site_admin_bp.route("/draft-hub/<int:draft_id>", methods=["GET", "POST"])
 @login_required
 def admin_draft_hub_edit(draft_id: int):
+    from app.services.relegation import require_entry_draft_enabled
+
+    require_entry_draft_enabled()
     require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
     row = db.session.get(LeagueDraft, draft_id)

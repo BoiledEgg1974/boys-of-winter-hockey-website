@@ -652,7 +652,7 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 header_team_logo_season = None
 
-        from app.services.relegation import relegation_under_construction
+        from app.services.relegation import entry_draft_enabled_for_league, relegation_under_construction
         from app.perfect_squad_mount import perfect_squad_home_href
 
         return dict(
@@ -660,6 +660,7 @@ def create_app(config_class: type = Config) -> Flask:
             nav_teams_upper=nav_teams_upper,
             nav_teams_lower=nav_teams_lower,
             relegation_under_construction=relegation_under_construction(slug_layout),
+            entry_draft_enabled=entry_draft_enabled_for_league(slug_layout),
             header_team_logo_season=header_team_logo_season,
             team_logo_url=team_logo_url,
             season_team_logo_url=season_team_logo_url,

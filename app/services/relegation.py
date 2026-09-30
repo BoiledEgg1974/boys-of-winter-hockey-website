@@ -39,6 +39,25 @@ def is_relegation_league(league_slug: str | None) -> bool:
     return (league_slug or "").strip() == "bowl-fantasy"
 
 
+def entry_draft_enabled_for_league(league_slug: str | None) -> bool:
+    """Entry draft (Draft Hub, Draft Eligible, FHM draft history) is off on BOWL-Relegation."""
+    return not is_relegation_league(league_slug)
+
+
+def relegation_signing_pools_enabled(league_slug: str | None) -> bool:
+    """Public Prospects / Signable / Overseas / FA pools use Relegation signing rules."""
+    return is_relegation_league(league_slug)
+
+
+def require_entry_draft_enabled() -> None:
+    """Abort 404 when entry draft is disabled for the current mount (BOWL-Relegation)."""
+    from flask import abort, current_app
+
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    if not entry_draft_enabled_for_league(slug):
+        abort(404)
+
+
 def relegation_features_enabled(league_slug: str | None = None) -> bool:
     """True when Upper/Lower scoped views and movement watch should be live."""
     slug = (league_slug or "").strip()

@@ -166,8 +166,13 @@
             </span>
             <a href="{{ url_for('main.prospects') }}">Prospects</a>
             <span class="main-nav__pair">
+              {% if entry_draft_enabled %}
               <a href="{{ url_for('main.undrafted_prospects') }}">Undrafted Prospects</a>
               <a href="{{ url_for('main.draft_eligible') }}">Draft Eligible</a>
+              {% else %}
+              <a href="{{ url_for('main.undrafted_prospects') }}">Overseas Transfers</a>
+              <a href="{{ url_for('main.signable') }}">Signable (18–20)</a>
+              {% endif %}
               <a href="{{ url_for('main.free_agents') }}">Free Agents</a>
             </span>
           </div>
@@ -180,8 +185,10 @@
             <a href="{{ url_for('main.all_time_records') }}">All-Time Records</a>
             <a href="{{ url_for('main.milestones') }}">Milestones</a>
             <a href="{{ url_for('main.achievement_leaders') }}">GM Trophies</a>
+            {% if entry_draft_enabled %}
             <a href="{{ url_for('main.draft') }}">Draft History</a>
             <a href="{{ url_for('draft_hub.draft_hub_page') }}">Draft Hub</a>
+            {% endif %}
             {% if gm_membership or site_has_admin %}
             <a href="{{ url_for('expansion_draft_hub.expansion_draft_hub_page') }}">Expansion Draft</a>
             {% endif %}

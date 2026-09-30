@@ -13,6 +13,15 @@
 {% if q %}
 <script>
 (function () {
+  function withRoot(path) {
+    var root = document.documentElement.getAttribute("data-application-root") || "";
+    root = root.replace(/\/$/, "");
+    if (!path.startsWith("/")) path = "/" + path;
+    if (root && (path === root || path.indexOf(root + "/") === 0)) {
+      return path;
+    }
+    return root + path;
+  }
   function escapeAttr(s) {
     if (s == null || s === '') return '';
     return String(s)
@@ -26,7 +35,7 @@
     return d.innerHTML;
   }
   var q = {{ q|tojson }};
-  fetch('/api/search/players?q=' + encodeURIComponent(q))
+  fetch(withRoot('/api/search/players?q=' + encodeURIComponent(q)))
     .then(function (r) { return r.json(); })
     .then(function (data) {
       var el = document.getElementById('search-results');
@@ -39,16 +48,17 @@
         var meta;
         if (p.team_logo_url && p.team_logo_url.length) {
           var logoHtml = p.team_slug
-            ? '<a class="team-name-lockup team-name-lockup--icon" href="/team/' + escapeAttr(p.team_slug) + '"><img src="' + escapeAttr(p.team_logo_url) + '" alt="" class="team-name-lockup__logo"></a> '
+            ? '<a class="team-name-lockup team-name-lockup--icon" href="' + escapeAttr(withRoot('/team/' + p.team_slug)) + '"><img src="' + escapeAttr(p.team_logo_url) + '" alt="" class="team-name-lockup__logo"></a> '
             : '<img src="' + escapeAttr(p.team_logo_url) + '" alt="" class="team-name-lockup__logo"> ';
           meta = logoHtml + escapeHtml(p.position || '—');
         } else {
           meta = escapeHtml(p.position || '—') + ' · ' + escapeHtml(p.team_abbr || p.team || '');
         }
-        h += '<li style="padding:0.5rem 0;border-bottom:1px solid var(--border);"><a href="/player/' + p.id + '"><strong>' + escapeHtml(p.full_name) + '</strong></a> — ' + meta + '</li>';
+        h += '<li style="padding:0.5rem 0;border-bottom:1px solid var(--border);"><a href="' + escapeAttr(withRoot('/player/' + p.id)) + '"><strong>' + escapeHtml(p.full_name) + '</strong></a> — ' + meta + '</li>';
       });
       h += '</ul>';
       el.innerHTML = h;
+      if (typeof window.bindPlayerHoverAnchors === 'function') window.bindPlayerHoverAnchors();
     });
 })();
 </script>

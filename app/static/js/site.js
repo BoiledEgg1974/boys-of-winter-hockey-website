@@ -1062,10 +1062,20 @@
         "</div></div>";
     }
 
+    var hoverScrollQuietUntil = 0;
+
+    function noteHoverScrollActivity() {
+      hoverScrollQuietUntil = Date.now() + 180;
+      clearTimeout(showTimer);
+      showTimer = null;
+      if (!card.hidden) hideCard();
+    }
+
     function showFor(anchor, playerId) {
       clearTimeout(hideTimer);
       clearTimeout(showTimer);
       showTimer = setTimeout(function () {
+        if (Date.now() < hoverScrollQuietUntil) return;
         activeAnchor = anchor;
         var cached = cache[playerId];
         if (cached && cached._hoverFmt === HOVER_CARD_CACHE_VER) {
@@ -1132,9 +1142,7 @@
       });
     }
 
-    window.addEventListener("scroll", function () {
-      if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
-    }, { passive: true });
+    window.addEventListener("scroll", noteHoverScrollActivity, { passive: true, capture: true });
     window.addEventListener("resize", function () {
       if (!card.hidden && activeAnchor) moveCardNear(activeAnchor);
     });
@@ -7516,9 +7524,11 @@
     window.addEventListener(
       "scroll",
       function () {
-        if (!tip.hidden && activeCell) positionTip(activeCell);
+        if (hideTimer) clearTimeout(hideTimer);
+        tip.hidden = true;
+        activeCell = null;
       },
-      true
+      { passive: true, capture: true }
     );
   })();
 

@@ -263,11 +263,12 @@
     return (
       '<div class="' +
       cls +
-      '" draggable="true" data-drag-key="' +
+      '" data-drag-key="' +
       pk +
       '" data-side="' +
       esc(side) +
       '">' +
+      '<span class="trade-tool-chip__drag-handle" draggable="true" data-trade-drag-handle="1" title="Drag into trade ledger" aria-label="Drag into trade ledger">⋮⋮</span>' +
       '<span class="stats-player-cell trade-tool-player-row__cell">' +
       '<a class="stats-player-cell__photo" href="' +
       href +
@@ -562,7 +563,19 @@
   root.addEventListener(
     "dragstart",
     function (ev) {
-      var chip = ev.target && ev.target.closest ? ev.target.closest(".trade-tool-chip[draggable='true']") : null;
+      var handle =
+        ev.target && ev.target.closest
+          ? ev.target.closest("[data-trade-drag-handle='1'][draggable='true']")
+          : null;
+      var chip =
+        ev.target && ev.target.closest
+          ? ev.target.closest(".trade-tool-chip[draggable='true']")
+          : null;
+      if (handle) {
+        chip = handle.closest(".trade-tool-chip");
+      } else if (chip && chip.classList.contains("trade-tool-player-row")) {
+        return;
+      }
       if (!chip || !root.contains(chip)) return;
       dragKey = chip.getAttribute("data-drag-key");
       ev.dataTransfer.setData("text/plain", dragKey || "");

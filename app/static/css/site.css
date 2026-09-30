@@ -19779,6 +19779,33 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
 }
 .trade-tool-chip.trade-tool-player-row {
   align-items: center;
+  cursor: default;
+}
+.trade-tool-chip__drag-handle {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.35rem 0 0.15rem;
+  margin: -0.35rem 0 -0.35rem -0.45rem;
+  border-radius: 6px 0 0 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: -0.08em;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.trade-tool-chip__drag-handle:active {
+  cursor: grabbing;
+}
+.trade-tool-chip__drag-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.trade-tool-player-row--compact .trade-tool-chip__drag-handle {
+  margin: -0.28rem 0 -0.28rem -0.4rem;
+  padding: 0 0.25rem 0 0.1rem;
 }
 .trade-tool-chip__pos {
   color: var(--trade-lime);

@@ -264,12 +264,25 @@ def seed_ap_catalog_if_empty() -> None:
             )
         commit_with_sqlite_retry(db.session)
     _reconcile_ap_catalog_defaults()
+    _reconcile_cap_historical_ap_catalog()
     _reconcile_fantasy_ap_catalog()
 
 
 def _normalize_catalog_title(title: str) -> str:
     return " ".join(str(title or "").strip().lower().split())
 
+
+_PERSUASION_CATALOG_TITLE = "Persuasion"
+_PERSUASION_CATALOG_DESCRIPTION = (
+    "Convince a player who wants to leave the team and test the market by paying him "
+    "a huge raise on a 3-year contract."
+)
+_PERSUASION_CATALOG_COST_AP = 775
+
+# (sort_order, title, description, cost_ap) — added when missing from Cap/Historical catalog.
+_CAP_HISTORICAL_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
+    (10, _PERSUASION_CATALOG_TITLE, _PERSUASION_CATALOG_DESCRIPTION, _PERSUASION_CATALOG_COST_AP),
+)
 
 # (sort_order, title, description, cost_ap) — added when missing from Relegation catalog.
 _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
@@ -289,7 +302,42 @@ _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
     (13, "Create a 3-Star Potential Player", "Commissioner creates a 3-star potential player.", 300),
     (14, "Create a 4-Star Potential Player", "Commissioner creates a 4-star potential player.", 400),
     (15, "Create a 5-Star Potential Player", "Commissioner creates a 5-star potential player.", 500),
+    (16, _PERSUASION_CATALOG_TITLE, _PERSUASION_CATALOG_DESCRIPTION, _PERSUASION_CATALOG_COST_AP),
 )
+
+
+def _reconcile_catalog_defaults_for_group(
+    league_group: str,
+    defaults: tuple[tuple[int, str, str, int], ...],
+) -> None:
+    existing = list(
+        db.session.scalars(
+            select(ApRedemptionCatalog).where(ApRedemptionCatalog.league_group == league_group)
+        ).all()
+    )
+    by_title = {_normalize_catalog_title(r.title): r for r in existing}
+    changed = False
+    for order, title, desc, cost in defaults:
+        key = _normalize_catalog_title(title)
+        if by_title.get(key) is None:
+            db.session.add(
+                ApRedemptionCatalog(
+                    league_group=league_group,
+                    sort_order=order,
+                    title=title,
+                    description=desc,
+                    cost_ap=cost,
+                    is_active=True,
+                )
+            )
+            changed = True
+    if changed:
+        commit_with_sqlite_retry(db.session)
+
+
+def _reconcile_cap_historical_ap_catalog() -> None:
+    """Ensure Cap/Historical redemption catalog includes standard perks (by title)."""
+    _reconcile_catalog_defaults_for_group("cap_historical", _CAP_HISTORICAL_CATALOG_DEFAULTS)
 
 
 def _reconcile_fantasy_ap_catalog() -> None:

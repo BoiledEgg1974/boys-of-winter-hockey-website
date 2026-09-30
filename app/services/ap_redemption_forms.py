@@ -86,6 +86,7 @@ _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
     ("supplemental staff", "supplemental_staff"),
     ("retire a number", "retire_number"),
     ("change a rival", "change_rival"),
+    ("persuasion", "persuasion"),
 )
 
 _PLAYER_NAME_FIELD = (
@@ -176,6 +177,7 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
     "slow_aging": _PLAYER_NAME_FIELD,
     "development_speed": _PLAYER_NAME_FIELD,
     "decrease_injury_time": _PLAYER_NAME_FIELD,
+    "persuasion": _PLAYER_NAME_FIELD,
     "silver_draft_boost": (
         RedemptionFormField("player_name", "Draftee (player name)", "text", True),
     ),
@@ -321,7 +323,12 @@ def parse_catalog_item_details(
         details["choice_labels"] = labels
         return details, None
 
-    if form_key in ("slow_aging", "development_speed", "decrease_injury_time"):
+    if form_key in (
+        "slow_aging",
+        "development_speed",
+        "decrease_injury_time",
+        "persuasion",
+    ):
         player = _clean_text(raw.get("player_name"))
         if not player:
             return None, "Enter the player name."
@@ -448,7 +455,7 @@ def format_details_summary(details: dict[str, Any] | None) -> str:
     if fk == "market_fan_media":
         labels = details.get("choice_labels") or details.get("choices") or []
         return "Market/Fan/Media: " + ", ".join(str(x) for x in labels)
-    if fk in ("slow_aging", "development_speed", "decrease_injury_time"):
+    if fk in ("slow_aging", "development_speed", "decrease_injury_time", "persuasion"):
         return f"Player: {details.get('player_name', '')}"
     if fk == "injury_proneness":
         player = details.get("player_name", "")

@@ -37,6 +37,8 @@ class ApRedemptionFormsTest(unittest.TestCase):
             catalog_item_form_key("Decrease Injury Time by 25%"),
             "decrease_injury_time",
         )
+        self.assertEqual(catalog_item_form_key("Persuasion"), "persuasion")
+        self.assertTrue(catalog_item_has_detail_form("persuasion"))
         self.assertTrue(
             catalog_item_has_detail_form(
                 catalog_item_form_key("Add 2 Points to Coach's Attribute")

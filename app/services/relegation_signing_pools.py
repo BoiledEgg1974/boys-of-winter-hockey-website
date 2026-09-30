@@ -17,6 +17,7 @@ from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
     age_as_of,
     default_eligibility_for_league,
+    draft_eligible_timeline_year_for_league,
     player_passes_age_rules,
 )
 from app.services.free_agents import (
@@ -165,10 +166,17 @@ def resolve_player_rights_info(
     return PlayerRightsInfo(team, team.full_display_name(), "export")
 
 
-def signable_age_params(league_slug: str) -> DraftEligibilityParams:
+def signable_age_params(session: Session, league_slug: str) -> DraftEligibilityParams:
     base = default_eligibility_for_league(league_slug)
+    season = get_current_season(session)
+    timeline_year = draft_eligible_timeline_year_for_league(
+        league_slug,
+        int(season.start_year) if season and season.start_year else None,
+        int(season.end_year) if season and season.end_year else None,
+        date.today().year,
+    )
     return DraftEligibilityParams(
-        timeline_year=base.timeline_year,
+        timeline_year=timeline_year,
         min_age_years=base.min_age_years,
         min_anchor_month=base.min_anchor_month,
         min_anchor_day=base.min_anchor_day,
@@ -203,7 +211,7 @@ def fetch_radar_prospect_players(session: Session) -> list[Player]:
 def fetch_signable_players(session: Session, league_slug: str) -> list[Player]:
     """Ages 18–20, no BOWL org rights, not on BLUP/BLOW roster."""
     main_ids = main_league_fhm_ids(session)
-    params = signable_age_params(league_slug)
+    params = signable_age_params(session, league_slug)
     rights_ids = bowl_org_rights_player_ids_for_league(session, league_slug)
     q = (
         select(Player)

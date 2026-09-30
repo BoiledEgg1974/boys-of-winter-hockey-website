@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 from flask import Flask
 
+from app.config import LEAGUE_DISCORD_INVITE_URLS, league_discord_invite_url
 from app.services.join_league import (
     WAITLIST_OPTION,
     dedupe_team_options,
@@ -18,6 +19,21 @@ from app.services.join_league import (
 
 
 class JoinLeagueAvailabilityTests(unittest.TestCase):
+    def test_league_discord_invite_urls(self) -> None:
+        self.assertEqual(
+            league_discord_invite_url("bowl-cap"),
+            LEAGUE_DISCORD_INVITE_URLS["bowl-cap"],
+        )
+        self.assertEqual(
+            league_discord_invite_url("bowl-historical"),
+            "https://discord.gg/BeBQNYtHqW",
+        )
+        self.assertEqual(
+            league_discord_invite_url("bowl-fantasy"),
+            "https://discord.gg/4u4vZM8u6d",
+        )
+        self.assertIsNone(league_discord_invite_url("bowl-formula"))
+
     def test_dedupe_omits_waitlist_and_blanks(self) -> None:
         self.assertEqual(
             dedupe_team_options(["", " Waitlist ", "Tokyo Katanas", "tokyo katanas"]),
@@ -97,11 +113,14 @@ class JoinLeagueAvailabilityTests(unittest.TestCase):
         init = (root / "app" / "__init__.py").read_text(encoding="utf-8")
 
         self.assertIn("join_league_available_team_rows", base)
+        self.assertIn("join_league_discord_url", base)
         self.assertIn("TEAM(S) CURRENTLY AVAILABLE:", base)
         self.assertIn("CLICK ON JOIN LEAGUE TODAY!", base)
+        self.assertNotIn("url_for('main.join_league')", base)
         self.assertIn("team_logo_url(row.team)", base)
         self.assertIn(".join-availability-banner", css)
         self.assertIn("join_league_available_team_banner_rows", init)
+        self.assertIn("join_league_discord_url", init)
 
 
 if __name__ == "__main__":

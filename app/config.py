@@ -33,6 +33,17 @@ LEAGUES: tuple[LeagueEntry, ...] = (
 HOCKEY_LEAGUE_SLUGS: frozenset[str] = frozenset(e.slug for e in LEAGUES if e.kind == "hockey")
 RACING_LEAGUE_SLUGS: frozenset[str] = frozenset(e.slug for e in LEAGUES if e.kind == "racing")
 
+# Public “Join our league” Discord invites (one server per hockey league site).
+LEAGUE_DISCORD_INVITE_URLS: dict[str, str] = {
+    "bowl-cap": "https://discord.gg/BxhHHXcUBr",
+    "bowl-historical": "https://discord.gg/BeBQNYtHqW",
+    "bowl-fantasy": "https://discord.gg/4u4vZM8u6d",
+}
+
+
+def league_discord_invite_url(league_slug: str) -> str | None:
+    return LEAGUE_DISCORD_INVITE_URLS.get(league_slug)
+
 
 def league_slugs() -> list[str]:
     return [e.slug for e in LEAGUES]

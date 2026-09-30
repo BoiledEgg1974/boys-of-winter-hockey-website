@@ -652,6 +652,7 @@ def create_app(config_class: type = Config) -> Flask:
             except Exception:
                 header_team_logo_season = None
 
+        from app.config import league_discord_invite_url
         from app.services.relegation import entry_draft_enabled_for_league, relegation_under_construction
         from app.perfect_squad_mount import perfect_squad_home_href
 
@@ -684,6 +685,7 @@ def create_app(config_class: type = Config) -> Flask:
             gm_achievements_unclaimed=gm_achievements_unclaimed,
             active_site_announcement=ann,
             join_league_available_team_rows=join_league_available_team_rows,
+            join_league_discord_url=league_discord_invite_url(slug_layout) if slug_layout else None,
             admin_compact_layout=admin_compact_layout,
             site_has_admin=has_admin_role(current_user)
             if getattr(current_user, "is_authenticated", False)

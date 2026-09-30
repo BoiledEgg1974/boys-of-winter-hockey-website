@@ -187,7 +187,6 @@ from app.services.draft_hub_state import (
     featured_draft,
     picked_player_ids,
 )
-from app.services.join_league import join_league_team_options, send_join_league_email
 from app.services.draft_pick_ownership import owned_draft_picks_for_team
 from app.services.playoff_bracket import playoff_bracket_payload
 from app.services.team_alumni import team_alumni_rows as build_team_alumni_rows
@@ -249,13 +248,6 @@ def _relegation_template_context(endpoint: str, **route_args: object) -> dict[st
         "relegation_scope_endpoint": endpoint,
         "relegation_under_construction": False,
     }
-
-
-def _require_join_field(form: dict[str, str], key: str, label: str, errors: list[str]) -> str:
-    v = (form.get(key) or "").strip()
-    if not v:
-        errors.append(f"{label} is required.")
-    return v
 
 
 # Banner / Banner1.png / banner 1.png — case-insensitive; optional space before digits; png/webp/jpeg
@@ -498,89 +490,13 @@ def league_headlines():
 
 @main_bp.route("/join-league", methods=["GET", "POST"])
 def join_league():
-    available_teams = join_league_team_options()
-    if request.method == "GET":
-        return render_template(
-            "join_league.html",
-            errors=[],
-            submitted=False,
-            form_data={"available_team": "Waitlist"},
-            available_teams=available_teams,
-        )
+    from app.config import league_discord_invite_url
 
-    form_data = {k: (request.form.get(k) or "").strip() for k in request.form.keys()}
-    errors: list[str] = []
-    first_name = _require_join_field(form_data, "first_name", "First name", errors)
-    last_name = _require_join_field(form_data, "last_name", "Last name", errors)
-    email = _require_join_field(form_data, "email", "E-mail", errors)
-    age = _require_join_field(form_data, "age", "Age", errors)
-    location = _require_join_field(form_data, "location", "Location", errors)
-    discord_status = _require_join_field(form_data, "discord_status", "Discord response", errors)
-    available_team = _require_join_field(form_data, "available_team", "Available team", errors)
-    other_leagues_count = _require_join_field(form_data, "other_leagues_count", "Other leagues count", errors)
-    favorite_nhl_team = _require_join_field(form_data, "favorite_nhl_team", "Favorite NHL team", errors)
-    favorite_player = _require_join_field(form_data, "favorite_player", "Favorite player", errors)
-    experience = _require_join_field(form_data, "experience", "Experience description", errors)
-    knowledge = _require_join_field(form_data, "knowledge", "Hockey knowledge description", errors)
-    team_building_style = _require_join_field(form_data, "team_building_style", "Team building style", errors)
-
-    heard_from = [x.strip() for x in request.form.getlist("heard_from") if x.strip()]
-    if not heard_from:
-        errors.append("Select at least one option for how you heard about the league.")
-
-    if email and "@" not in email:
-        errors.append("E-mail must be valid.")
-    if available_team and available_team not in available_teams:
-        errors.append("Available team selection is invalid.")
-    if (request.form.get("acknowledge") or "") != "yes":
-        errors.append("You must acknowledge the participation requirements.")
-    if (request.form.get("security_answer") or "").strip() != "48":
-        errors.append("Security answer is incorrect.")
-
-    if errors:
-        return render_template(
-            "join_league.html",
-            errors=errors,
-            submitted=False,
-            form_data=form_data,
-            available_teams=available_teams,
-        )
-
-    payload = {
-        "first_name": first_name,
-        "last_name": last_name,
-        "email": email,
-        "age": age,
-        "location": location,
-        "discord_status": discord_status,
-        "available_team": available_team,
-        "other_leagues_count": other_leagues_count,
-        "favorite_nhl_team": favorite_nhl_team,
-        "favorite_player": favorite_player,
-        "experience": experience,
-        "knowledge": knowledge,
-        "team_building_style": team_building_style,
-    }
-    try:
-        send_join_league_email(payload, heard_from)
-    except Exception as exc:
-        from app.mail_util import log_email_send_failure, user_facing_email_send_error
-
-        log_email_send_failure("Join league application email", exc)
-        return render_template(
-            "join_league.html",
-            errors=[user_facing_email_send_error(exc)],
-            submitted=False,
-            form_data=form_data,
-            available_teams=available_teams,
-        )
-    return render_template(
-        "join_league.html",
-        errors=[],
-        submitted=True,
-        form_data={"available_team": "Waitlist"},
-        available_teams=available_teams,
-    )
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    invite = league_discord_invite_url(league_slug)
+    if not invite:
+        abort(404)
+    return redirect(invite)
 
 
 @main_bp.get("/standings")

@@ -958,7 +958,11 @@ def import_history_awards(
     if replace_all:
         if needle:
             raise ValueError("replace_all cannot be combined with replace_award_substring.")
-        removed = delete_non_admin_history_awards(db.session)
+        from app.sqlite_retry import write_with_sqlite_retry
+
+        removed = write_with_sqlite_retry(
+            db.session, lambda: delete_non_admin_history_awards(db.session)
+        )
         commit_with_sqlite_retry(db.session)
         log.info(
             "Removed %s non-admin history_awards rows before CSV re-import (admin rows kept).",

@@ -1,0 +1,42 @@
+
+Boys of Winter: Saved-Game CSV Updater
+
+Have your saved-game CSV paths changed since last run? [y/N]: snapshot_ovr_baseline (bowl-historical): stored baseline OVR for 4486 players.
+snapshot_ovr_baseline (bowl-fantasy): stored baseline OVR for 17301 players.
+snapshot_ovr_baseline (bowl-cap): stored baseline OVR for 9508 players.
+Merged 3 cell change(s) from history_awards.csv into history_awards.sheet.csv
+Wrote 623 row(s) to C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_historical\history_awards.sheet.csv (ids_ok_or_blank=600, remapped=0, still_unresolved_hints=23) using 7728 player_master ids.
+Aligned team_season_records_template.csv (ids_ok=311, remapped=0, unresolved=40) using 67 known team ids.
+Wrote 200 row(s) to C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_fantasy\history_awards.csv (ids_ok_or_blank=193, remapped=0, still_unresolved_hints=7) using 17301 player_master ids.
+Merged 0 cell change(s) from history_awards.csv into history_awards.sheet.csv
+Wrote 276 row(s) to C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_cap\history_awards.sheet.csv (ids_ok_or_blank=270, remapped=0, still_unresolved_hints=6) using 18006 player_master ids.
+Aligned team_season_records_template.csv (ids_ok=952, remapped=0, unresolved=43) using 99 known team ids.
+reimport_history_sheet_data bowl-historical: history_awards=623 row(s); history_all_stars=324 row(s).
+reimport_history_sheet_data bowl-fantasy: history_awards=0 row(s); history_all_stars=0 row(s).
+reimport_history_sheet_data bowl-cap: history_awards=270 row(s); history_all_stars=120 row(s).
+Using last known source paths.
+BOWL-Historical: source -> C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Historical.lg\import_export\csv
+- BOWL-Historical: snapshot OVR baselines (pre-export) …
+- BOWL-Historical: copied 41 CSV file(s)
+BOWL-Relegation: source -> C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 12\saved_games\BOWL-Relegation.lg\import_export\csv
+- BOWL-Relegation: snapshot OVR baselines (pre-export) …
+- BOWL-Relegation: copied 48 CSV file(s)
+BOWL-Cap: source -> C:\Users\keeno\OneDrive\Documents\Out of the Park Developments\Franchise Hockey Manager 11\saved_games\BOWL-Soft Cap.lg\import_export\csv
+- BOWL-Cap: snapshot OVR baselines (pre-export) …
+- BOWL-Cap: copied 41 CSV file(s)
+
+Aligning raw CSVs (STEP3) before imports …
+- BOWL-Historical: STEP3 --raw-dir C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_historical
+- BOWL-Relegation: STEP3 --raw-dir C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_fantasy
+- BOWL-Cap: STEP3 --raw-dir C:\Users\keeno\Projects\Boys-Of-Winter-League\data\imports\raw\bowl_cap
+STEP3 alignment finished.
+
+
+Running imports...
+- Importing bowl-historical ...
+- Importing bowl-fantasy ...
+- Importing bowl-cap ...
+Imports complete.
+Skipped git commit/push.
+Skipped PythonAnywhere deploy.
+Done.

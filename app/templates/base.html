@@ -265,7 +265,9 @@
             <a class="header-tools__link" href="/login?next={{ request.url | urlencode }}">GM Log In</a>
             {% endif %}
             {% if not is_racing_league %}
-            <a class="join-league-btn" href="{{ url_for('main.join_league') }}">JOIN OUR LEAGUE!</a>
+            {% if join_league_discord_url %}
+            <a class="join-league-btn" href="{{ join_league_discord_url }}" target="_blank" rel="noopener noreferrer">JOIN OUR LEAGUE!</a>
+            {% endif %}
             <form class="search-form" action="{{ url_for('main.search_page') }}" method="get" role="search" autocomplete="off">
               <div style="position:relative;">
                 <input type="search" id="global-search" name="q" placeholder="Search players…" aria-label="Search players" autocomplete="off">
@@ -311,7 +313,9 @@
         {% endif %}
         {% endfor %}
       </span>
-      <a class="join-availability-banner__cta" href="{{ url_for('main.join_league') }}">CLICK ON JOIN LEAGUE TODAY!</a>
+      {% if join_league_discord_url %}
+      <a class="join-availability-banner__cta" href="{{ join_league_discord_url }}" target="_blank" rel="noopener noreferrer">CLICK ON JOIN LEAGUE TODAY!</a>
+      {% endif %}
     </section>
     {% endif %}
     {% block content %}{% endblock %}

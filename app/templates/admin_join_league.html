@@ -4,8 +4,13 @@
 <div class="card admin-join-league">
   <h1 class="page-title">Join League Availability</h1>
     <p class="muted">
-      Choose which GM positions appear in the public <a href="{{ url_for('main.join_league') }}">Join Our League</a>
-      team selector for <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
+      Open teams shown on the site banner for <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong>.
+      Prospective GMs join via
+      {% if join_league_discord_url %}
+      <a href="{{ join_league_discord_url }}" target="_blank" rel="noopener noreferrer">Discord</a>.
+      {% else %}
+      Discord (invite not configured for this league).
+      {% endif %}
       <strong>Waitlist</strong> is always available.
     </p>
 

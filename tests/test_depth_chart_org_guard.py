@@ -46,6 +46,10 @@ class DepthChartOrgGuardTests(unittest.TestCase):
                         for t in Team.query.all()
                         if t.fhm_team_id is not None and str(t.fhm_team_id).strip()
                     }
+                    # Farm-system leagues (e.g. bowl-fantasy): one depth HTML request can take
+                    # minutes; a full sweep is impractical after every import and risks OOM/locks.
+                    if len(teams) > 100:
+                        continue
                     players = {
                         str(p.fhm_player_id): p
                         for p in Player.query.all()

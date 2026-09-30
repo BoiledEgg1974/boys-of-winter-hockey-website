@@ -17297,3 +17297,6 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 17295;388;388;Cole;Reid;;71;187;2007-9-18;Saskatoon;SK;Canada;;;0;Right;1
 17296;12;12;Lane;Memeson;;70;175;2007-2-15;Moncton;NB;Canada;;;0;Left;1
 17297;2;2;Dusty;Bender II;;70;182;2007-6-7;Pyongyang;PYO;North Korea;;;0;Left;1
+17298;-1;-1;Kane;Cooper;;76;215;2000-4-6;Ottawa;ON;Canada;;;1;Right;0
+17299;5;5;Kane;Cooper;;76;215;2007-4-6;Ottawa;ON;Canada;;;0;Right;1
+17300;10;10;Oscar;Forsberg;;74;200;2007-11-7;Stockholm;STO;Sweden;Finland;;0;Left;1

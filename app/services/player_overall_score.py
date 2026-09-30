@@ -200,30 +200,33 @@ def refresh_all_player_overall_baselines(session: object) -> int:
 
     from app.models import Player, PlayerOverallBaseline
     from app.services.player_ratings_csv import get_player_ratings_row
+    from app.sqlite_retry import commit_with_sqlite_retry
 
     n = 0
-    for pl in session.scalars(select(Player)):
-        rr = get_player_ratings_row(pl.fhm_player_id)
-        sc = compute_player_overall_100(
-            pl.overall_ability,
-            pl.overall_potential,
-            rr,
-            is_goalie=player_is_goalie_for_overall(pl),
-        )
-        if sc is None:
-            continue
-        row = session.get(PlayerOverallBaseline, pl.id)
-        if row:
-            row.baseline_score = sc
-            row.updated_at = datetime.utcnow()
-        else:
-            session.add(
-                PlayerOverallBaseline(
-                    player_id=pl.id,
-                    baseline_score=sc,
-                    updated_at=datetime.utcnow(),
-                )
+    # Avoid Query-invoked autoflush on session.get() while rows are dirty (common on large leagues).
+    with session.no_autoflush:
+        for pl in session.scalars(select(Player)):
+            rr = get_player_ratings_row(pl.fhm_player_id)
+            sc = compute_player_overall_100(
+                pl.overall_ability,
+                pl.overall_potential,
+                rr,
+                is_goalie=player_is_goalie_for_overall(pl),
             )
-        n += 1
-    session.commit()
+            if sc is None:
+                continue
+            row = session.get(PlayerOverallBaseline, pl.id)
+            if row:
+                row.baseline_score = sc
+                row.updated_at = datetime.utcnow()
+            else:
+                session.add(
+                    PlayerOverallBaseline(
+                        player_id=pl.id,
+                        baseline_score=sc,
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+            n += 1
+    commit_with_sqlite_retry(session)
     return n

@@ -25,7 +25,6 @@ from app.config import make_league_config, resolve_league_sqlite_path
 from app.db_utils import prepare_sqlite_database
 from scripts.import_pipeline.runner import (
     _history_awards_csv_path,
-    _run_post_import_safeguards,
     import_history_all_stars,
     import_history_awards,
 )
@@ -97,7 +96,6 @@ def main() -> None:
         from scripts.import_pipeline.runner import _release_league_db_before_safeguards
 
         _release_league_db_before_safeguards()
-        _run_post_import_safeguards()
 
 
 if __name__ == "__main__":

@@ -16,6 +16,10 @@ class GmHelpTipsTest(unittest.TestCase):
 
         for marker in (
             "Franchise Hockey Manager Help",
+            "gm-help-tips__league-docs",
+            "guides/BOWL-Relegation-GM-Guide.pdf",
+            "guides/BOWL-Relegation-Transfers-GM.pdf",
+            "current_league_slug == 'bowl-fantasy'",
             "gm-help-tips__quickstart",
             "Multiplayer Checklist",
             "Export to the league server",
@@ -49,6 +53,12 @@ class GmHelpTipsTest(unittest.TestCase):
         self.assertIn(".gm-help-tips__layout", css)
         self.assertIn(".gm-help-tips__toc", css)
         self.assertIn(".gm-help-tips__callout", css)
+        self.assertIn(".gm-help-tips__league-docs", css)
+        self.assertIn(".gm-help-tips__doc-list", css)
+
+        guides_dir = root / "app" / "static" / "guides"
+        self.assertTrue((guides_dir / "BOWL-Relegation-GM-Guide.pdf").is_file())
+        self.assertTrue((guides_dir / "BOWL-Relegation-Transfers-GM.pdf").is_file())
 
 
 if __name__ == "__main__":

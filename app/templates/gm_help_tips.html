@@ -6,6 +6,22 @@
     <h1 class="page-title gm-help-tips__title">Franchise Hockey Manager Help &amp; Tips</h1>
     <p class="gm-help-tips__league muted">{{ config.LEAGUE_DISPLAY_NAME }} · practical in-game guidance for GMs</p>
     <p class="gm-help-tips__intro">This guide consolidates core FHM screens and workflows so you can manage rosters, lines, tactics, development, chemistry, and finances with more confidence. Use it alongside your league site tools (trades, AP, staff, and operations).</p>
+    {% if current_league_slug == 'bowl-fantasy' %}
+    <section class="gm-help-tips__league-docs" aria-labelledby="gm-help-league-docs-h">
+      <h2 id="gm-help-league-docs-h" class="gm-help-tips__league-docs-title">BOWL-Relegation league docs</h2>
+      <p class="gm-help-tips__league-docs-intro muted">PDF guides for this mount — tiers, signing pools, transfers, and site tools (GM edition; opens in a new tab).</p>
+      <ul class="gm-help-tips__doc-list">
+        <li>
+          <a href="{{ url_for('static', filename='guides/BOWL-Relegation-GM-Guide.pdf') }}" target="_blank" rel="noopener noreferrer">League overview &amp; signing pools</a>
+          — BLUP/BLOW, promotion and relegation, Prospects, Signable (18–20), Overseas Transfers, and Free Agents.
+        </li>
+        <li>
+          <a href="{{ url_for('static', filename='guides/BOWL-Relegation-Transfers-GM.pdf') }}" target="_blank" rel="noopener noreferrer">Cross-league Transfer Tool</a>
+          — PTA fees, building offers, partner approval, and applying published moves in FHM.
+        </li>
+      </ul>
+    </section>
+    {% endif %}
     <section class="gm-help-tips__quickstart" aria-labelledby="gm-help-quickstart-h">
       <h2 id="gm-help-quickstart-h" class="gm-help-tips__quickstart-title">Quick-start checklist</h2>
       <ol class="gm-help-tips__checklist">

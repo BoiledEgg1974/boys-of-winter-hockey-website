@@ -81,16 +81,8 @@
       <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only.
       Teams are those in this league (same slugs as EXPORT).
     </p>
-    <ul class="ap-export-team-list">
-      {% for t in teams %}
-      <li class="ap-export-team-list__item">
-        <label class="ap-export-team-list__label">
-          <input type="checkbox" name="team_slug" value="{{ t.slug }}">
-          <span>{{ t.full_display_name() }}</span>
-        </label>
-      </li>
-      {% endfor %}
-    </ul>
+    {% set picker_type = 'checkbox' %}
+    {% include '_ap_ledger_dialog_team_picker.html' %}
     {% else %}
     <p class="muted ap-export-dialog__lead">
       {% if is_pen %}
@@ -100,16 +92,8 @@
       {% endif %}
       Applies to <strong>{{ config.LEAGUE_DISPLAY_NAME }}</strong> only (this league’s ledger).
     </p>
-    <div class="ap-batch-team-grid">
-      {% for t in teams %}
-      <div class="ap-batch-team-row">
-        <label class="ap-batch-team-row__lab">
-          <span class="ap-batch-team-row__name">{{ t.full_display_name() }}</span>
-          <input type="number" class="ap-batch-team-row__input" name="d_{{ t.slug }}" step="1" placeholder="0" autocomplete="off">
-        </label>
-      </div>
-      {% endfor %}
-    </div>
+    {% set picker_type = 'number' %}
+    {% include '_ap_ledger_dialog_team_picker.html' %}
     {% endif %}
     <div class="ap-export-dialog__actions">
       <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
@@ -133,16 +117,8 @@
       Export date
       <input type="date" id="ap-export-date" name="export_date" value="{{ today_iso }}" required>
     </label>
-    <ul class="ap-export-team-list">
-      {% for t in teams %}
-      <li class="ap-export-team-list__item">
-        <label class="ap-export-team-list__label">
-          <input type="checkbox" name="team_slug" value="{{ t.slug }}">
-          <span>{{ t.full_display_name() }}</span>
-        </label>
-      </li>
-      {% endfor %}
-    </ul>
+    {% set picker_type = 'checkbox' %}
+    {% include '_ap_ledger_dialog_team_picker.html' %}
     <div class="ap-export-dialog__actions">
       <label style="margin-right:auto;font-size:0.88rem;"><input type="checkbox" name="dry_run" value="1"> Dry run</label>
       <button type="button" class="ap-export-cancel-btn" id="ap-export-close">Cancel</button>

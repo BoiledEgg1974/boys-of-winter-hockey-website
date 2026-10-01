@@ -111,7 +111,9 @@ class ApEconomyScaleTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("_ap_ledger_balance_grid.html", ledger)
+        self.assertIn("_ap_ledger_dialog_team_picker.html", ledger)
         self.assertIn("ap_ledger_balance_sections", ledger)
+        self.assertIn("ap_ledger_team_sections", ledger)
         self.assertIn("team_logo_url_for_season_context", balance_grid)
         self.assertIn('name="ledger_team"', ledger_history)
         self.assertNotIn("+1 AP each", ap)

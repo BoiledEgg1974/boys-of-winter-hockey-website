@@ -7418,6 +7418,32 @@ table.data.ap-teams-table td:nth-child(2) {
   font-size: 0.85rem;
   line-height: 1.4;
 }
+.ap-dialog-team-section {
+  margin-top: 0.65rem;
+}
+.ap-dialog-team-section:first-of-type {
+  margin-top: 0.35rem;
+}
+.ap-dialog-team-section__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.35rem;
+  padding-left: 0.45rem;
+  border-left: 3px solid rgb(148 163 184 / 0.45);
+}
+.ap-dialog-team-section--upper .ap-dialog-team-section__title {
+  border-left-color: var(--accent, #005da6);
+}
+.ap-dialog-team-section--lower .ap-dialog-team-section__title {
+  border-left-color: #64748b;
+}
+.ap-export-team-list--section,
+.ap-batch-team-grid--section {
+  margin-bottom: 0.15rem;
+}
 .ap-export-team-list {
   list-style: none;
   margin: 0;

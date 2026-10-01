@@ -1,0 +1,57 @@
+{# picker_type: "checkbox" (team_slug) or "number" (d_{slug}) #}
+{% if ap_ledger_team_sections|length > 1 %}
+{% for section in ap_ledger_team_sections %}
+<div class="ap-dialog-team-section ap-dialog-team-section--{{ section.key }}">
+  <h3 class="ap-dialog-team-section__title">{{ section.title }}</h3>
+  {% if picker_type == 'checkbox' %}
+  <ul class="ap-export-team-list ap-export-team-list--section">
+    {% for row in section.rows %}
+    {% set t = row.team %}
+    <li class="ap-export-team-list__item">
+      <label class="ap-export-team-list__label">
+        <input type="checkbox" name="team_slug" value="{{ t.slug }}">
+        <span>{{ t.full_display_name() }}</span>
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="ap-batch-team-grid ap-batch-team-grid--section">
+    {% for row in section.rows %}
+    {% set t = row.team %}
+    <div class="ap-batch-team-row">
+      <label class="ap-batch-team-row__lab">
+        <span class="ap-batch-team-row__name">{{ t.full_display_name() }}</span>
+        <input type="number" class="ap-batch-team-row__input" name="d_{{ t.slug }}" step="1" placeholder="0" autocomplete="off">
+      </label>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% else %}
+{% if picker_type == 'checkbox' %}
+<ul class="ap-export-team-list">
+  {% for t in teams %}
+  <li class="ap-export-team-list__item">
+    <label class="ap-export-team-list__label">
+      <input type="checkbox" name="team_slug" value="{{ t.slug }}">
+      <span>{{ t.full_display_name() }}</span>
+    </label>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="ap-batch-team-grid">
+  {% for t in teams %}
+  <div class="ap-batch-team-row">
+    <label class="ap-batch-team-row__lab">
+      <span class="ap-batch-team-row__name">{{ t.full_display_name() }}</span>
+      <input type="number" class="ap-batch-team-row__input" name="d_{{ t.slug }}" step="1" placeholder="0" autocomplete="off">
+    </label>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}

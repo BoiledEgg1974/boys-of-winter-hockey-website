@@ -16,9 +16,20 @@
       <select name="team_id" required style="width:100%;max-width:28rem;margin-top:0.35rem;padding:0.35rem;">
         <option value="" {% if not form_team_id %}selected{% endif %} disabled>— Select team —</option>
         <option value="league" {% if form_team_id is defined and form_team_id == 'league' %}selected{% endif %}>League</option>
+        {% if news_team_sections|length > 1 %}
+        {% for section in news_team_sections %}
+        <optgroup label="{{ section.title }}">
+          {% for row in section.rows %}
+          {% set t = row.team %}
+          <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }} ({{ t.abbreviation }})</option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+        {% else %}
         {% for t in teams %}
         <option value="{{ t.id }}" {% if form_team_id is defined and form_team_id|string == t.id|string %}selected{% endif %}>{{ t.full_display_name() }} ({{ t.abbreviation }})</option>
         {% endfor %}
+        {% endif %}
       </select>
     </label>
     <label class="block-label" style="display:block;margin-top:0.85rem;">Category<br>

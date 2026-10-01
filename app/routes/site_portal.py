@@ -8198,7 +8198,20 @@ def admin_news_compose():
     """Publish a headline immediately as the league office (no moderation, no AP grant)."""
     require_admin_role(ADMIN_ROLE_CONTENT, ADMIN_ROLE_LEAGUE)
     slug = _league_slug()
+    from app.services.ap_service import ap_ledger_team_select_sections
+
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
+    news_team_sections = ap_ledger_team_select_sections(db.session, slug, list(teams))
+
+    def _compose_ctx(**kw: object) -> dict[str, object]:
+        base: dict[str, object] = {
+            "teams": teams,
+            "news_team_sections": news_team_sections,
+            "category_choices": NEWS_CATEGORY_CHOICES_ADMIN,
+        }
+        base.update(kw)
+        return base
+
     if request.method == "POST":
         title = (request.form.get("title") or "").strip()
         body = (request.form.get("body") or "").strip()
@@ -8208,23 +8221,23 @@ def admin_news_compose():
             flash("Title and body are required.", "err")
             return render_template(
                 "admin_news_compose.html",
-                teams=teams,
-                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                form_title=title,
-                form_body=body,
-                form_team_id=raw_tid,
-                form_category=cat or (request.form.get("category") or "").strip(),
+                **_compose_ctx(
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat or (request.form.get("category") or "").strip(),
+                ),
             )
         if not cat:
             flash("Choose a category.", "err")
             return render_template(
                 "admin_news_compose.html",
-                teams=teams,
-                category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                form_title=title,
-                form_body=body,
-                form_team_id=raw_tid,
-                form_category=(request.form.get("category") or "").strip(),
+                **_compose_ctx(
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=(request.form.get("category") or "").strip(),
+                ),
             )
         league_wide = raw_tid.lower() == "league"
         team = None
@@ -8234,12 +8247,12 @@ def admin_news_compose():
                 flash("Select a team this article is about, or League.", "err")
                 return render_template(
                     "admin_news_compose.html",
-                    teams=teams,
-                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                    form_title=title,
-                    form_body=body,
-                    form_team_id=raw_tid,
-                    form_category=cat,
+                    **_compose_ctx(
+                        form_title=title,
+                        form_body=body,
+                        form_team_id=raw_tid,
+                        form_category=cat,
+                    ),
                 )
             team_id = int(raw_tid)
             team = db.session.get(Team, team_id)
@@ -8247,12 +8260,12 @@ def admin_news_compose():
                 flash("Invalid team.", "err")
                 return render_template(
                     "admin_news_compose.html",
-                    teams=teams,
-                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                    form_title=title,
-                    form_body=body,
-                    form_team_id=raw_tid,
-                    form_category=cat,
+                    **_compose_ctx(
+                        form_title=title,
+                        form_body=body,
+                        form_team_id=raw_tid,
+                        form_category=cat,
+                    ),
                 )
         upload = request.files.get("image")
         image_payload: tuple[str, bytes] | None = None
@@ -8263,12 +8276,12 @@ def admin_news_compose():
                 flash("Image must be PNG, JPEG, WebP, or GIF.", "err")
                 return render_template(
                     "admin_news_compose.html",
-                    teams=teams,
-                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                    form_title=title,
-                    form_body=body,
-                    form_team_id=raw_tid,
-                    form_category=cat,
+                    **_compose_ctx(
+                        form_title=title,
+                        form_body=body,
+                        form_team_id=raw_tid,
+                        form_category=cat,
+                    ),
                 )
             from app.services.news_article_media import _MAX_BYTES
 
@@ -8277,12 +8290,12 @@ def admin_news_compose():
                 flash("Image could not be saved (max 2.5 MB).", "err")
                 return render_template(
                     "admin_news_compose.html",
-                    teams=teams,
-                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                    form_title=title,
-                    form_body=body,
-                    form_team_id=raw_tid,
-                    form_category=cat,
+                    **_compose_ctx(
+                        form_title=title,
+                        form_body=body,
+                        form_team_id=raw_tid,
+                        form_category=cat,
+                    ),
                 )
             image_payload = (upload.filename, image_data)
 
@@ -8325,12 +8338,12 @@ def admin_news_compose():
                 flash("Image could not be saved (max 2.5 MB).", "err")
                 return render_template(
                     "admin_news_compose.html",
-                    teams=teams,
-                    category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-                    form_title=title,
-                    form_body=body,
-                    form_team_id=raw_tid,
-                    form_category=cat,
+                    **_compose_ctx(
+                        form_title=title,
+                        form_body=body,
+                        form_team_id=raw_tid,
+                        form_category=cat,
+                    ),
                 )
             raise
         if league_wide:
@@ -8369,11 +8382,7 @@ def admin_news_compose():
         else:
             flash("Article published. It appears on the home page under Around the League.", "ok")
         return redirect(url_for("site_admin.admin_news_queue"))
-    return render_template(
-        "admin_news_compose.html",
-        teams=teams,
-        category_choices=NEWS_CATEGORY_CHOICES_ADMIN,
-    )
+    return render_template("admin_news_compose.html", **_compose_ctx())
 
 
 def _admin_news_logo_season_year() -> int | None:

@@ -1,6 +1,7 @@
 LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2011;Guldhjälmen;MVP;10134;0
 5;2014;Guldhjälmen;MVP;12093;0
+5;2017;Guldhjälmen;MVP;19316;0
 5;2019;Guldhjälmen;MVP;4612;0
 5;2020;Guldhjälmen;MVP;2376;0
 5;2021;Guldhjälmen;MVP;945;0
@@ -11,15 +12,18 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2012;Stefan Liv Memorial Trophy;Playoff MVP;10260;0
 5;2015;Stefan Liv Memorial Trophy;Playoff MVP;10180;0
 5;2016;Stefan Liv Memorial Trophy;Playoff MVP;10279;0
+5;2017;Stefan Liv Memorial Trophy;Playoff MVP;19316;0
 5;2018;Stefan Liv Memorial Trophy;Playoff MVP;8970;0
 5;2020;Stefan Liv Memorial Trophy;Playoff MVP;6767;0
 5;2021;Stefan Liv Memorial Trophy;Playoff MVP;10151;0
+5;2023;Stefan Liv Memorial Trophy;Playoff MVP;19267;0
 5;2024;Stefan Liv Memorial Trophy;Playoff MVP;16462;0
 5;2009;Honken Trophy;Best Goalie;528;0
 5;2013;Honken Trophy;Best Goalie;14317;0
 5;2014;Honken Trophy;Best Goalie;14289;0
 5;2018;Honken Trophy;Best Goalie;11952;0
 5;2021;Honken Trophy;Best Goalie;241;0
+5;2022;Honken Trophy;Best Goalie;19267;0
 5;2023;Honken Trophy;Best Goalie;12157;0
 5;2010;Salming Trophy;Best Defenceman;959;0
 5;2011;Salming Trophy;Best Defenceman;931;0
@@ -40,6 +44,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2013;Årets Junior;Best Rookie;14213;0
 5;2014;Årets Junior;Best Rookie;11988;0
 5;2015;Årets Junior;Best Rookie;1818;0
+5;2016;Årets Junior;Best Rookie;17973;0
+5;2017;Årets Junior;Best Rookie;19316;0
 5;2018;Årets Junior;Best Rookie;7380;0
 5;2019;Årets Junior;Best Rookie;14229;0
 5;2020;Årets Junior;Best Rookie;13805;0
@@ -47,20 +53,27 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2022;Årets Junior;Best Rookie;2531;0
 5;2023;Årets Junior;Best Rookie;2549;0
 5;2010;Håkan Loob Trophy;Most Goals;8380;0
+5;2017;Håkan Loob Trophy;Most Goals;19256;0
 5;2018;Håkan Loob Trophy;Most Goals;7380;0
+5;2020;Håkan Loob Trophy;Most Goals;19481;0
 5;2021;Håkan Loob Trophy;Most Goals;16243;0
 5;2022;Håkan Loob Trophy;Most Goals;14844;0
+5;2023;Håkan Loob Trophy;Most Goals;18671;0
+5;2024;Håkan Loob Trophy;Most Goals;19359;0
 5;2009;Svenska Spels Skyttetrofé;Most Points;923;0
 5;2012;Svenska Spels Skyttetrofé;Most Points;10256;0
 5;2015;Svenska Spels Skyttetrofé;Most Points;8970;0
+5;2017;Svenska Spels Skyttetrofé;Most Points;19316;0
 5;2018;Svenska Spels Skyttetrofé;Most Points;8970;0
 5;2019;Svenska Spels Skyttetrofé;Most Points;11966;0
 5;2020;Svenska Spels Skyttetrofé;Most Points;2376;0
 5;2021;Svenska Spels Skyttetrofé;Most Points;8970;0
 5;2022;Svenska Spels Skyttetrofé;Most Points;14844;0
 5;2023;Svenska Spels Skyttetrofé;Most Points;10260;0
+5;2024;Svenska Spels Skyttetrofé;Most Points;18671;0
 5;2011;Rinkens Riddare;Sportsmanship Award;10134;0
 5;2015;Rinkens Riddare;Sportsmanship Award;12042;0
+5;2017;Rinkens Riddare;Sportsmanship Award;19295;0
 5;2018;Rinkens Riddare;Sportsmanship Award;12161;0
 5;2021;Rinkens Riddare;Sportsmanship Award;327;0
 5;2022;Rinkens Riddare;Sportsmanship Award;13687;0
@@ -74,6 +87,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2021;Most Valuable Player;Player's MVP Award;16243;0
 5;2022;Most Valuable Player;Player's MVP Award;14844;0
 5;2023;Most Valuable Player;Player's MVP Award;14271;0
+5;2023;Postseason Allstar 1 G;Postseason Allstar 1 G;19267;0
 5;2023;Postseason Allstar 1 D1;Postseason Allstar 1 D1;13687;0
 5;2023;Postseason Allstar 1 D2;Postseason Allstar 1 D2;14348;0
 5;2023;Postseason Allstar 1 LW;Postseason Allstar 1 LW;2203;0
@@ -86,12 +100,14 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 5;2023;Eliteprospects.com Award;Best Prospect;2549;0
 5;2024;Eliteprospects.com Award;Best Prospect;3639;0
 5;2022;Guldpucken;Best Player from this Country;427;0
+5;2023;Guldpucken;Best Player from this Country;18216;0
 5;2024;Guldpucken;Best Player from this Country;14361;0
 6;2009;Golden Stick Award;MVP;8371;0
 6;2010;Golden Stick Award;MVP;8371;0
 6;2011;Golden Stick Award;MVP;8371;0
 6;2014;Golden Stick Award;MVP;8371;0
 6;2017;Golden Stick Award;MVP;8213;0
+6;2018;Golden Stick Award;MVP;19812;0
 6;2019;Golden Stick Award;MVP;7775;0
 6;2023;Golden Stick Award;MVP;8213;0
 6;2024;Golden Stick Award;MVP;1737;0
@@ -101,6 +117,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 6;2024;Playoff MVP Award;Playoff MVP;8371;0
 6;2015;Best Goaltender Award;Best Goalie;13053;0
 6;2018;Best Goaltender Award;Best Goalie;9020;0
+6;2021;Best Goaltender Award;Best Goalie;19764;0
 6;2023;Best Goaltender Award;Best Goalie;2924;0
 6;2024;Best Goaltender Award;Best Goalie;2924;0
 6;2018;Defenceman of the Year;Best Defenceman;483;0
@@ -111,13 +128,17 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 6;2013;Aleksei Cherepanov Award;Best Rookie;13279;0
 6;2014;Aleksei Cherepanov Award;Best Rookie;12876;0
 6;2015;Aleksei Cherepanov Award;Best Rookie;12852;0
+6;2016;Aleksei Cherepanov Award;Best Rookie;18067;0
 6;2017;Aleksei Cherepanov Award;Best Rookie;4402;0
 6;2018;Aleksei Cherepanov Award;Best Rookie;5240;0
 6;2019;Aleksei Cherepanov Award;Best Rookie;4455;0
 6;2021;Aleksei Cherepanov Award;Best Rookie;1903;0
+6;2022;Aleksei Cherepanov Award;Best Rookie;19684;0
 6;2023;Aleksei Cherepanov Award;Best Rookie;2804;0
 6;2010;Top Sniper Award;Most Goals;8182;0
 6;2014;Top Sniper Award;Most Goals;3244;0
+6;2018;Top Sniper Award;Most Goals;19812;0
+6;2019;Top Sniper Award;Most Goals;19812;0
 6;2021;Top Sniper Award;Most Goals;11106;0
 6;2022;Top Sniper Award;Most Goals;7775;0
 6;2023;Top Sniper Award;Most Goals;1601;0
@@ -185,6 +206,9 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 8;2017;Urpo Ylönen Trophy;Best Goalie;15328;0
 8;2018;Urpo Ylönen Trophy;Best Goalie;15328;0
 8;2019;Urpo Ylönen Trophy;Best Goalie;4879;0
+8;2021;Urpo Ylönen Trophy;Best Goalie;19106;0
+8;2022;Urpo Ylönen Trophy;Best Goalie;19106;0
+8;2023;Urpo Ylönen Trophy;Best Goalie;19106;0
 8;2010;Pekka Rautakallio Trophy;Best Defenceman;7467;0
 8;2011;Pekka Rautakallio Trophy;Best Defenceman;7467;0
 8;2012;Pekka Rautakallio Trophy;Best Defenceman;1113;0
@@ -194,6 +218,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 8;2018;Pekka Rautakallio Trophy;Best Defenceman;16443;0
 8;2019;Pekka Rautakallio Trophy;Best Defenceman;3736;0
 8;2020;Pekka Rautakallio Trophy;Best Defenceman;17066;0
+8;2021;Pekka Rautakallio Trophy;Best Defenceman;18424;0
 8;2022;Pekka Rautakallio Trophy;Best Defenceman;11196;0
 8;2008;Jarmo Wasama Trophy ;Best Rookie;345;0
 8;2009;Jarmo Wasama Trophy ;Best Rookie;7368;0
@@ -249,6 +274,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 8;2013;Kultainen Kypärä;Player's MVP Award;7407;0
 8;2018;Kultainen Kypärä;Player's MVP Award;11239;0
 8;2019;Kultainen Kypärä;Player's MVP Award;1602;0
+8;2023;Postseason Allstar 1 G;Postseason Allstar 1 G;19106;0
 8;2023;Postseason Allstar 1 LW;Postseason Allstar 1 LW;15391;0
 8;2023;Postseason Allstar 1 C;Postseason Allstar 1 C;7937;0
 8;2023;Postseason Allstar 1 RW;Postseason Allstar 1 RW;11190;0
@@ -282,6 +308,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 9;2012;PostFinance Top Scorer;Most Points;617;0
 9;2016;PostFinance Top Scorer;Most Points;987;0
 9;2018;PostFinance Top Scorer;Most Points;11646;0
+9;2019;PostFinance Top Scorer;Most Points;18674;0
 9;2020;PostFinance Top Scorer;Most Points;7760;0
 9;2021;PostFinance Top Scorer;Most Points;8182;0
 9;2022;PostFinance Top Scorer;Most Points;8182;0
@@ -292,6 +319,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 10;2012;Hobey Baker Award;MVP;4071;0
 10;2014;Hobey Baker Award;MVP;16357;0
 10;2015;Hobey Baker Award;MVP;15413;0
+10;2018;Hobey Baker Award;MVP;18529;0
 10;2020;Hobey Baker Award;MVP;13612;0
 10;2023;Hobey Baker Award;MVP;661;0
 10;2013;Mike Richter Award;Best Goalie;3444;0
@@ -324,6 +352,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 11;2011;OHL Goaltender of the Year;Best Goalie;1713;0
 11;2012;OHL Goaltender of the Year;Best Goalie;1595;0
 11;2013;OHL Goaltender of the Year;Best Goalie;14948;0
+11;2014;OHL Goaltender of the Year;Best Goalie;18675;0
+11;2015;OHL Goaltender of the Year;Best Goalie;18553;0
 11;2019;OHL Goaltender of the Year;Best Goalie;3953;0
 11;2007;Max Kaminsky Trophy;Best Defenceman;209;0
 11;2008;Max Kaminsky Trophy;Best Defenceman;1067;0
@@ -395,6 +425,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 12;2013;Four Broncos Memorial Trophy;MVP;2161;0
 12;2014;Four Broncos Memorial Trophy;MVP;7125;0
 12;2015;Four Broncos Memorial Trophy;MVP;2047;0
+12;2016;Four Broncos Memorial Trophy;MVP;18730;0
+12;2017;Four Broncos Memorial Trophy;MVP;18368;0
 12;2019;Four Broncos Memorial Trophy;MVP;10411;0
 12;2021;Four Broncos Memorial Trophy;MVP;14122;0
 12;2022;Four Broncos Memorial Trophy;MVP;13138;0
@@ -410,6 +442,9 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 12;2010;Del Wilson Trophy;Best Goalie;1444;0
 12;2012;Del Wilson Trophy;Best Goalie;1914;0
 12;2014;Del Wilson Trophy;Best Goalie;6644;0
+12;2015;Del Wilson Trophy;Best Goalie;18368;0
+12;2016;Del Wilson Trophy;Best Goalie;18368;0
+12;2017;Del Wilson Trophy;Best Goalie;18368;0
 12;2019;Del Wilson Trophy;Best Goalie;10431;0
 12;2020;Del Wilson Trophy;Best Goalie;10431;0
 12;2021;Del Wilson Trophy;Best Goalie;5978;0
@@ -418,11 +453,14 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 12;2011;Bill Hunter Trophy;Best Defenceman;2142;0
 12;2013;Bill Hunter Trophy;Best Defenceman;2149;0
 12;2014;Bill Hunter Trophy;Best Defenceman;2210;0
+12;2015;Bill Hunter Trophy;Best Defenceman;19124;0
+12;2017;Bill Hunter Trophy;Best Defenceman;18309;0
 12;2007;Jim Piggott Trophy;Best Rookie;736;0
 12;2009;Jim Piggott Trophy;Best Rookie;950;0
 12;2010;Jim Piggott Trophy;Best Rookie;1982;0
 12;2011;Jim Piggott Trophy;Best Rookie;2161;0
 12;2012;Jim Piggott Trophy;Best Rookie;3817;0
+12;2013;Jim Piggott Trophy;Best Rookie;18476;0
 12;2017;Jim Piggott Trophy;Best Rookie;4823;0
 12;2021;Jim Piggott Trophy;Best Rookie;13138;0
 12;2023;Jim Piggott Trophy;Best Rookie;670;0
@@ -433,6 +471,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 12;2012;Bob Clarke Trophy;Most Points;2075;0
 12;2014;Bob Clarke Trophy;Most Points;7125;0
 12;2015;Bob Clarke Trophy;Most Points;14710;0
+12;2016;Bob Clarke Trophy;Most Points;18730;0
+12;2017;Bob Clarke Trophy;Most Points;18544;0
 12;2019;Bob Clarke Trophy;Most Points;10411;0
 12;2021;Bob Clarke Trophy;Most Points;8937;0
 12;2022;Bob Clarke Trophy;Most Points;13138;0
@@ -445,6 +485,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 12;2011;WHL Plus-Minus Award;Highest Plus-Minus;2245;0
 12;2012;WHL Plus-Minus Award;Highest Plus-Minus;2140;0
 12;2014;WHL Plus-Minus Award;Highest Plus-Minus;7125;0
+12;2015;WHL Plus-Minus Award;Highest Plus-Minus;19124;0
+12;2016;WHL Plus-Minus Award;Highest Plus-Minus;20129;0
 12;2020;WHL Plus-Minus Award;Highest Plus-Minus;5890;0
 12;2021;WHL Plus-Minus Award;Highest Plus-Minus;12546;0
 12;2024;WHL Plus-Minus Award;Highest Plus-Minus;670;0
@@ -578,6 +620,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 14;2015;CCM Defenseman of the Year;Best Defenceman;4832;0
 14;2016;CCM Defenseman of the Year;Best Defenceman;15725;0
 14;2017;CCM Defenseman of the Year;Best Defenceman;15725;0
+14;2020;CCM Defenseman of the Year;Best Defenceman;18099;0
 14;2022;CCM Defenseman of the Year;Best Defenceman;16714;0
 14;2010;John A. Daley Award;Best Rookie;1287;0
 14;2011;John A. Daley Award;Best Rookie;1401;0
@@ -587,6 +630,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 14;2018;John A. Daley Award;Best Rookie;1953;0
 14;2019;John A. Daley Award;Best Rookie;5564;0
 14;2020;John A. Daley Award;Best Rookie;16519;0
+14;2021;John A. Daley Award;Best Rookie;18563;0
 14;2011;Leading Scorer Award;Most Points;1401;0
 14;2020;Leading Scorer Award;Most Points;16793;0
 14;2021;Leading Scorer Award;Most Points;16692;0
@@ -695,6 +739,8 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 17;2024;Defenceman of the Year;Best Defenceman;6869;0
 17;2010;Clare Drake Award;Best Rookie;4523;0
 17;2016;Clare Drake Award;Best Rookie;14848;0
+17;2017;Clare Drake Award;Best Rookie;18563;0
+17;2019;Clare Drake Award;Best Rookie;18731;0
 17;2023;Clare Drake Award;Best Rookie;2915;0
 17;2024;Clare Drake Award;Best Rookie;13146;0
 17;2015;Points Award;Most Points;2257;0
@@ -702,6 +748,7 @@ LeagueId;Year;Award Name;Award Description;PlayerId;Retired
 17;2019;Points Award;Most Points;16512;0
 17;2023;Points Award;Most Points;10417;0
 17;2019;R.W. Pugh Award;Sportsmanship Award;1945;0
+17;2021;R.W. Pugh Award;Sportsmanship Award;18471;0
 17;2023;First All-Canadian D;Postseason Allstar 1 D1;6869;0
 17;2023;First All-Canadian RW;Postseason Allstar 1 RW;10417;0
 17;2023;Second All-Canadian G;Postseason Allstar 2 G;2915;0

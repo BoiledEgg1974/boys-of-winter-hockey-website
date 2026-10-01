@@ -31,6 +31,7 @@ from app.services.transfer_rules import (
     is_transfer_tool_league,
     load_transfer_rules_config,
     rules_snapshot_for_players,
+    transfer_proposal_budget_impact,
 )
 from app.site_models import GmLeagueMembership, GmTransferProposal, NewsArticle
 
@@ -393,7 +394,39 @@ def format_compensation_summary(session: Session, compensation: dict[str, Any], 
     return "\n".join(lines) if lines else "  • (fees only)"
 
 
-def format_transfer_summary(session: Session, proposal: GmTransferProposal) -> str:
+def format_transfer_budget_impact_lines(impact: dict[str, int | None]) -> list[str]:
+    cost = int(impact.get("transfer_cost_usd") or 0)
+    wallet_before = impact.get("wallet_remaining_before_usd")
+    wallet_after = impact.get("wallet_remaining_after_usd")
+    effective_before = impact.get("effective_room_before_usd")
+    effective_after = impact.get("effective_room_after_usd")
+    if (
+        cost <= 0
+        and wallet_before is None
+        and effective_before is None
+    ):
+        return []
+    lines = ["", "BOWL transfer budget (acquiring team):"]
+    if cost > 0:
+        lines.append(f"  • PTA + cash on this deal: ${cost:,}")
+    if wallet_before is not None and wallet_after is not None:
+        lines.append(f"  • Transfer wallet remaining: ${int(wallet_before):,} → ${int(wallet_after):,}")
+    if effective_before is not None and effective_after is not None:
+        label = (
+            "Effective room (cap vs wallet)"
+            if impact.get("transfer_wallet_cap_usd") is not None
+            else "Cap room"
+        )
+        lines.append(f"  • {label}: ${int(effective_before):,} → ${int(effective_after):,}")
+    return lines
+
+
+def format_transfer_summary(
+    session: Session,
+    proposal: GmTransferProposal,
+    *,
+    include_budget_impact: bool = True,
+) -> str:
     bowl_team = session.get(Team, int(proposal.bowl_team_id))
     ext_team = session.get(Team, int(proposal.external_team_id))
     pids = parse_player_ids(proposal.player_ids_json)
@@ -413,6 +446,15 @@ def format_transfer_summary(session: Session, proposal: GmTransferProposal) -> s
     for name in acquired or ["(none)"]:
         lines.append(f"  • {name}")
     lines.extend(["", f"{fn} sends:", format_compensation_summary(session, comp, int(proposal.bowl_team_id))])
+    if include_budget_impact:
+        impact = transfer_proposal_budget_impact(
+            session,
+            league_slug=str(proposal.league_slug),
+            bowl_team_id=int(proposal.bowl_team_id),
+            compensation_json=proposal.compensation_json,
+            proposal_status=str(proposal.status or ""),
+        )
+        lines.extend(format_transfer_budget_impact_lines(impact))
     return "\n".join(lines)
 
 

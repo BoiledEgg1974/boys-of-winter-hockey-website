@@ -43,3 +43,56 @@ def test_bowl_team_budget_snapshot_subtracts_published_spend() -> None:
     assert snap["transfer_spent_usd"] == 3_000_000
     assert snap["transfer_wallet_remaining_usd"] == 7_000_000
     assert snap["remaining_budget_usd"] == 7_000_000
+
+
+def test_transfer_proposal_budget_impact_pending_vs_published() -> None:
+    from app.services.transfer_rules import (
+        STATUS_PENDING_COMMISSIONER,
+        STATUS_PUBLISHED,
+        transfer_proposal_budget_impact,
+    )
+
+    session = MagicMock()
+    comp = '{"pta_transfer_fee": 500000, "cash_sweetener": 250000}'
+    with patch("app.services.transfer_rules.resolve_transfer_salary_cap_usd", return_value=95_500_000):
+        with patch("app.services.transfer_rules.transfer_budget_override_usd", return_value=10_000_000):
+            with patch("app.services.transfer_rules.transfer_published_spend_usd", return_value=1_000_000):
+                session.scalars.return_value.all.return_value = []
+                pending = transfer_proposal_budget_impact(
+                    session,
+                    league_slug="bowl-fantasy",
+                    bowl_team_id=1,
+                    compensation_json=comp,
+                    proposal_status=STATUS_PENDING_COMMISSIONER,
+                )
+            with patch("app.services.transfer_rules.transfer_published_spend_usd", return_value=1_750_000):
+                published = transfer_proposal_budget_impact(
+                    session,
+                    league_slug="bowl-fantasy",
+                    bowl_team_id=1,
+                    compensation_json=comp,
+                    proposal_status=STATUS_PUBLISHED,
+                )
+    assert pending["transfer_cost_usd"] == 750_000
+    assert pending["wallet_remaining_before_usd"] == 9_000_000
+    assert pending["wallet_remaining_after_usd"] == 8_250_000
+    assert published["wallet_remaining_before_usd"] == 9_000_000
+    assert published["wallet_remaining_after_usd"] == 8_250_000
+
+
+def test_format_transfer_budget_impact_lines() -> None:
+    from app.services.transfer_tool import format_transfer_budget_impact_lines
+
+    lines = format_transfer_budget_impact_lines(
+        {
+            "transfer_cost_usd": 750_000,
+            "transfer_wallet_cap_usd": 10_000_000,
+            "wallet_remaining_before_usd": 9_000_000,
+            "wallet_remaining_after_usd": 8_250_000,
+            "effective_room_before_usd": 9_000_000,
+            "effective_room_after_usd": 8_250_000,
+        }
+    )
+    text = "\n".join(lines)
+    assert "$9,000,000 → $8,250,000" in text
+    assert "750,000" in text

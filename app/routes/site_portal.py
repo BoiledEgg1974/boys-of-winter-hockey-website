@@ -2826,6 +2826,15 @@ def admin_transfer_proposal_detail(pid: int):
     bowl_team = db.session.get(Team, int(prop.bowl_team_id))
     ext_team = db.session.get(Team, int(prop.external_team_id))
     summary = format_transfer_summary(db.session, prop)
+    from app.services.transfer_rules import transfer_proposal_budget_impact
+
+    budget_impact = transfer_proposal_budget_impact(
+        db.session,
+        league_slug=slug,
+        bowl_team_id=int(prop.bowl_team_id),
+        compensation_json=prop.compensation_json,
+        proposal_status=str(prop.status or ""),
+    )
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         if action == "republish_news":
@@ -2899,6 +2908,7 @@ def admin_transfer_proposal_detail(pid: int):
         bowl_team=bowl_team,
         ext_team=ext_team,
         summary=summary,
+        budget_impact=budget_impact,
     )
 
 

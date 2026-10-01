@@ -6,6 +6,23 @@
   <h1 class="page-title">Transfer proposal #{{ proposal.id }}</h1>
   <p class="muted">Status: <strong>{{ proposal.status }}</strong> · AI: {{ proposal.ai_verdict or '—' }}</p>
   <pre style="white-space:pre-wrap;background:var(--row-alt);padding:0.75rem;border-radius:var(--radius);">{{ summary }}</pre>
+  {% if budget_impact and (budget_impact.transfer_cost_usd or budget_impact.wallet_remaining_before_usd is not none or budget_impact.effective_room_before_usd is not none) %}
+  <h2>Transfer budget (acquiring team)</h2>
+  <dl class="transfer-budget-impact" style="display:grid;grid-template-columns:auto 1fr;gap:0.35rem 1rem;margin:0 0 1rem;">
+    {% if budget_impact.transfer_cost_usd %}
+    <dt class="muted">PTA + cash on this deal</dt>
+    <dd style="margin:0;font-weight:600;">${{ '{:,}'.format(budget_impact.transfer_cost_usd) }}</dd>
+    {% endif %}
+    {% if budget_impact.wallet_remaining_before_usd is not none and budget_impact.wallet_remaining_after_usd is not none %}
+    <dt class="muted">Transfer wallet remaining</dt>
+    <dd style="margin:0;font-weight:600;">${{ '{:,}'.format(budget_impact.wallet_remaining_before_usd) }} → ${{ '{:,}'.format(budget_impact.wallet_remaining_after_usd) }}</dd>
+    {% endif %}
+    {% if budget_impact.effective_room_before_usd is not none and budget_impact.effective_room_after_usd is not none %}
+    <dt class="muted">{% if budget_impact.transfer_wallet_cap_usd is not none %}Effective room (cap vs wallet){% else %}Cap room{% endif %}</dt>
+    <dd style="margin:0;font-weight:600;">${{ '{:,}'.format(budget_impact.effective_room_before_usd) }} → ${{ '{:,}'.format(budget_impact.effective_room_after_usd) }}</dd>
+    {% endif %}
+  </dl>
+  {% endif %}
   {% if proposal.ai_rationale %}
   <h2>AI partner rationale</h2>
   <p>{{ proposal.ai_rationale }}</p>

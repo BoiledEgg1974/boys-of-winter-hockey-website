@@ -204,6 +204,46 @@ def transfer_published_spend_usd(league_slug: str, bowl_team_id: int) -> int:
     return transfer_published_spend_by_team(league_slug).get(int(bowl_team_id), 0)
 
 
+def transfer_proposal_budget_impact(
+    session: Session,
+    *,
+    league_slug: str,
+    bowl_team_id: int,
+    compensation_json: str | dict | None,
+    proposal_status: str,
+) -> dict[str, int | None]:
+    """Wallet and effective room before/after PTA+cash for commissioner review or published summary."""
+    cost = compensation_cash_total_usd(compensation_json)
+    spent_live = transfer_published_spend_usd(league_slug, int(bowl_team_id))
+    if str(proposal_status or "").strip() == STATUS_PUBLISHED:
+        spent_before = max(0, int(spent_live) - int(cost))
+    else:
+        spent_before = int(spent_live)
+    before = bowl_team_budget_snapshot(
+        session,
+        bowl_team_id=int(bowl_team_id),
+        league_slug=league_slug,
+        spent_usd=spent_before,
+    )
+    wallet_before = before.get("transfer_wallet_remaining_usd")
+    effective_before = before.get("remaining_budget_usd")
+    wallet_after: int | None = None
+    effective_after: int | None = None
+    if wallet_before is not None:
+        wallet_after = max(0, int(wallet_before) - int(cost))
+    if effective_before is not None:
+        effective_after = max(0, int(effective_before) - int(cost))
+    return {
+        "transfer_cost_usd": int(cost),
+        "transfer_wallet_cap_usd": before.get("transfer_cash_override_usd"),
+        "transfer_spent_before_usd": spent_before,
+        "wallet_remaining_before_usd": wallet_before,
+        "wallet_remaining_after_usd": wallet_after,
+        "effective_room_before_usd": effective_before,
+        "effective_room_after_usd": effective_after,
+    }
+
+
 def transfer_budget_override_usd(
     league_slug: str,
     team_id: int,

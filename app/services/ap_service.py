@@ -399,6 +399,12 @@ _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
     (14, "Create a 4-Star Potential Player", "Commissioner creates a 4-star potential player.", 400),
     (15, "Create a 5-Star Potential Player", "Commissioner creates a 5-star potential player.", 500),
     (16, _PERSUASION_CATALOG_TITLE, _PERSUASION_CATALOG_DESCRIPTION, _PERSUASION_CATALOG_COST_AP),
+    (
+        17,
+        "Transfer $ Boost",
+        "The owner sneaks over 1.5 million dollars to your coffers.",
+        400,
+    ),
 )
 
 # Legacy Relegation seed titles superseded by canonical catalog rows (kept inactive on reconcile).

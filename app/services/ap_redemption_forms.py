@@ -87,6 +87,7 @@ _TITLE_FORM_KEY_RULES: tuple[tuple[str, str], ...] = (
     ("retire a number", "retire_number"),
     ("change a rival", "change_rival"),
     ("persuasion", "persuasion"),
+    ("transfer $ boost", "transfer_dollar_boost"),
 )
 
 _PLAYER_NAME_FIELD = (
@@ -99,6 +100,7 @@ _COMMISSIONER_ACK_FORM_KEYS = frozenset(
         "commissioner_star_3",
         "commissioner_star_4",
         "commissioner_star_5",
+        "transfer_dollar_boost",
     }
 )
 
@@ -188,6 +190,7 @@ _FORM_FIELDS: dict[str, tuple[RedemptionFormField, ...]] = {
     "commissioner_star_3": _COMMISSIONER_ACK_FIELD,
     "commissioner_star_4": _COMMISSIONER_ACK_FIELD,
     "commissioner_star_5": _COMMISSIONER_ACK_FIELD,
+    "transfer_dollar_boost": _COMMISSIONER_ACK_FIELD,
     "retire_created_player": (
         RedemptionFormField("created_player_name", "Created player name", "text", True),
     ),

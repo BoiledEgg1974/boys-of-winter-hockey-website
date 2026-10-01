@@ -17,6 +17,8 @@ from app.services.ap_redemption_forms import (
 class ApRedemptionFormsTest(unittest.TestCase):
     def test_catalog_title_maps_to_form_key(self):
         self.assertEqual(catalog_item_form_key("Change a Rival"), "change_rival")
+        self.assertEqual(catalog_item_form_key("Transfer $ Boost"), "transfer_dollar_boost")
+        self.assertTrue(catalog_item_has_detail_form("transfer_dollar_boost"))
         self.assertEqual(
             catalog_item_form_key("Purchase a Silver Boost for one of your Draftees."),
             "silver_draft_boost",

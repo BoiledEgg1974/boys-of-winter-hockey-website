@@ -1098,6 +1098,26 @@ def build_remote_ap_catalog_export_script(
     )
 
 
+def build_remote_ap_catalog_reconcile_script(
+    remote_project: str,
+    venv_bin: str,
+    wsgi_file: str | None,
+) -> str:
+    rp = shlex.quote(remote_project.rstrip("/"))
+    act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
+    py = shlex.quote(f"{venv_bin.rstrip('/')}/python")
+    reconcile = shlex.quote(f"{remote_project.rstrip('/')}/scripts/reconcile_ap_catalog.py")
+    parts = [
+        "set -euo pipefail",
+        f"cd {rp}",
+        f". {act}",
+        "export LEAGUE_SLUG=bowl-fantasy",
+        f"{py} {reconcile}",
+    ]
+    parts.extend(_touch_wsgi_bash(wsgi_file))
+    return "; ".join(parts)
+
+
 def sync_local_ap_catalog_from_remote(
     client,
     sftp,
@@ -1660,6 +1680,50 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile_ap_catalog(ns: argparse.Namespace) -> int:
+    """Upload AP catalog modules, reconcile server DB, reload web app."""
+    local_root = ns.local_root.resolve()
+    remote_base = ns.remote_path.rstrip("/")
+    wsgi = getattr(ns, "wsgi_file", None)
+    remote_script = build_remote_ap_catalog_reconcile_script(
+        remote_base, ns.venv_bin, wsgi
+    )
+    catalog_files = (
+        "scripts/reconcile_ap_catalog.py",
+        "app/services/ap_service.py",
+        "app/services/ap_redemption_forms.py",
+    )
+    if ns.dry_run:
+        for rel in catalog_files:
+            print(f"would upload {rel}")
+        print(remote_script.replace("; ", "\n"))
+        return 0
+
+    client = None
+    uploaded = 0
+    try:
+        client, sftp = connect_sftp(ns.host, ns.user, ns.key)
+        su, ss = upload_named_repo_files(
+            sftp,
+            local_root,
+            catalog_files,
+            remote_base,
+            dry_run=False,
+            force=True,
+            skew_seconds=2.0,
+        )
+        uploaded += su
+        print(f"AP catalog files uploaded ({su} files, {ss} skipped).")
+        print("--- remote AP catalog reconcile ---")
+        run_remote_bash(client, remote_script)
+    finally:
+        if client is not None:
+            client.close()
+
+    print(f"reconcile-ap-catalog complete. Uploaded {uploaded} file(s).")
+    return 0
+
+
 def cmd_notify_discord(ns: argparse.Namespace) -> int:
     """Upload Discord sidecars and enqueue boxscores / broken records on the live site."""
     local_root = ns.local_root.resolve()
@@ -1875,6 +1939,20 @@ def main() -> int:
         help="When no finals sidecar exists, queue undelivered finals from the last N in-game days.",
     )
     p_notify.set_defaults(func=cmd_notify_discord)
+
+    p_ap_reconcile = sub.add_parser(
+        "reconcile-ap-catalog",
+        help="Upload AP catalog code, run reconcile on server site DB, reload web app.",
+    )
+    add_connection_args(p_ap_reconcile, default_remote, default_user)
+    p_ap_reconcile.add_argument(
+        "--venv-bin",
+        default=default_venv_bin,
+        help="Remote venv bin (contains activate and python)",
+    )
+    p_ap_reconcile.add_argument("--wsgi-file", default=default_wsgi)
+    p_ap_reconcile.add_argument("--dry-run", action="store_true")
+    p_ap_reconcile.set_defaults(func=cmd_reconcile_ap_catalog)
 
     args = parser.parse_args()
     return int(args.func(args))

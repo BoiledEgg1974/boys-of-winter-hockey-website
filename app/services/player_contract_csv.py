@@ -3,11 +3,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.config import Config
+from app.config import Config, coerce_raw_import_dir
 from scripts.import_pipeline.encoding_utils import cell_val, read_csv_normalized, to_bool
 
 # Per-file cache so multi-league apps (different RAW_IMPORT_DIR) each see correct rows.
 _row_maps: dict[str, tuple[float, dict[str, dict]]] = {}
+
+
+def _import_dir(raw_import_dir: Path | str | None) -> Path:
+    if raw_import_dir is None:
+        return Path(Config.RAW_IMPORT_DIR)
+    resolved = coerce_raw_import_dir(raw_import_dir)
+    return resolved if resolved is not None else Path(Config.RAW_IMPORT_DIR)
 
 
 def contract_export_row(
@@ -17,8 +24,7 @@ def contract_export_row(
     """Normalized ``player_contract.csv`` row for an FHM player id, or ``None`` if absent."""
     if not fhm_player_id or not str(fhm_player_id).strip():
         return None
-    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
-    path = base / "player_contract.csv"
+    path = _import_dir(raw_import_dir) / "player_contract.csv"
     return _contract_row_map(path).get(str(fhm_player_id).strip())
 
 
@@ -64,8 +70,7 @@ def contract_years_remaining_major(
     """
     if not fhm_player_id or season_start_year is None:
         return None
-    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
-    path = base / "player_contract.csv"
+    path = _import_dir(raw_import_dir) / "player_contract.csv"
     m = _contract_row_map(path)
     row = m.get(str(fhm_player_id).strip())
     if not row:
@@ -128,8 +133,7 @@ def player_contract_salary_by_season(
     """
     if not fhm_player_id or not str(fhm_player_id).strip():
         return []
-    base = raw_import_dir if raw_import_dir is not None else Path(Config.RAW_IMPORT_DIR)
-    path = base / "player_contract.csv"
+    path = _import_dir(raw_import_dir) / "player_contract.csv"
     m = _contract_row_map(path)
     row = m.get(str(fhm_player_id).strip())
     if not row:

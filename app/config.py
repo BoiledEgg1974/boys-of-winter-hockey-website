@@ -66,6 +66,29 @@ def league_raw_import_dir(slug: str) -> str:
     return e.raw_import_dir if e else slug
 
 
+def league_raw_import_path(slug: str) -> Path:
+    """Absolute path to this league's FHM raw CSV import folder."""
+    return BASE_DIR / "data" / "imports" / "raw" / league_raw_import_dir(slug)
+
+
+def coerce_raw_import_dir(value: Path | str | None) -> Path | None:
+    """Normalize raw import dir values (``Path``, absolute path, or bare folder name)."""
+    if value is None:
+        return None
+    if isinstance(value, Path):
+        p = value
+    else:
+        s = str(value).strip()
+        if not s:
+            return None
+        p = Path(s)
+    if p.is_absolute():
+        return p
+    if len(p.parts) == 1:
+        return BASE_DIR / "data" / "imports" / "raw" / p
+    return p
+
+
 def relegation_split_active(league_slug: str) -> bool:
     """Upper/Lower league split is live once FHM imports expose tier league IDs.
 

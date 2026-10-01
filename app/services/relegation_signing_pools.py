@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import league_raw_import_dir
+from app.config import coerce_raw_import_dir, league_raw_import_path
 from app.models import Player, Prospect, Team
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.draft_hub_eligibility import (
@@ -54,7 +54,7 @@ class TransferListingExtra:
 
 def _raw_dir_for_league(league_slug: str) -> Path | None:
     try:
-        return league_raw_import_dir(league_slug)
+        return league_raw_import_path(league_slug)
     except Exception:
         return None
 
@@ -94,10 +94,13 @@ def _read_csv_rows(path: Path):
 
 def _rights_holder_map_from_csv(
     session: Session,
-    raw_dir: Path,
+    raw_dir: Path | str,
     main_ids: frozenset[int],
 ) -> dict[int, Team]:
-    path = raw_dir / "player_rights.csv"
+    raw_path = coerce_raw_import_dir(raw_dir)
+    if raw_path is None:
+        return {}
+    path = raw_path / "player_rights.csv"
     if not path.is_file():
         return {}
     teams = list(session.scalars(select(Team)).all())

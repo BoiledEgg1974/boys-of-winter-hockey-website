@@ -8,7 +8,12 @@ from pathlib import Path
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import BASE_DIR, LEAGUES, free_agents_exclude_nhl_bowl_drafted_max_age, league_raw_import_dir
+from app.config import (
+    BASE_DIR,
+    LEAGUES,
+    free_agents_exclude_nhl_bowl_drafted_max_age,
+    league_raw_import_path,
+)
 from app.models import Draft, DraftPick, Player, PlayerContract, Prospect, Team
 from app.services.draft_history import nhl_bowl_draft_clause
 
@@ -217,7 +222,7 @@ def _bowl_rights_player_ids_from_raw_dir(session: Session, raw_dir: Path) -> set
 
 def bowl_rights_player_ids_from_raw_exports_for_league(session: Session, league_slug: str) -> frozenset[int]:
     """Player ids with rights to a main BOWL team from this league's raw ``player_rights.csv``."""
-    raw_dir = BASE_DIR / "data" / "imports" / "raw" / league_raw_import_dir(league_slug)
+    raw_dir = league_raw_import_path(league_slug)
     return frozenset(_bowl_rights_player_ids_from_raw_dir(session, raw_dir))
 
 

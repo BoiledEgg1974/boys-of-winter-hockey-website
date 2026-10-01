@@ -7,14 +7,31 @@
     <p class="muted">Acquire players from external pro leagues (KHL, SHL, DEL, etc.) or from another BOWL GM’s roster (BLUP/BLOW). AI clubs are simulated; human-owned clubs approve on the site. Fair AI offers go to the league office for final approval.</p>
     <p class="muted">Compensation is <strong>cash and optional BOWL players only</strong> — draft picks cannot be included. PTA fees scale with the current salary cap / team budget ($95.5M reference).</p>
     <p class="muted">Your team: <strong>{{ my_team.full_display_name() if my_team else '—' }}</strong></p>
+    {% if admin_team_options %}
+    <p class="muted">League admin — choose the acquiring BOWL franchise before loading players or submitting.</p>
+    {% endif %}
   </header>
 
   <form id="transfer-tool-form" method="post" action="{{ url_for('site_gm.transfer_tool_submit') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if admin_team_id %}
+    <input type="hidden" name="admin_team_id" value="{{ admin_team_id }}">
+    {% endif %}
     <input type="hidden" name="external_league_fhm_id" id="external-league-id" value="">
     <input type="hidden" name="external_team_id" id="external-team-id" value="">
     <input type="hidden" name="player_id" id="player-id" value="">
     <input type="hidden" name="compensation_json" id="compensation-json" value="{}">
+
+    {% if admin_team_options %}
+    <label style="display:block;margin-bottom:0.75rem;">Acquiring BOWL team
+      <select id="admin-team-select">
+        <option value="">— Select team —</option>
+        {% for p in admin_team_options %}
+        <option value="{{ p.team_id }}" {% if admin_team_id and p.team_id == admin_team_id %}selected{% endif %}>{{ p.team_name }} ({{ p.gm_name }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
 
     <div class="transfer-tool-page__grid">
       <label>External league
@@ -78,6 +95,8 @@
   var teamsUrl = {{ url_for('site_gm.transfer_tool_teams')|tojson }};
   var assetsUrl = {{ url_for('site_gm.transfer_tool_assets')|tojson }};
   var previewUrl = {{ url_for('site_gm.transfer_tool_preview')|tojson }};
+  var adminTeamSel = document.getElementById('admin-team-select');
+  var adminTeamId = {{ admin_team_id|tojson }};
   var leagueSelect = document.getElementById('league-select');
   var teamSelect = document.getElementById('team-select');
   var playerSelect = document.getElementById('player-select');
@@ -93,6 +112,11 @@
   var submitBtn = document.getElementById('submit-transfer');
   var selectedPlayers = [];
   var selectedTeamHumanGm = false;
+
+  function adminTeamQuery() {
+    if (!adminTeamId) return '';
+    return '&admin_team_id=' + encodeURIComponent(String(adminTeamId));
+  }
 
   function updateSubmitLabel() {
     if (!submitBtn.disabled) {
@@ -138,6 +162,15 @@
     });
   }
 
+  if (adminTeamSel) {
+    adminTeamSel.addEventListener('change', function () {
+      var url = new URL(window.location.href);
+      if (adminTeamSel.value) url.searchParams.set('admin_team_id', adminTeamSel.value);
+      else url.searchParams.delete('admin_team_id');
+      window.location.href = url.toString();
+    });
+  }
+
   leagueSelect.addEventListener('change', function () {
     var lid = leagueSelect.value;
     leagueHidden.value = lid;
@@ -174,7 +207,7 @@
     sweetenerPanel.hidden = true;
     submitBtn.disabled = true;
     if (!tid) return;
-    fetch(assetsUrl + '?external_team_id=' + encodeURIComponent(tid))
+    fetch(assetsUrl + '?external_team_id=' + encodeURIComponent(tid) + adminTeamQuery())
       .then(function (r) { return r.json(); })
       .then(function (data) {
         (data.external_roster || []).forEach(function (p) {
@@ -202,7 +235,7 @@
       submitBtn.disabled = true;
       return;
     }
-    fetch(previewUrl + '?external_team_id=' + encodeURIComponent(tid) + '&player_id=' + encodeURIComponent(pid))
+    fetch(previewUrl + '?external_team_id=' + encodeURIComponent(tid) + '&player_id=' + encodeURIComponent(pid) + adminTeamQuery())
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var req = data.required_pta_fee_usd || 0;

@@ -2338,7 +2338,19 @@ def trade_log_ai_take():
 def _transfer_page_allowed(mem=None) -> bool:
     if not is_transfer_tool_league(_league_slug()):
         return False
-    return mem is not None
+    return mem is not None or _is_site_admin()
+
+
+def _transfer_bowl_team_id(mem=None) -> int | None:
+    """Acquiring BOWL franchise: GM membership or admin admin_team_id query/form."""
+    if mem is not None:
+        return int(mem.team_id)
+    if _is_site_admin():
+        tid = request.args.get("admin_team_id", type=int) or request.form.get(
+            "admin_team_id", type=int
+        )
+        return int(tid) if tid and tid > 0 else None
+    return None
 
 
 @site_admin_bp.route("/transfer-budgets", methods=["GET", "POST"])
@@ -2414,21 +2426,29 @@ def transfer_tool_page():
     if not _transfer_page_allowed(mem):
         flash("Cross-league transfers require an active BOWL GM membership.", "err")
         return redirect(url_for("main.home"))
-    my_team = db.session.get(Team, int(mem.team_id))
+    bowl_team_id = _transfer_bowl_team_id(mem)
+    my_team = db.session.get(Team, int(bowl_team_id)) if bowl_team_id else None
+    admin_team_options: list[dict[str, object]] = []
+    admin_team_id = None
+    if mem is None and _is_site_admin():
+        admin_team_options = _trade_team_options()
+        admin_team_id = bowl_team_id
     cfg = load_transfer_rules_config(slug)
     external_leagues = list_external_leagues(db.session, slug)
+    recent_clauses = [GmTransferProposal.proposer_user_id == int(current_user.id)]
+    if bowl_team_id:
+        recent_clauses.append(
+            and_(
+                GmTransferProposal.external_team_id == int(bowl_team_id),
+                GmTransferProposal.status == TRANSFER_STATUS_PENDING_PARTNER,
+            )
+        )
     recent = list(
         db.session.scalars(
             select(GmTransferProposal)
             .where(
                 GmTransferProposal.league_slug == slug,
-                or_(
-                    GmTransferProposal.proposer_user_id == int(current_user.id),
-                    and_(
-                        GmTransferProposal.external_team_id == int(mem.team_id),
-                        GmTransferProposal.status == TRANSFER_STATUS_PENDING_PARTNER,
-                    ),
-                ),
+                or_(*recent_clauses),
             )
             .order_by(GmTransferProposal.created_at.desc())
             .limit(15)
@@ -2438,6 +2458,8 @@ def transfer_tool_page():
         "transfer_tool.html",
         membership=mem,
         my_team=my_team,
+        admin_team_options=admin_team_options,
+        admin_team_id=admin_team_id,
         external_leagues=external_leagues,
         rules_config=cfg,
         recent_proposals=recent,
@@ -2473,6 +2495,9 @@ def transfer_tool_assets():
     mem = _membership()
     if not _transfer_page_allowed(mem):
         abort(404)
+    bowl_team_id = _transfer_bowl_team_id(mem)
+    if bowl_team_id is None:
+        return jsonify({"error": "admin_team_id required"}), 400
     external_team_id = request.args.get("external_team_id", type=int)
     if not external_team_id:
         return jsonify({"error": "external_team_id required"}), 400
@@ -2481,7 +2506,7 @@ def transfer_tool_assets():
     sweeteners = bowl_sweetener_assets(
         db.session,
         db.session,
-        team_id=int(mem.team_id),
+        team_id=int(bowl_team_id),
         league_slug=slug,
         raw_dir=raw_dir,
     )
@@ -2508,6 +2533,9 @@ def transfer_tool_preview():
     mem = _membership()
     if not _transfer_page_allowed(mem):
         abort(404)
+    bowl_team_id = _transfer_bowl_team_id(mem)
+    if bowl_team_id is None:
+        return jsonify({"error": "admin_team_id required"}), 400
     external_team_id = request.args.get("external_team_id", type=int)
     player_id = request.args.get("player_id", type=int)
     if not external_team_id or not player_id:
@@ -2518,7 +2546,7 @@ def transfer_tool_preview():
         external_team_id=int(external_team_id),
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
-        bowl_team_id=int(mem.team_id),
+        bowl_team_id=int(bowl_team_id),
     )
     return jsonify(preview)
 
@@ -2530,6 +2558,15 @@ def transfer_tool_submit():
     mem = _membership()
     if not _transfer_page_allowed(mem):
         abort(404)
+    bowl_team_id = _transfer_bowl_team_id(mem)
+    transfer_page_url = url_for("site_gm.transfer_tool_page")
+    if bowl_team_id is None:
+        flash("Select the acquiring BOWL team before submitting.", "err")
+        return redirect(transfer_page_url)
+    if mem is None and _is_site_admin():
+        transfer_page_url = url_for(
+            "site_gm.transfer_tool_page", admin_team_id=int(bowl_team_id)
+        )
     external_team_id = request.form.get("external_team_id", type=int)
     external_league_fhm_id = request.form.get("external_league_fhm_id", type=int)
     player_id = request.form.get("player_id", type=int)
@@ -2538,7 +2575,7 @@ def transfer_tool_submit():
     compensation = parse_compensation_payload(compensation_raw)
     if not external_team_id or not external_league_fhm_id or not player_id:
         flash("Select external league, team, and player.", "err")
-        return redirect(url_for("site_gm.transfer_tool_page"))
+        return redirect(transfer_page_url)
     player_ids = [int(player_id)]
     preview = preview_transfer_fees(
         db.session,
@@ -2546,7 +2583,7 @@ def transfer_tool_submit():
         external_team_id=int(external_team_id),
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
-        bowl_team_id=int(mem.team_id),
+        bowl_team_id=int(bowl_team_id),
     )
     required_pta = int(preview.get("required_pta_fee_usd") or 0)
     compensation.setdefault("pta_transfer_fee", required_pta)
@@ -2555,7 +2592,7 @@ def transfer_tool_submit():
         db.session,
         league_slug=slug,
         proposer_user_id=int(current_user.id),
-        bowl_team_id=int(mem.team_id),
+        bowl_team_id=int(bowl_team_id),
         external_team_id=int(external_team_id),
         external_league_fhm_id=int(external_league_fhm_id),
         player_ids=player_ids,
@@ -2566,7 +2603,7 @@ def transfer_tool_submit():
     )
     if err or prop is None:
         flash(err or "Could not submit transfer.", "err")
-        return redirect(url_for("site_gm.transfer_tool_page"))
+        return redirect(transfer_page_url)
     if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
         summary = format_transfer_summary(db.session, prop)
         notify_transfer_proposal_commissioners(

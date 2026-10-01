@@ -234,7 +234,7 @@ def page_cover(c: Canvas) -> None:
     c.drawString(LEFT + 14, y - 22, "At a glance")
     wrapped_text(
         c,
-        "Bottom 2 in Upper relegated  ·  Top 2 in Lower promoted  ·  Combined / Upper / Lower tabs on the site  ·  "
+        "Bottom 2 in Upper relegated  ·  BLOW RS leader + playoff champion promoted  ·  Combined / Upper / Lower tabs on the site  ·  "
         "Signing: Prospects, Signable (18–20), Overseas Transfers, Free Agents  ·  AI transfers via Transfer Tool; "
         "human BLUP/BLOW sales via Transfer Tool (partner approval).",
         LEFT + 14,
@@ -271,7 +271,7 @@ def page_structure(c: Canvas) -> None:
         [
             ("Tier", "Role"),
             ("Upper (BLUP)", "Top division — relegation risk at the bottom"),
-            ("Lower (BLOW)", "Second division — promotion chase at the top"),
+            ("Lower (BLOW)", "Second division — regular-season title and playoff run"),
         ],
     )
     y -= 4
@@ -334,8 +334,8 @@ def page_movement(c: Canvas) -> None:
     y -= 8
     for item in (
         "Relegation: the bottom two teams in the Upper tier move down to the Lower tier.",
-        "Promotion: the top two teams in the Lower tier move up to the Upper tier.",
-        "During the season, open Promotion / Relegation in the main nav for relegation danger and promotion zone watch lists.",
+        "Promotion: the BLOW playoff champion and the best regular-season BLOW team move up to BLUP (two spots, not simply the top two in the standings).",
+        "During the season, open Promotion / Relegation in the main nav for relegation danger and Lower-tier promotion watch (RS leader and playoff champion).",
         "Combined standings show U / L badges for each club’s current tier.",
     ):
         y = bullet(c, item, LEFT, y, CONTENT_W)
@@ -462,7 +462,7 @@ def page_tools(c: Canvas) -> None:
     c.drawString(LEFT, y, "Season checklist")
     y -= 16
     steps = (
-        "Know your tier (U / L) and whether you are in relegation danger or the promotion zone.",
+        "Know your tier (U / L) and whether you are in relegation danger or chasing BLOW promotion (RS lead and/or the playoff title).",
         "Plan adds through Prospects, Signable, Overseas, and Free Agents — not the entry draft.",
         "Use the Transfer Tool for AI clubs and human BLUP/BLOW sellers; use commissioner trades for balanced multi-asset deals.",
         "After the office publishes a move, execute it in FHM before expecting the site to match.",

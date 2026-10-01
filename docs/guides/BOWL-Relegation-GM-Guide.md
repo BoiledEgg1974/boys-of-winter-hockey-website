@@ -14,7 +14,7 @@ In Franchise Hockey Manager you will see two main tiers:
 | Tier | Typical FHM label | Role |
 |------|-------------------|------|
 | **Upper** | BLUP (BOWL Upper) | Top division — relegation risk at the bottom of the table |
-| **Lower** | BLOW (BOWL Lower) | Second division — promotion chase at the top |
+| **Lower** | BLOW (BOWL Lower) | Second division — regular-season title and playoff run |
 
 On the website, use the **Combined / Upper / Lower** tabs on standings, stats, and records to switch views. **Combined** is the full league picture; **Upper** and **Lower** are the tables that drive movement.
 
@@ -25,9 +25,9 @@ On the website, use the **Combined / Upper / Lower** tabs on standings, stats, a
 Movement is decided **after the season playoffs**, not mid-season.
 
 - **Relegation:** The **bottom two** teams in the **Upper** tier move down to the **Lower** tier.
-- **Promotion:** The **top two** teams in the **Lower** tier move up to the **Upper** tier.
+- **Promotion:** The **BLOW playoff champion** and the **best regular-season BLOW** team move up to the **Upper** tier (two spots, not simply the top two in the standings).
 
-During the season, open **Promotion / Relegation** in the main nav for a live watch list (relegation danger in the Upper table, promotion zone in the Lower table). Standings badges (**U** / **L**) on combined views show each club’s current tier.
+During the season, open **Promotion / Relegation** in the main nav for a live watch list (relegation danger in the Upper table; Lower table tracks the RS leader and BLOW playoff champion). Standings badges (**U** / **L**) on combined views show each club’s current tier.
 
 **Why it matters (real pro/rel dynamics):** Unlike a draft that sends young talent to weak teams, relegation mostly **does not** redistribute stars for you. Dropping a tier usually means **tighter budgets, harder retention, and a longer climb back**—so academy signings, smart transfers, and roster planning matter more. That tension is intentional: the story is in the table, not in lottery odds.
 
@@ -87,7 +87,7 @@ Cross-league transfers are **one player in** per proposal, **cash plus up to two
 
 ## Season checklist for GMs
 
-1. Know your tier (**U** / **L**) and whether you are in **relegation danger** or the **promotion zone**.
+1. Know your tier (**U** / **L**) and whether you are in **relegation danger** or chasing **BLOW promotion** (RS lead and/or the playoff title).
 2. Plan roster moves through **Prospects / Signable / Overseas / Free Agents**, not the entry draft.
 3. Use the **Transfer Tool** for AI clubs; use **trades** for human partners.
 4. After the office **publishes** a move, execute it in FHM and wait for the import before expecting the site to match.

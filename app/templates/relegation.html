@@ -26,7 +26,7 @@
   <h2>How movement works</h2>
   <ul>
     <li><strong>Relegation:</strong> Bottom 2 in the {{ tier_config.upper_label }} move down to the {{ tier_config.lower_label }} after playoffs.</li>
-    <li><strong>Promotion:</strong> Top 2 in the {{ tier_config.lower_label }} move up to the {{ tier_config.upper_label }} after playoffs.</li>
+    <li><strong>Promotion:</strong> The {{ tier_config.lower_label }} playoff champion and the best regular-season {{ tier_config.lower_label }} team move up to the {{ tier_config.upper_label }} after playoffs.</li>
     <li><strong>Combined stats:</strong> Player pool, draft, and all-time records stay league-wide.</li>
   </ul>
 </section>
@@ -69,7 +69,7 @@
 
   <section class="card relegation-card relegation-card--lower">
     <h2>{{ tier_config.lower_label }}</h2>
-    <p class="muted">Promotion watch — top 2</p>
+    <p class="muted">Promotion watch — RS leader &amp; playoff champion</p>
     {% if movement_watch.promotion_watch is mapping %}
     {% set promo_rows = [movement_watch.promotion_watch] %}
     {% else %}

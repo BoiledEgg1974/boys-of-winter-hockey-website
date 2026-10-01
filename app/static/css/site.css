@@ -7151,6 +7151,40 @@ table.data.ap-teams-table td:nth-child(2) {
   word-break: break-word;
 }
 
+/* Admin manual AP — tier sections (BLUP / BLOW / other on relegation) */
+.ap-admin-balance-section {
+  margin-top: 1.35rem;
+  padding-top: 0.35rem;
+}
+.ap-admin-balance-section:first-of-type {
+  margin-top: 0.5rem;
+}
+.ap-admin-balance-section__title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+.ap-admin-balance-section__meta {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.ap-admin-balance-section--upper {
+  padding-left: 0.65rem;
+  border-left: 3px solid var(--accent, #005da6);
+}
+.ap-admin-balance-section--lower {
+  padding-left: 0.65rem;
+  border-left: 3px solid #64748b;
+}
+.ap-admin-balance-section--other {
+  padding-left: 0.65rem;
+  border-left: 3px solid rgb(148 163 184 / 0.45);
+}
+
 /* Admin manual AP — two panes (team | balance each); stacks on narrow viewports */
 .ap-admin-balance-split {
   display: grid;

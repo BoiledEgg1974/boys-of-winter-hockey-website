@@ -84,12 +84,15 @@ class RelegationMovementWatchTests(unittest.TestCase):
         ]
         session.scalars.return_value.all.return_value = upper_rows + lower_rows
         with patch("app.services.relegation._count_remaining_rs_games", return_value=0):
-            with patch("app.services.relegation._lower_playoff_leader", return_value=lower_rows[0]):
+            with patch("app.services.relegation._lower_playoff_leader", return_value=lower_rows[1]):
                 movement = build_movement_watch(session, 1, config)
         self.assertEqual(len(movement["relegation_danger"]), MOVEMENT_TEAMS)
         self.assertEqual(len(movement["promotion_watch"]), MOVEMENT_TEAMS)
         self.assertEqual(movement["relegation_danger"][0]["rank"], 3)
         self.assertEqual(movement["promotion_watch"][0]["rank"], 1)
+        self.assertEqual(movement["promotion_watch"][0]["note"], "Best regular season")
+        self.assertEqual(movement["promotion_watch"][1]["rank"], 2)
+        self.assertIn("playoff champion", str(movement["promotion_watch"][1]["note"]))
 
 
 class InjuryImportTests(unittest.TestCase):

@@ -5,9 +5,11 @@ import json
 import secrets
 from datetime import date, datetime
 from math import ceil
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import and_, func, select
+from sqlalchemy.orm import Session
 
 from app.config import league_group_for_slug
 from app.league_db import db
@@ -134,6 +136,103 @@ def team_ap_balance(league_slug: str, team_id: int) -> int:
             )
         )
     return int(total or 0)
+
+
+@dataclass(frozen=True)
+class ApLedgerBalanceSection:
+    """Grouped team balances for admin Manual AP (e.g. BLUP / BLOW / other)."""
+
+    key: str
+    title: str
+    rows: tuple[dict[str, Any], ...]
+    total_balance: int
+
+
+def _sort_ap_ledger_team_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(rows, key=lambda r: ((r["team"].name or "").lower(), int(r["team"].id)))
+
+
+def ap_ledger_balance_sections(
+    session: Session,
+    league_slug: str,
+    team_rows: list[dict[str, Any]],
+) -> list[ApLedgerBalanceSection]:
+    """Split balance rows for BOWL-Relegation tier tracking; one section elsewhere."""
+    slug = (league_slug or "").strip()
+    rows = list(team_rows)
+
+    def _section(key: str, title: str, subset: list[dict[str, Any]]) -> ApLedgerBalanceSection:
+        ordered = _sort_ap_ledger_team_rows(subset)
+        total = sum(int(r.get("balance") or 0) for r in ordered)
+        return ApLedgerBalanceSection(
+            key=key,
+            title=title,
+            rows=tuple(ordered),
+            total_balance=total,
+        )
+
+    if slug == "bowl-fantasy":
+        from pathlib import Path
+
+        from flask import current_app
+
+        from app.services.relegation import (
+            get_tier_config,
+            relegation_features_enabled,
+            team_tier,
+        )
+
+        if relegation_features_enabled(slug):
+            try:
+                raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR") or ""))
+                cfg = get_tier_config(session, raw_import_dir=raw_dir)
+            except Exception:
+                cfg = None
+            if cfg is not None:
+                upper: list[dict[str, Any]] = []
+                lower: list[dict[str, Any]] = []
+                other: list[dict[str, Any]] = []
+                for row in rows:
+                    team = row.get("team")
+                    tier = team_tier(team, cfg) if team is not None else None
+                    if tier == "upper":
+                        upper.append(row)
+                    elif tier == "lower":
+                        lower.append(row)
+                    else:
+                        other.append(row)
+                sections: list[ApLedgerBalanceSection] = []
+                if upper:
+                    sections.append(_section("upper", cfg.upper_label, upper))
+                if lower:
+                    sections.append(_section("lower", cfg.lower_label, lower))
+                if other:
+                    sections.append(_section("other", "Other teams", other))
+                if sections:
+                    return sections
+
+    return [_section("all", "All teams", rows)]
+
+
+def ap_ledger_team_select_sections(
+    session: Session,
+    league_slug: str,
+    teams: list[Team],
+) -> list[ApLedgerBalanceSection]:
+    """Team pickers grouped like balance sections (teams only, no balances)."""
+    rows = [{"team": t, "balance": 0} for t in teams]
+    sections = ap_ledger_balance_sections(session, league_slug, rows)
+    out: list[ApLedgerBalanceSection] = []
+    for sec in sections:
+        out.append(
+            ApLedgerBalanceSection(
+                key=sec.key,
+                title=sec.title,
+                rows=sec.rows,
+                total_balance=0,
+            )
+        )
+    return out
 
 
 def add_ledger_entry(

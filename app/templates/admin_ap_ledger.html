@@ -25,48 +25,16 @@
 
   <h2 class="page-title" style="font-size:1.05rem;margin-top:1.5rem;">All Team Balances</h2>
   <p class="muted" style="font-size:0.9rem;">Use the form below to add or remove AP (negative delta). Balances update from the ledger.</p>
-  {% set n_teams = team_rows|length %}
-  {% set mid = ((n_teams + 1) // 2) if n_teams else 0 %}
-  <div class="ap-admin-balance-split" aria-label="All team AP balances">
-    <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
-      <div class="ap-admin-balance-grid__head">Team</div>
-      <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
-      {% for row in team_rows[:mid] %}
-      {% set t = row.team %}
-      <div class="ap-admin-balance-grid__team">
-        <span class="ap-admin-balance-grid__team-inner">
-          {% if team_logo_url(t) %}
-          <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28">
-          {% else %}
-          <span class="ap-admin-balance-grid__logo-ph" aria-hidden="true"></span>
-          {% endif %}
-          <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
-        </span>
-      </div>
-      <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
-      {% endfor %}
-    </div>
-    {% if team_rows[mid:] %}
-    <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
-      <div class="ap-admin-balance-grid__head">Team</div>
-      <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
-      {% for row in team_rows[mid:] %}
-      {% set t = row.team %}
-      <div class="ap-admin-balance-grid__team">
-        <span class="ap-admin-balance-grid__team-inner">
-          {% if team_logo_url(t) %}
-          <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url(t) }}" alt="" width="28" height="28">
-          {% else %}
-          <span class="ap-admin-balance-grid__logo-ph" aria-hidden="true"></span>
-          {% endif %}
-          <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
-        </span>
-      </div>
-      <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
+  {% for section in ap_ledger_balance_sections %}
+  <section class="ap-admin-balance-section ap-admin-balance-section--{{ section.key }}">
+    <h3 class="ap-admin-balance-section__title">
+      {{ section.title }}
+      <span class="ap-admin-balance-section__meta muted">{{ section.rows|length }} team{% if section.rows|length != 1 %}s{% endif %} · {{ section.total_balance }} AP total</span>
+    </h3>
+    {% set balance_rows = section.rows %}
+    {% include '_ap_ledger_balance_grid.html' %}
+  </section>
+  {% endfor %}
 
   {% include '_ap_ledger_history.html' %}
 
@@ -78,9 +46,20 @@
     {% if ledger_page > 1 %}<input type="hidden" name="ledger_page" value="{{ ledger_page }}">{% endif %}
     <label>Team<br>
       <select name="team_id" required>
+        {% if ap_ledger_team_sections|length > 1 %}
+        {% for section in ap_ledger_team_sections %}
+        <optgroup label="{{ section.title }}">
+          {% for row in section.rows %}
+          {% set t = row.team %}
+          <option value="{{ t.id }}"{% if ledger_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+        {% else %}
         {% for t in teams %}
         <option value="{{ t.id }}"{% if ledger_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
         {% endfor %}
+        {% endif %}
       </select>
     </label>
     <label style="display:block;margin-top:0.75rem;">Delta (negative to deduct)<br><input type="number" name="delta" required></label>

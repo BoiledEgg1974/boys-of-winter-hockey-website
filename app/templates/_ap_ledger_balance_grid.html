@@ -1,0 +1,35 @@
+{# Expects: balance_rows (list of {team, balance}), ap_ledger_season optional #}
+{% set n_teams = balance_rows|length %}
+{% set mid = ((n_teams + 1) // 2) if n_teams else 0 %}
+<div class="ap-admin-balance-split" aria-label="Team AP balances">
+  <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
+    <div class="ap-admin-balance-grid__head">Team</div>
+    <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
+    {% for row in balance_rows[:mid] %}
+    {% set t = row.team %}
+    <div class="ap-admin-balance-grid__team">
+      <span class="ap-admin-balance-grid__team-inner">
+        <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url_for_season_context(t, ap_ledger_season) }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+        <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
+      </span>
+    </div>
+    <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
+    {% endfor %}
+  </div>
+  {% if balance_rows[mid:] %}
+  <div class="ap-admin-balance-grid ap-admin-balance-grid--pane">
+    <div class="ap-admin-balance-grid__head">Team</div>
+    <div class="ap-admin-balance-grid__head ap-admin-balance-grid__head--bal">AP Balance</div>
+    {% for row in balance_rows[mid:] %}
+    {% set t = row.team %}
+    <div class="ap-admin-balance-grid__team">
+      <span class="ap-admin-balance-grid__team-inner">
+        <img class="ap-admin-balance-grid__logo" src="{{ team_logo_url_for_season_context(t, ap_ledger_season) }}" alt="" width="28" height="28" loading="lazy" decoding="async">
+        <a href="{{ url_for('main.team_page', slug=t.slug) }}">{{ t.full_display_name() }}</a>
+      </span>
+    </div>
+    <div class="ap-admin-balance-grid__bal">{{ row.balance }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

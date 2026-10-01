@@ -9090,13 +9090,24 @@ def admin_ap_ledger():
             flash("Ledger entry added.", "ok")
         return _redirect_admin_ap_ledger()
     _sync_achievement_ap_ledger(slug)
+    from app.services.ap_service import (
+        ap_ledger_balance_sections as build_ap_ledger_balance_sections,
+        ap_ledger_team_select_sections,
+    )
+    from app.services.seasons import get_current_season
+
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
     team_rows = [{"team": t, "balance": team_ap_balance(slug, t.id)} for t in teams]
-    team_rows.sort(key=lambda r: (r["team"].name or "").lower())
+    ap_ledger_balance_sections = build_ap_ledger_balance_sections(db.session, slug, team_rows)
+    ap_ledger_team_sections = ap_ledger_team_select_sections(db.session, slug, teams)
+    ap_ledger_season = get_current_season(db.session)
     return render_template(
         "admin_ap_ledger.html",
         teams=teams,
         team_rows=team_rows,
+        ap_ledger_balance_sections=ap_ledger_balance_sections,
+        ap_ledger_team_sections=ap_ledger_team_sections,
+        ap_ledger_season=ap_ledger_season,
         today_iso=datetime.utcnow().date().isoformat(),
         **_ap_ledger_template_context(
             slug,

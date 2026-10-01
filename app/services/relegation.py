@@ -370,8 +370,8 @@ def scope_explanation(scope: RelegationScope, config: RelegationTierConfig) -> s
             "after the season playoffs."
         )
     return (
-        f"{config.lower_label} only. The playoff champion is promoted to the Upper League "
-        "after the season playoffs."
+        f"{config.lower_label} only. The playoff champion and the best regular-season team "
+        "are promoted to the Upper League after the season playoffs."
     )
 
 
@@ -415,7 +415,7 @@ def _lower_playoff_leader(
         and team_matches_scope(g.away_team, "lower", config)
     ]
     if not lower_playoff:
-        return lower_rows[0] if lower_rows else None
+        return None
 
     wins: dict[int, int] = {}
     for g in lower_playoff:
@@ -428,12 +428,12 @@ def _lower_playoff_leader(
         elif g.away_score > g.home_score:
             wins[g.away_team_id] = wins.get(g.away_team_id, 0) + 1
     if not wins:
-        return lower_rows[0] if lower_rows else None
+        return None
     leader_id = max(wins.items(), key=lambda kv: kv[1])[0]
     for st in lower_rows:
         if st.team_id == leader_id:
             return st
-    return lower_rows[0] if lower_rows else None
+    return None
 
 
 def build_movement_watch(
@@ -486,17 +486,29 @@ def build_movement_watch(
             )
 
     promotion_watch: list[dict[str, object]] = []
-    for st in lower_rows[:MOVEMENT_TEAMS]:
+    seen_promo_team_ids: set[int] = set()
+
+    def _promo_row(st: TeamStanding, note: str) -> None:
         if not st.team:
-            continue
+            return
+        tid = int(st.team_id)
+        if tid in seen_promo_team_ids:
+            return
+        seen_promo_team_ids.add(tid)
         promotion_watch.append(
             {
                 "team": st.team,
                 "points": int(st.pts or 0),
                 "rank": lower_rows.index(st) + 1,
-                "note": "Promotion zone (RS standings)",
+                "note": note,
             }
         )
+
+    if lower_rows:
+        _promo_row(lower_rows[0], "Best regular season")
+    champion_st = _lower_playoff_leader(session, season_id, lower_rows, config)
+    if champion_st is not None:
+        _promo_row(champion_st, f"{config.lower_label} playoff champion")
 
     def _mini(st: TeamStanding) -> dict[str, object]:
         return {
@@ -608,7 +620,10 @@ def build_relegation_overview_payload(
         "movement_watch": movement,
         "rules": {
             "relegation": f"Bottom {MOVEMENT_TEAMS} in the Upper League move down after playoffs.",
-            "promotion": f"Top {MOVEMENT_TEAMS} in the Lower League move up after playoffs.",
+            "promotion": (
+                f"The {config.lower_label} playoff champion and the best regular-season "
+                f"{config.lower_label} team move up after playoffs."
+            ),
         },
     }
     if logo_url_fn is not None:

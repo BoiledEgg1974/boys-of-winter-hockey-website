@@ -345,10 +345,7 @@ def seed_ap_catalog_if_empty() -> None:
             (0, "Change a Rival", "Relegation league — adjust rival.", 5),
             (1, "Change Goal Horn", "Customize goal horn.", 10),
             (2, "Change Jersey / Logo", "Visual identity update.", 10),
-            (3, "Supplemental Staff", "+1 Supplemental Staff Hiring above the free signing per sim", 15),
-            (4, "Financial Boost", "Stackable", 15),
-            (5, "Development / Market Package", "League-approved attribute or market tweak.", 30),
-            (6, "Major Customization", "Premium Relegation perk — confirm with commissioner.", 55),
+            (3, "Financial Boost", "Stackable", 15),
         ]
         for order, title, desc, cost in fantasy_rows:
             db.session.add(
@@ -404,6 +401,25 @@ _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
     (16, _PERSUASION_CATALOG_TITLE, _PERSUASION_CATALOG_DESCRIPTION, _PERSUASION_CATALOG_COST_AP),
 )
 
+# Legacy Relegation seed titles superseded by canonical catalog rows (kept inactive on reconcile).
+_FANTASY_LEGACY_CATALOG_TITLES: frozenset[str] = frozenset(
+    {
+        "Supplemental Staff",
+        "Development / Market Package",
+        "Major Customization",
+    }
+)
+
+
+def _retire_legacy_fantasy_catalog_entries(by_title: dict[str, ApRedemptionCatalog]) -> bool:
+    changed = False
+    for title in _FANTASY_LEGACY_CATALOG_TITLES:
+        row = by_title.get(_normalize_catalog_title(title))
+        if row is not None and row.is_active:
+            row.is_active = False
+            changed = True
+    return changed
+
 
 def _reconcile_catalog_defaults_for_group(
     league_group: str,
@@ -447,16 +463,11 @@ def _reconcile_fantasy_ap_catalog() -> None:
         ).all()
     )
     by_title = {_normalize_catalog_title(r.title): r for r in existing}
-    changed = False
-    legacy_descriptions = {
-        "change a rival": "Relegation league — adjust rival.",
-        "major customization": "Premium Relegation perk — confirm with commissioner.",
-    }
-    for key, desc in legacy_descriptions.items():
-        row = by_title.get(key)
-        if row is not None and row.description != desc:
-            row.description = desc
-            changed = True
+    changed = _retire_legacy_fantasy_catalog_entries(by_title)
+    row = by_title.get(_normalize_catalog_title("Change a Rival"))
+    if row is not None and row.description != "Relegation league — adjust rival.":
+        row.description = "Relegation league — adjust rival."
+        changed = True
     for order, title, desc, cost in _FANTASY_CATALOG_DEFAULTS:
         key = _normalize_catalog_title(title)
         row = by_title.get(key)

@@ -1,0 +1,28 @@
+{% if team_transfer_budget %}
+<section class="card team-transfer-budget" aria-labelledby="team-transfer-budget-heading" style="margin-bottom:1rem;">
+  <h2 id="team-transfer-budget-heading" class="page-title" style="font-size:1.15rem;margin:0 0 0.35rem;">Cross-league transfer room</h2>
+  <p class="muted" style="margin:0 0 0.75rem;">Cap room vs league transfer wallet (published PTA and cash reduce the wallet).</p>
+  <dl class="team-transfer-budget__grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:0.5rem 1rem;margin:0;">
+    <div>
+      <dt class="muted" style="font-size:0.85rem;">Cap room</dt>
+      <dd style="margin:0;font-weight:600;">{% if team_transfer_budget.cap_room_usd is not none %}${{ '{:,}'.format(team_transfer_budget.cap_room_usd) }}{% else %}—{% endif %}</dd>
+    </div>
+    <div>
+      <dt class="muted" style="font-size:0.85rem;">Transfer wallet</dt>
+      <dd style="margin:0;font-weight:600;">{% if team_transfer_budget.transfer_cash_override_usd is not none %}${{ '{:,}'.format(team_transfer_budget.transfer_cash_override_usd) }}{% else %}<span class="muted">Cap room only</span>{% endif %}</dd>
+    </div>
+    <div>
+      <dt class="muted" style="font-size:0.85rem;">Spent (published)</dt>
+      <dd style="margin:0;font-weight:600;">${{ '{:,}'.format(team_transfer_budget.transfer_spent_usd or 0) }}</dd>
+    </div>
+    <div>
+      <dt class="muted" style="font-size:0.85rem;">Wallet remaining</dt>
+      <dd style="margin:0;font-weight:600;">{% if team_transfer_budget.transfer_wallet_remaining_usd is not none %}${{ '{:,}'.format(team_transfer_budget.transfer_wallet_remaining_usd) }}{% else %}—{% endif %}</dd>
+    </div>
+    <div>
+      <dt class="muted" style="font-size:0.85rem;">Effective room</dt>
+      <dd style="margin:0;font-weight:600;">{% if team_transfer_budget.remaining_budget_usd is not none %}${{ '{:,}'.format(team_transfer_budget.remaining_budget_usd) }}{% else %}—{% endif %}</dd>
+    </div>
+  </dl>
+</section>
+{% endif %}

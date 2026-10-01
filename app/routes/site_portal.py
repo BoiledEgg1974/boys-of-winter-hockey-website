@@ -2391,21 +2391,31 @@ def admin_transfer_budgets():
             db.session.commit()
             flash("Transfer budget saved.", "ok")
         return redirect(url_for("site_admin.admin_transfer_budgets"))
+    from app.services.transfer_rules import transfer_published_spend_by_team
+
     overrides = {
         int(r.team_id): r
         for r in db.session.scalars(
             select(TeamTransferBudgetOverride).where(TeamTransferBudgetOverride.league_slug == slug)
         ).all()
     }
+    spent_by_team = transfer_published_spend_by_team(slug)
     rows = []
     for team in teams:
         if not is_main_league_team(team, session=db.session):
             continue
         ov = overrides.get(int(team.id))
+        override_usd = int(ov.transfer_cash_usd) if ov else None
+        spent_usd = int(spent_by_team.get(int(team.id), 0))
+        wallet_remaining = (
+            max(0, int(override_usd) - spent_usd) if override_usd is not None else None
+        )
         rows.append(
             {
                 "team": team,
-                "override_usd": int(ov.transfer_cash_usd) if ov else None,
+                "override_usd": override_usd,
+                "spent_usd": spent_usd,
+                "wallet_remaining_usd": wallet_remaining,
                 "notes": (ov.notes or "") if ov else "",
             }
         )

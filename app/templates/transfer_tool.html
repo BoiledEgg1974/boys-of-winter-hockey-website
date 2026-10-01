@@ -248,7 +248,13 @@
           lines.push('Your remaining budget: $' + Number(budget.remaining_budget_usd).toLocaleString());
         }
         if (budget.transfer_cash_override_usd != null) {
-          lines.push('League office transfer cash cap: $' + Number(budget.transfer_cash_override_usd).toLocaleString());
+          lines.push('League office transfer wallet: $' + Number(budget.transfer_cash_override_usd).toLocaleString());
+        }
+        if (budget.transfer_spent_usd != null && budget.transfer_cash_override_usd != null) {
+          lines.push('Published transfer spend: $' + Number(budget.transfer_spent_usd).toLocaleString());
+        }
+        if (budget.transfer_wallet_remaining_usd != null) {
+          lines.push('Wallet remaining: $' + Number(budget.transfer_wallet_remaining_usd).toLocaleString());
         }
         if (budget.roster_payroll_usd != null && budget.salary_cap_usd) {
           lines.push('Roster payroll: $' + Number(budget.roster_payroll_usd).toLocaleString());
@@ -270,7 +276,19 @@
 
   ptaInput.addEventListener('input', syncCompensation);
   cashInput.addEventListener('input', syncCompensation);
-  document.getElementById('transfer-tool-form').addEventListener('submit', syncCompensation);
+  document.getElementById('transfer-tool-form').addEventListener('submit', function (e) {
+    syncCompensation();
+    if (submitBtn.disabled) {
+      e.preventDefault();
+      return;
+    }
+    var msg = selectedTeamHumanGm
+      ? 'Submit this offer to the selling GM? If they accept, it is forwarded to the league office for commissioner approval before it becomes official.'
+      : 'Submit this offer for external club review? If the club accepts, your request goes to the league office for commissioner approval before it becomes official.';
+    if (!window.confirm(msg)) {
+      e.preventDefault();
+    }
+  });
 })();
 </script>
 {% endblock %}

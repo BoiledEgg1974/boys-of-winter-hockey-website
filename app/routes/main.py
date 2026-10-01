@@ -5527,6 +5527,7 @@ def team_page(slug: str):
         tier = team_tier(team, rel_cfg)
         team_relegation_tier = tier
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "bowl-fantasy")
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     canonical_season = get_current_season()
     season = (
         season_with_imported_data_fallback(db.session, canonical_season)
@@ -6082,9 +6083,22 @@ def team_page(slug: str):
             int(selected_sq["season_id"]),
             segment=sq_segment,
         )
+    team_transfer_budget = None
+    if league_slug == "bowl-fantasy":
+        from app.services.roster_team import is_main_league_team
+        from app.services.transfer_rules import bowl_team_budget_snapshot, is_transfer_tool_league
+
+        if is_transfer_tool_league(league_slug) and is_main_league_team(team, session=db.session):
+            team_transfer_budget = bowl_team_budget_snapshot(
+                db.session,
+                bowl_team_id=int(team.id),
+                league_slug=league_slug,
+            )
+
     tmpl_kwargs: dict[str, object] = {
         "team": team,
         "team_relegation_tier": team_relegation_tier,
+        "team_transfer_budget": team_transfer_budget,
         **relegation_ctx,
         "arena_name": arena_name,
         "arena_capacity": arena_capacity,

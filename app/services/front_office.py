@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.services.draft_pick_ownership import draft_pick_asset_dicts
 from app.services.league_finances import build_league_finances_context
 from app.services.staff_salaries import main_league_teams
-from app.services.transfer_rules import bowl_team_budget_snapshot
+from app.services.transfer_rules import bowl_team_budget_snapshot, transfer_published_spend_by_team
 
 
 def build_front_office_rows(
@@ -33,12 +33,16 @@ def build_front_office_rows(
     }
 
     teams = sorted(main_league_teams(league_session), key=lambda t: t.full_display_name().lower())
+    spent_by_team = transfer_published_spend_by_team(slug)
     out: list[dict[str, Any]] = []
     for team in teams:
         tid = int(team.id)
         fin_row = finance_by_team_id.get(tid, {})
         transfer = bowl_team_budget_snapshot(
-            league_session, bowl_team_id=tid, league_slug=slug
+            league_session,
+            bowl_team_id=tid,
+            league_slug=slug,
+            spent_usd=spent_by_team.get(tid, 0),
         )
         picks = draft_pick_asset_dicts(
             site_session,
@@ -55,6 +59,8 @@ def build_front_office_rows(
                 "cap_space": fin_row.get("cap_space"),
                 "cap_room_usd": transfer.get("cap_room_usd"),
                 "transfer_override_usd": transfer.get("transfer_cash_override_usd"),
+                "transfer_spent_usd": transfer.get("transfer_spent_usd"),
+                "transfer_wallet_remaining_usd": transfer.get("transfer_wallet_remaining_usd"),
                 "transfer_effective_usd": transfer.get("remaining_budget_usd"),
                 "draft_pick_labels": pick_labels,
             }

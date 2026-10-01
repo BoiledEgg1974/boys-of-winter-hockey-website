@@ -160,6 +160,50 @@ def scale_usd_to_current_cap(
     return int(round(scaled / step) * step)
 
 
+def compensation_cash_total_usd(compensation_json: str | dict | None) -> int:
+    """PTA transfer fee plus cash sweetener from a proposal compensation payload."""
+    if isinstance(compensation_json, dict):
+        comp = compensation_json
+    else:
+        try:
+            comp = json.loads((compensation_json or "").strip() or "{}")
+        except json.JSONDecodeError:
+            return 0
+        if not isinstance(comp, dict):
+            return 0
+    try:
+        pta = int(comp.get("pta_transfer_fee") or 0)
+        cash = int(comp.get("cash_sweetener") or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, pta + cash)
+
+
+def transfer_published_spend_by_team(league_slug: str) -> dict[int, int]:
+    """Sum published transfer cash (PTA + sweetener) per acquiring BOWL team."""
+    from app.league_db import db
+    from app.site_models import GmTransferProposal
+
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return {}
+    rows = db.session.scalars(
+        select(GmTransferProposal).where(
+            GmTransferProposal.league_slug == slug,
+            GmTransferProposal.status == STATUS_PUBLISHED,
+        )
+    ).all()
+    out: dict[int, int] = {}
+    for prop in rows:
+        tid = int(prop.bowl_team_id)
+        out[tid] = out.get(tid, 0) + compensation_cash_total_usd(prop.compensation_json)
+    return out
+
+
+def transfer_published_spend_usd(league_slug: str, bowl_team_id: int) -> int:
+    return transfer_published_spend_by_team(league_slug).get(int(bowl_team_id), 0)
+
+
 def transfer_budget_override_usd(
     league_slug: str,
     team_id: int,
@@ -185,6 +229,7 @@ def bowl_team_budget_snapshot(
     *,
     bowl_team_id: int,
     league_slug: str,
+    spent_usd: int | None = None,
 ) -> dict[str, int | None]:
     """Cap-as-budget ceiling vs current roster AAV (proxy for remaining cash room)."""
     cap = resolve_transfer_salary_cap_usd(session, league_slug)
@@ -210,10 +255,18 @@ def bowl_team_budget_snapshot(
             continue
     cap_room = max(0, int(cap) - int(payroll)) if counted else None
     override = transfer_budget_override_usd(league_slug, int(bowl_team_id))
-    if override is not None and cap_room is not None:
-        effective = min(int(cap_room), int(override))
-    elif override is not None:
-        effective = int(override)
+    spent = (
+        int(spent_usd)
+        if spent_usd is not None
+        else transfer_published_spend_usd(league_slug, int(bowl_team_id))
+    )
+    wallet_remaining: int | None = None
+    if override is not None:
+        wallet_remaining = max(0, int(override) - int(spent))
+    if wallet_remaining is not None and cap_room is not None:
+        effective = min(int(cap_room), int(wallet_remaining))
+    elif wallet_remaining is not None:
+        effective = int(wallet_remaining)
     else:
         effective = cap_room
     return {
@@ -221,6 +274,8 @@ def bowl_team_budget_snapshot(
         "roster_payroll_usd": int(payroll) if counted else None,
         "cap_room_usd": cap_room,
         "transfer_cash_override_usd": override,
+        "transfer_spent_usd": int(spent),
+        "transfer_wallet_remaining_usd": wallet_remaining,
         "remaining_budget_usd": effective,
         "contracts_counted": counted,
     }

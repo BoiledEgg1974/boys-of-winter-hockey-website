@@ -55,6 +55,7 @@
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_trade_proposals_list') }}">Trade proposals (history &amp; repair)</a></li>
     {% if config.LEAGUE_SLUG == 'bowl-fantasy' %}
+    <li><a href="{{ url_for('site_admin.admin_transfer_budgets') }}">Transfer budgets</a> — per-team transfer wallets and published spend</li>
     <li><a href="{{ url_for('site_admin.admin_transfer_proposals_list') }}">Cross-league transfer proposals</a></li>
     {% endif %}
     <li><a href="{{ url_for('site_admin.admin_draft_pick_ownership') }}">Draft pick ownership panels</a></li>

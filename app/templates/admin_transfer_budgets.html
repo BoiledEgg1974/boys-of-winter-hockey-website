@@ -3,14 +3,16 @@
 {% block content %}
 <div class="page-head">
   <h1 class="page-title">Transfer budgets</h1>
-  <p class="muted">Commissioner transfer cash per franchise. Effective room is the lesser of cap room and this wallet when set.</p>
+  <p class="muted">Set each franchise’s season transfer wallet. <strong>Spent</strong> is PTA plus cash on commissioner-published cross-league transfers. Effective room elsewhere is the lesser of cap room and wallet remaining.</p>
 </div>
 <div class="table-wrap">
   <table class="data">
     <thead>
       <tr>
         <th scope="col">Team</th>
-        <th scope="col">Override (USD)</th>
+        <th scope="col">Wallet (USD)</th>
+        <th scope="col">Spent (published)</th>
+        <th scope="col">Wallet remaining</th>
         <th scope="col">Notes</th>
         <th scope="col">Save</th>
       </tr>
@@ -23,6 +25,8 @@
           <input type="hidden" name="team_id" value="{{ row.team.id }}">
           <td>{{ row.team.full_display_name() }}</td>
           <td><input type="number" name="transfer_cash_usd" min="0" step="1000" value="{{ row.override_usd if row.override_usd is not none else '' }}" placeholder="Cap room only"></td>
+          <td>{% if row.override_usd is not none %}${{ '{:,}'.format(row.spent_usd) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{% if row.wallet_remaining_usd is not none %}${{ '{:,}'.format(row.wallet_remaining_usd) }}{% else %}<span class="muted">Cap room only</span>{% endif %}</td>
           <td><input type="text" name="notes" value="{{ row.notes }}" maxlength="2000"></td>
           <td><button type="submit" class="btn btn--secondary">Save</button></td>
         </form>

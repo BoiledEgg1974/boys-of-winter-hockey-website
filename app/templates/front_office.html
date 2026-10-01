@@ -36,6 +36,8 @@
           <th scope="col">Team</th>
           <th scope="col">Cap room</th>
           <th scope="col">Transfer wallet</th>
+          <th scope="col">Spent</th>
+          <th scope="col">Wallet left</th>
           <th scope="col">Effective</th>
         </tr>
       </thead>
@@ -45,6 +47,8 @@
           <td><a href="{{ url_for('main.team_page', slug=row.team.slug) }}">{{ row.team.full_display_name() }}</a></td>
           <td>{% if row.cap_room_usd is not none %}${{ '{:,}'.format(row.cap_room_usd) }}{% else %}—{% endif %}</td>
           <td>{% if row.transfer_override_usd is not none %}${{ '{:,}'.format(row.transfer_override_usd) }}{% else %}<span class="muted">Cap room only</span>{% endif %}</td>
+          <td>{% if row.transfer_override_usd is not none %}${{ '{:,}'.format(row.transfer_spent_usd or 0) }}{% else %}—{% endif %}</td>
+          <td>{% if row.transfer_wallet_remaining_usd is not none %}${{ '{:,}'.format(row.transfer_wallet_remaining_usd) }}{% else %}—{% endif %}</td>
           <td>{% if row.transfer_effective_usd is not none %}${{ '{:,}'.format(row.transfer_effective_usd) }}{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}

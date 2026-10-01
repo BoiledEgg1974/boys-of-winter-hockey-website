@@ -8,6 +8,7 @@ from app.services import discord_interactions
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS, DEFAULT_EVENT_LABELS
 from app.services.playoff_discord_predictions import (
     collect_bracket_series,
+    collect_bracket_series_for_discord,
     format_predict_round_help,
     list_prediction_rounds,
     normalize_predict_round_filter,
@@ -304,6 +305,32 @@ class PlayoffDiscordPredictionsTest(unittest.TestCase):
         rows = collect_bracket_series(bracket)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][0], "First round")
+
+    def test_collect_bracket_series_for_discord_keeps_all_qf_slots(self) -> None:
+        series = {
+            "team_a": {"id": 1, "abbreviation": "MTL"},
+            "team_b": {"id": 2, "abbreviation": "TOR"},
+            "wins_a": 0,
+            "wins_b": 0,
+        }
+        other = {
+            "team_a": {"id": 3, "abbreviation": "BOS"},
+            "team_b": {"id": 4, "abbreviation": "NYR"},
+            "wins_a": 0,
+            "wins_b": 0,
+        }
+        bracket = {
+            "first_round": [series, series, other, None, None, None, None, other],
+            "second_round": [series],
+            "conference_finals": [],
+            "championship": None,
+        }
+        rows = collect_bracket_series_for_discord(bracket)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual([r[2] for r in rows[:3]], [1, 2, 3])
+        self.assertEqual(rows[0][0], "First round")
+        self.assertEqual(rows[-1][0], "First round")
+        self.assertEqual(rows[-1][2], 8)
 
     def test_formatter_emits_one_message_per_matchup(self) -> None:
         series_row = {

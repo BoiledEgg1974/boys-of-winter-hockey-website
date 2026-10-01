@@ -180,12 +180,23 @@ def _h2h_goals_for_pair(
     return int(gf_hi), int(gf_lo)
 
 
-def _series_pair_key(series: dict[str, Any]) -> tuple[int, int] | None:
-    ta = series.get("team_a") or {}
-    tb = series.get("team_b") or {}
-    if not ta.get("id") or not tb.get("id"):
+def _team_side_id_from_json(side: dict[str, Any] | None) -> int | None:
+    if not side:
         return None
-    a, b = int(ta["id"]), int(tb["id"])
+    raw = side.get("id")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _series_pair_key(series: dict[str, Any]) -> tuple[int, int] | None:
+    a = _team_side_id_from_json(series.get("team_a"))
+    b = _team_side_id_from_json(series.get("team_b"))
+    if a is None or b is None:
+        return None
     return (min(a, b), max(a, b))
 
 
@@ -208,6 +219,45 @@ def collect_bracket_series(bracket: dict[str, Any]) -> list[tuple[str, dict[str,
                 continue
             seen.add(key)
             out.append((label, slot))
+    return out
+
+
+def collect_bracket_series_for_discord(
+    bracket: dict[str, Any],
+) -> list[tuple[str, dict[str, Any], int | None]]:
+    """Like ``collect_bracket_series``, but keeps every filled opening-round slot.
+
+    Mirror brackets use eight fixed quarterfinal cells; deduping within that list
+    dropped outer matchups when the same pair appeared twice. Slot indices (1–8)
+    match the on-site bracket numbering.
+    """
+    seen: set[tuple[int, int]] = set()
+    out: list[tuple[str, dict[str, Any], int | None]] = []
+
+    first = bracket.get("first_round") or []
+    for slot_idx, slot in enumerate(first, start=1):
+        if not slot:
+            continue
+        key = _series_pair_key(slot)
+        if key is not None:
+            seen.add(key)
+        out.append(("First round", slot, slot_idx))
+
+    later_rounds = (
+        ("Second round", bracket.get("second_round") or []),
+        ("Conference finals", bracket.get("conference_finals") or []),
+        ("Championship", [bracket.get("championship")] if bracket.get("championship") else []),
+    )
+    for label, slots in later_rounds:
+        for slot in slots:
+            if not slot:
+                continue
+            key = _series_pair_key(slot)
+            if key is not None and key in seen:
+                continue
+            if key is not None:
+                seen.add(key)
+            out.append((label, slot, None))
     return out
 
 

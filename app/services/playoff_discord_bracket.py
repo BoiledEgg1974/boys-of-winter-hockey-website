@@ -22,9 +22,9 @@ from app.services.playoff_bracket import (
     playoff_bracket_payload,
 )
 from app.services.playoff_discord_predictions import (
-    _series_pair_key,
     _team_meta,
-    collect_bracket_series,
+    _team_side_id_from_json,
+    collect_bracket_series_for_discord,
     display_round_label,
 )
 from app.services.seasons import get_current_season, season_display_label
@@ -34,10 +34,53 @@ _log = logging.getLogger(__name__)
 
 
 def series_pair_key_str(series: dict[str, Any]) -> str:
+    from app.services.playoff_discord_predictions import _series_pair_key
+
     key = _series_pair_key(series)
     if key is None:
         return ""
     return f"{key[0]}-{key[1]}"
+
+
+def discord_series_storage_key(
+    series: dict[str, Any],
+    *,
+    season_id: int,
+    slot_index: int | None,
+) -> str:
+    """Stable key for Discord edit tracking (team pair or fixed QF slot)."""
+    pair = series_pair_key_str(series)
+    if pair:
+        return pair
+    if slot_index is not None:
+        return f"qf{int(slot_index)}-s{int(season_id)}"
+    ta = series.get("team_a") or {}
+    tb = series.get("team_b") or {}
+    ab_a = str(ta.get("abbreviation") or ta.get("abbrev") or "").strip().upper()
+    ab_b = str(tb.get("abbreviation") or tb.get("abbrev") or "").strip().upper()
+    if ab_a and ab_b:
+        lo, hi = sorted([ab_a, ab_b])
+        return f"{lo}-{hi}-s{int(season_id)}"[:32]
+    return f"series-s{int(season_id)}"[:32]
+
+
+def _resolve_team_row(
+    side: dict[str, Any] | None,
+    *,
+    teams_by_id: dict[int, Team],
+    teams_by_abbrev: dict[str, Team],
+) -> Team | None:
+    if not side:
+        return None
+    tid = _team_side_id_from_json(side)
+    if tid is not None:
+        tm = teams_by_id.get(tid)
+        if tm is not None:
+            return tm
+    abbr = str(side.get("abbreviation") or side.get("abbrev") or "").strip().upper()
+    if abbr:
+        return teams_by_abbrev.get(abbr)
+    return None
 
 
 def _series_status_line(
@@ -133,46 +176,50 @@ def build_playoff_bracket_discord_payload(
     if bracket.get("empty"):
         return {"error": str(bracket.get("message") or "No playoff bracket is available yet.")}
 
-    series_rows = collect_bracket_series(bracket)
+    series_rows = collect_bracket_series_for_discord(bracket)
     if not series_rows:
         return {"error": "No playoff series found to post."}
 
-    team_ids: set[int] = set()
-    for _label, s in series_rows:
-        for side in (s.get("team_a") or {}, s.get("team_b") or {}):
-            tid = side.get("id")
-            if tid:
-                team_ids.add(int(tid))
-    teams_by_id = (
-        {
-            int(t.id): t
-            for t in league_session.scalars(
-                select(Team).where(Team.id.in_(team_ids))
-            ).all()
-        }
-        if team_ids
-        else {}
-    )
+    all_teams = list(league_session.scalars(select(Team)).all())
+    teams_by_id = {int(t.id): t for t in all_teams}
+    teams_by_abbrev = {
+        str(t.abbreviation or "").strip().upper(): t
+        for t in all_teams
+        if t.abbreviation
+    }
 
     stored = _load_series_posts(session, league_slug, int(season.id))
     formatted_series: list[dict[str, Any]] = []
-    for idx, (round_label, series) in enumerate(series_rows, start=1):
+    fallback_index = 0
+    for round_label, series, slot_index in series_rows:
+        fallback_index += 1
         ta_json = series.get("team_a") or {}
         tb_json = series.get("team_b") or {}
-        ta_id = int(ta_json.get("id") or 0)
-        tb_id = int(tb_json.get("id") or 0)
-        ta_meta = _team_meta(ta_json, teams_by_id.get(ta_id))
-        tb_meta = _team_meta(tb_json, teams_by_id.get(tb_id))
-        pair_key = series_pair_key_str(series)
-        if not pair_key:
-            continue
+        ta_row = _resolve_team_row(
+            ta_json, teams_by_id=teams_by_id, teams_by_abbrev=teams_by_abbrev
+        )
+        tb_row = _resolve_team_row(
+            tb_json, teams_by_id=teams_by_id, teams_by_abbrev=teams_by_abbrev
+        )
+        if ta_row is not None and not _team_side_id_from_json(ta_json):
+            ta_json = {**ta_json, "id": int(ta_row.id)}
+        if tb_row is not None and not _team_side_id_from_json(tb_json):
+            tb_json = {**tb_json, "id": int(tb_row.id)}
+        ta_meta = _team_meta(ta_json, ta_row)
+        tb_meta = _team_meta(tb_json, tb_row)
+        pair_key = discord_series_storage_key(
+            series,
+            season_id=int(season.id),
+            slot_index=slot_index,
+        )
+        series_index = int(slot_index) if slot_index is not None else fallback_index
 
         wa = int(series.get("wins_a") or 0)
         wb = int(series.get("wins_b") or 0)
         row_data = {
             "pair_key": pair_key,
             "round_label": display_round_label(round_label, league_slug),
-            "series_index": idx,
+            "series_index": series_index,
             "team_a": ta_meta,
             "team_b": tb_meta,
             "series_score": f"{wa}-{wb}",

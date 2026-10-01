@@ -8,6 +8,7 @@ from app.services import discord_events
 from app.services.discord_events import DEFAULT_EVENT_CHANNEL_KEY, DEFAULT_EVENT_KEYS
 from app.services.playoff_discord_bracket import (
     build_playoff_bracket_discord_payload,
+    discord_series_storage_key,
     enqueue_fresh_playoff_bracket_discord,
     maybe_enqueue_playoff_bracket_discord,
     record_playoff_bracket_discord_ack,
@@ -34,6 +35,14 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
             {"team_a": {"id": 12}, "team_b": {"id": 5}}
         )
         self.assertEqual(key, "5-12")
+
+    def test_discord_series_storage_key_uses_qf_slot(self) -> None:
+        key = discord_series_storage_key(
+            {"team_a": {"abbrev": "CGY"}, "team_b": {"abbrev": "EDM"}},
+            season_id=9,
+            slot_index=1,
+        )
+        self.assertEqual(key, "qf1-s9")
 
     def test_build_payload_without_request_context(self) -> None:
         from app import create_app
@@ -79,7 +88,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                 ],
             },
         ), patch(
-            "app.services.playoff_discord_bracket.collect_bracket_series",
+            "app.services.playoff_discord_bracket.collect_bracket_series_for_discord",
             return_value=[
                 (
                     "Second round",
@@ -89,6 +98,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                         "wins_a": 0,
                         "wins_b": 2,
                     },
+                    None,
                 )
             ],
         ), patch(
@@ -100,6 +110,9 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         ), patch(
             "app.services.playoff_discord_bracket.build_league_public_url",
             return_value="/playoffs",
+        ), patch(
+            "app.services.playoff_discord_bracket._resolve_team_row",
+            side_effect=lambda side, **_: MagicMock(id=int((side or {}).get("id") or 0)),
         ):
             result = build_playoff_bracket_discord_payload(
                 MagicMock(),
@@ -426,7 +439,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                 ],
             },
         ), patch(
-            "app.services.playoff_discord_bracket.collect_bracket_series",
+            "app.services.playoff_discord_bracket.collect_bracket_series_for_discord",
             return_value=[
                 (
                     "First round",
@@ -436,6 +449,7 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
                         "wins_a": 1,
                         "wins_b": 0,
                     },
+                    1,
                 )
             ],
         ), patch(
@@ -447,6 +461,9 @@ class PlayoffDiscordBracketTest(unittest.TestCase):
         ), patch(
             "app.services.playoff_discord_bracket.build_league_public_url",
             return_value="/playoffs",
+        ), patch(
+            "app.services.playoff_discord_bracket._resolve_team_row",
+            side_effect=lambda side, **_: MagicMock(id=int((side or {}).get("id") or 0)),
         ):
             result = build_playoff_bracket_discord_payload(
                 MagicMock(),

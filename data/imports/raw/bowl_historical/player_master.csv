@@ -498,7 +498,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3431;90;90;Norm;Defelice;;70;150;1933-1-19;Timmins;ON;Canada;;;0;Left;0
 4067;90;90;Gerry;Ouellette;Red;69;170;1938-11-1;Grand Falls;NB;Canada;;;0;Right;0
 5662;90;90;Don;Gordon;;71;181;1948-4-17;Timmins;ON;Canada;;;0;Right;0
-4366;123;123;John;Miszuk;;73;192;1940-9-29;Minsk;MIN;Canada;Poland;Belarus;0;Left;0
+4366;124;123;John;Miszuk;;73;192;1940-9-29;Minsk;MIN;Canada;Poland;Belarus;0;Left;0
 6585;85;85;Michel;Boudreau;;72;180;1952-9-26;Bagotville;QC;Canada;;;0;Left;0
 5080;120;120;Nick;Libett;;73;195;1945-12-9;Stratford;ON;Canada;;;0;Left;0
 4615;118;118;Howie;Menard;;68;168;1942-4-28;Timmins;ON;Canada;;;0;Right;0
@@ -2086,7 +2086,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 6429;89;89;Jim;Cahoon;;75;194;1951-2-7;Nipawin;SK;Canada;;;0;Left;0
 5717;90;90;Barry;Salovaara;;70;180;1948-1-7;Toronto;ON;Canada;;;0;Right;0
 4799;75;75;Andrzej;Szal;;68;161;1942-1-10;Lodz;LOD;Poland;;;0;Left;0
-5950;24;5;Bobby;Sheehan;Sheecat;68;161;1949-1-11;Aquinnah;MA;The United States;;;0;Left;0
+5950;5;5;Bobby;Sheehan;Sheecat;68;161;1949-1-11;Aquinnah;MA;The United States;;;0;Left;1
 6430;22;3;Ron;Wilson;;70;174;1951-8-4;Rosthem;SK;Canada;;;0;Left;1
 4994;90;90;Tom;Haugh;;69;194;1943-1-17;Colchester;CT;The United States;;;0;Left;0
 6936;89;89;John;Campbell;;72;190;1953-6-5;Sault Ste. Marie;ON;Canada;;;0;Left;0
@@ -2105,7 +2105,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7167;84;84;Tom;Price;;73;190;1954-7-12;Toronto;ON;Canada;;;0;Left;0
 4801;82;82;Ivo;Jan;;67;159;1942-4-10;Jesenice;GOR;Slovenia;;;0;Left;0
 4997;92;92;Iliya;Bachvarov;;69;172;1943-10-10;Sofia;SOF;Bulgaria;;;0;Left;0
-5952;-1;-1;Gord;Smith;Truck;70;175;1949-11-17;Perth;ON;Canada;;;0;Left;0
+5952;130;130;Gord;Smith;Truck;70;175;1949-11-17;Perth;ON;Canada;;;0;Left;1
 6938;83;83;Dale;Cook;;72;194;1953-7-27;Lac du Bonnet;MB;Canada;;;0;Left;0
 6210;90;90;Gord;Davies;;70;170;1950-1-1;Toronto;ON;Canada;;;0;Left;1
 4802;76;76;Anton;Crisan;;69;159;1942-1-17;Rosia de Amaradia;GOR;Romania;;;0;Left;0

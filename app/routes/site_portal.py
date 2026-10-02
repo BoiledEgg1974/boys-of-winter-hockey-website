@@ -266,6 +266,7 @@ from app.services.transfer_rules import (
     load_transfer_rules_config,
 )
 from app.services.transfer_tool import (
+    PLAYER_PENDING_REVIEW_MESSAGE,
     bowl_sweetener_assets,
     format_transfer_discord_body,
     format_transfer_summary,
@@ -274,6 +275,8 @@ from app.services.transfer_tool import (
     parse_compensation_payload,
     parse_player_ids,
     partner_respond_to_transfer,
+    pending_review_error_for_players,
+    player_ids_awaiting_commissioner_review,
     preview_transfer_fees,
     publish_transfer_proposal,
     run_ai_review_for_proposal,
@@ -2522,16 +2525,24 @@ def transfer_tool_assets():
     )
     for group in ("roster", "draft_picks"):
         _finalize_trade_asset_side_urls({group: sweeteners.get(group, [])})
+    pending_player_ids = player_ids_awaiting_commissioner_review(
+        db.session,
+        league_slug=slug,
+    )
     for row in roster:
         pl = db.session.get(Player, int(row.get("id") or 0))
         if pl:
             enrich_trade_player_row(db.session, pl, row)
+        pid = int(row.get("id") or 0)
+        if pid in pending_player_ids:
+            row["pending_commissioner_review"] = True
     player_tpl = url_for("main.player_page", player_id=_TRADE_PLAYER_URL_PLACEHOLDER_ID)
     return jsonify(
         {
             "external_roster": roster,
             "bowl_sweeteners": sweeteners,
             "player_page_url_template": player_tpl,
+            "pending_review_message": PLAYER_PENDING_REVIEW_MESSAGE,
         }
     )
 
@@ -2557,6 +2568,7 @@ def transfer_tool_preview():
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
         bowl_team_id=int(bowl_team_id),
+        site_session=db.session,
     )
     return jsonify(preview)
 
@@ -2594,6 +2606,7 @@ def transfer_tool_submit():
         league_slug=slug,
         raw_dir=_trade_tool_raw_dir(),
         bowl_team_id=int(bowl_team_id),
+        site_session=db.session,
     )
     required_pta = int(preview.get("required_pta_fee_usd") or 0)
     compensation.setdefault("pta_transfer_fee", required_pta)
@@ -2698,18 +2711,32 @@ def transfer_tool_respond_counter(pid: int):
     if prop.status != TRANSFER_STATUS_AI_COUNTER:
         flash("This proposal is not awaiting a counter response.", "err")
         return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
+    pending_err = pending_review_error_for_players(
+        db.session,
+        league_slug=slug,
+        player_ids=parse_player_ids(prop.player_ids_json),
+        exclude_proposal_id=int(prop.id),
+    )
+    if pending_err:
+        flash(pending_err, "err")
+        return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
     action = (request.form.get("action") or "").strip().lower()
     if action == "accept_counter":
         counter = parse_compensation_payload(prop.ai_counter_json)
         suggested = counter.get("suggested_compensation")
         if isinstance(suggested, dict):
             prop.compensation_json = json.dumps(suggested)
-        run_ai_review_for_proposal(
+        ai_err = run_ai_review_for_proposal(
             db.session,
             prop,
             league_slug=slug,
             raw_dir=_trade_tool_raw_dir(),
+            site_session=db.session,
         )
+        if ai_err:
+            flash(ai_err, "err")
+            commit_with_sqlite_retry(db.session)
+            return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
         if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
             summary = format_transfer_summary(db.session, prop)
             notify_transfer_proposal_commissioners(
@@ -2725,12 +2752,17 @@ def transfer_tool_respond_counter(pid: int):
         compensation_raw = (request.form.get("compensation_json") or "").strip()
         if compensation_raw:
             prop.compensation_json = compensation_raw
-        run_ai_review_for_proposal(
+        ai_err = run_ai_review_for_proposal(
             db.session,
             prop,
             league_slug=slug,
             raw_dir=_trade_tool_raw_dir(),
+            site_session=db.session,
         )
+        if ai_err:
+            flash(ai_err, "err")
+            commit_with_sqlite_retry(db.session)
+            return redirect(url_for("site_gm.transfer_proposal_detail", pid=pid))
         if prop.status == TRANSFER_STATUS_PENDING_COMMISSIONER:
             summary = format_transfer_summary(db.session, prop)
             notify_transfer_proposal_commissioners(
@@ -2774,6 +2806,14 @@ def transfer_proposal_detail(pid: int):
         proposal=prop,
         user_id=int(current_user.id),
     )
+    player_pending_review = bool(
+        pending_review_error_for_players(
+            db.session,
+            league_slug=slug,
+            player_ids=parse_player_ids(prop.player_ids_json),
+            exclude_proposal_id=int(prop.id),
+        )
+    )
     return render_template(
         "transfer_proposal_detail.html",
         proposal=prop,
@@ -2783,6 +2823,8 @@ def transfer_proposal_detail(pid: int):
         counter=counter,
         membership=mem,
         is_selling_partner=is_selling_partner,
+        player_pending_review=player_pending_review,
+        pending_review_message=PLAYER_PENDING_REVIEW_MESSAGE,
     )
 
 

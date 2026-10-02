@@ -30,7 +30,12 @@
   {% elif proposal.status == 'pending_partner' %}
   <p class="muted">Waiting for the selling GM to accept or decline.</p>
   {% endif %}
-  {% if proposal.status == 'ai_counter' and counter and not is_selling_partner %}
+  {% if player_pending_review %}
+  <div class="transfer-proposal-detail__pending card" role="alert">
+    <p><strong>{{ pending_review_message }}</strong></p>
+    <p class="muted">Another transfer for this player is awaiting league office approval. You cannot negotiate further until the office publishes or declines that deal.</p>
+  </div>
+  {% elif proposal.status == 'ai_counter' and counter and not is_selling_partner %}
   <div class="transfer-proposal-detail__counter card">
     <h2>Counter-offer</h2>
     <p class="muted">Minimum ask: ${{ counter.minimum_ask_usd or 0 }} · Your offer: ${{ counter.current_offer_usd or 0 }}</p>

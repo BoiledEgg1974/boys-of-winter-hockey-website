@@ -14,7 +14,11 @@ from app.services.transfer_rules import (
     load_transfer_rules_config,
     scale_usd_to_current_cap,
 )
-from app.services.transfer_tool import validate_transfer_submission
+from app.services.transfer_tool import (
+    PLAYER_PENDING_REVIEW_MESSAGE,
+    pending_review_error_for_players,
+    validate_transfer_submission,
+)
 from app.services.transfer_valuation import compensation_offer_value_usd, player_asset_value
 
 
@@ -251,6 +255,7 @@ class TransferAiPartnerTests(unittest.TestCase):
 
         session.get.side_effect = _get
         site_session = MagicMock()
+        site_session.scalars.return_value.all.return_value = []
         with patch(
             "app.services.transfer_tool.external_team_gm_user_id",
             return_value=99,
@@ -288,8 +293,29 @@ class TransferAiPartnerTests(unittest.TestCase):
                             )
         self.assertIsNone(err)
 
+    def test_pending_commissioner_blocks_new_transfer(self):
+        site_session = MagicMock()
+        blocking = MagicMock()
+        blocking.id = 42
+        blocking.player_ids_json = "[7]"
+        site_session.scalars.return_value.all.return_value = [blocking]
+        err = pending_review_error_for_players(
+            site_session,
+            league_slug="bowl-fantasy",
+            player_ids=[7],
+        )
+        self.assertEqual(err, PLAYER_PENDING_REVIEW_MESSAGE)
+        err_exclude = pending_review_error_for_players(
+            site_session,
+            league_slug="bowl-fantasy",
+            player_ids=[7],
+            exclude_proposal_id=42,
+        )
+        self.assertIsNone(err_exclude)
+
     def test_cannot_acquire_from_own_team(self):
         session = MagicMock()
+        session.scalars.return_value.all.return_value = []
         err = validate_transfer_submission(
             session,
             session,

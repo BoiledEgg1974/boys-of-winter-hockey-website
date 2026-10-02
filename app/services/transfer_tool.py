@@ -35,6 +35,8 @@ from app.services.transfer_rules import (
 )
 from app.site_models import GmLeagueMembership, GmTransferProposal, NewsArticle
 
+PLAYER_PENDING_REVIEW_MESSAGE = "This player is already traded pending review."
+
 
 def parse_compensation_payload(raw: str | dict | None) -> dict[str, Any]:
     if isinstance(raw, dict):
@@ -60,6 +62,66 @@ def parse_player_ids(raw: str | list | None) -> list[int]:
         except json.JSONDecodeError:
             return []
     return [int(x) for x in text.split(",") if x.strip().isdigit()]
+
+
+def pending_commissioner_proposal_for_players(
+    site_session: Session,
+    *,
+    league_slug: str,
+    player_ids: list[int],
+    exclude_proposal_id: int | None = None,
+) -> GmTransferProposal | None:
+    """Another proposal already awaiting league office approval for one of these players."""
+    targets = {int(p) for p in player_ids if p}
+    if not targets:
+        return None
+    rows = site_session.scalars(
+        select(GmTransferProposal).where(
+            GmTransferProposal.league_slug == league_slug,
+            GmTransferProposal.status == STATUS_PENDING_COMMISSIONER,
+        )
+    ).all()
+    for prop in rows:
+        if exclude_proposal_id is not None and int(prop.id) == int(exclude_proposal_id):
+            continue
+        existing = {int(p) for p in parse_player_ids(prop.player_ids_json)}
+        if targets & existing:
+            return prop
+    return None
+
+
+def pending_review_error_for_players(
+    site_session: Session,
+    *,
+    league_slug: str,
+    player_ids: list[int],
+    exclude_proposal_id: int | None = None,
+) -> str | None:
+    if pending_commissioner_proposal_for_players(
+        site_session,
+        league_slug=league_slug,
+        player_ids=player_ids,
+        exclude_proposal_id=exclude_proposal_id,
+    ):
+        return PLAYER_PENDING_REVIEW_MESSAGE
+    return None
+
+
+def player_ids_awaiting_commissioner_review(
+    site_session: Session,
+    *,
+    league_slug: str,
+) -> frozenset[int]:
+    out: set[int] = set()
+    rows = site_session.scalars(
+        select(GmTransferProposal).where(
+            GmTransferProposal.league_slug == league_slug,
+            GmTransferProposal.status == STATUS_PENDING_COMMISSIONER,
+        )
+    ).all()
+    for prop in rows:
+        out.update(parse_player_ids(prop.player_ids_json))
+    return frozenset(out)
 
 
 def external_team_has_human_gm(session: Session, league_slug: str, team_id: int) -> bool:
@@ -185,6 +247,13 @@ def validate_transfer_submission(
     if snap.get("any_blocked"):
         reasons = snap.get("block_reasons") or []
         return reasons[0] if reasons else "Transfer blocked by rules."
+    pending_err = pending_review_error_for_players(
+        site_session,
+        league_slug=league_slug,
+        player_ids=player_ids,
+    )
+    if pending_err:
+        return pending_err
     return None
 
 
@@ -295,7 +364,17 @@ def submit_transfer_proposal(
             summary_preview=summary,
         )
     else:
-        run_ai_review_for_proposal(session, prop, league_slug=league_slug, raw_dir=raw_dir)
+        ai_err = run_ai_review_for_proposal(
+            session,
+            prop,
+            league_slug=league_slug,
+            raw_dir=raw_dir,
+            site_session=site_session,
+        )
+        if ai_err:
+            site_session.delete(prop)
+            site_session.flush()
+            return None, ai_err
     return prop, None
 
 
@@ -364,9 +443,19 @@ def run_ai_review_for_proposal(
     *,
     league_slug: str,
     raw_dir: Path | None,
-) -> None:
-    comp = parse_compensation_payload(proposal.compensation_json)
+    site_session: Session | None = None,
+) -> str | None:
+    review_session = site_session if site_session is not None else session
     pids = parse_player_ids(proposal.player_ids_json)
+    pending_err = pending_review_error_for_players(
+        review_session,
+        league_slug=league_slug,
+        player_ids=pids,
+        exclude_proposal_id=int(proposal.id),
+    )
+    if pending_err:
+        return pending_err
+    comp = parse_compensation_payload(proposal.compensation_json)
     result = evaluate_transfer_proposal(
         session,
         player_ids=pids,
@@ -377,6 +466,7 @@ def run_ai_review_for_proposal(
         raw_dir=raw_dir,
     )
     apply_ai_review_to_proposal(proposal, result)
+    return None
 
 
 def format_compensation_summary(session: Session, compensation: dict[str, Any], bowl_team_id: int) -> str:
@@ -565,6 +655,7 @@ def preview_transfer_fees(
     league_slug: str,
     raw_dir: Path | None,
     bowl_team_id: int | None = None,
+    site_session: Session | None = None,
 ) -> dict[str, Any]:
     ext_team = session.get(Team, int(external_team_id))
     if not ext_team:
@@ -588,8 +679,18 @@ def preview_transfer_fees(
         )
         for pl in players
     ]
+    review_session = site_session if site_session is not None else session
+    pending_review = bool(
+        pending_review_error_for_players(
+            review_session,
+            league_slug=league_slug,
+            player_ids=player_ids,
+        )
+    )
     return {
         "rules_snapshot": snap,
+        "pending_commissioner_review": pending_review,
+        "pending_review_message": PLAYER_PENDING_REVIEW_MESSAGE if pending_review else "",
         "players": [
             {
                 "id": int(c.player.id),

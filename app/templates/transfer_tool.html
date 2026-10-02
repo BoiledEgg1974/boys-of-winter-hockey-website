@@ -78,6 +78,13 @@
     <button type="submit" class="trade-tool-submit" id="submit-transfer" disabled>Submit offer</button>
   </form>
 
+  <dialog id="transfer-pending-review-dialog" class="transfer-tool-page__pending-dialog">
+    <p id="transfer-pending-review-message">This player is already traded pending review.</p>
+    <form method="dialog">
+      <button type="submit" class="trade-tool-submit">OK</button>
+    </form>
+  </dialog>
+
   {% if recent_proposals %}
   <section class="transfer-tool-page__recent" style="margin-top:1.5rem;">
     <h2 class="transfer-tool-page__section-title">Your recent proposals</h2>
@@ -110,8 +117,31 @@
   var feeBody = document.getElementById('fee-preview-body');
   var sweetenerPanel = document.getElementById('sweetener-panel');
   var submitBtn = document.getElementById('submit-transfer');
+  var pendingReviewDialog = document.getElementById('transfer-pending-review-dialog');
+  var pendingReviewMessage = document.getElementById('transfer-pending-review-message');
+  var pendingReviewText = 'This player is already traded pending review.';
+  var playerPendingReview = false;
   var selectedPlayers = [];
   var selectedTeamHumanGm = false;
+
+  function showPendingReviewDialog(message) {
+    if (pendingReviewMessage) pendingReviewMessage.textContent = message || pendingReviewText;
+    if (pendingReviewDialog && typeof pendingReviewDialog.showModal === 'function') {
+      pendingReviewDialog.showModal();
+    } else {
+      window.alert(message || pendingReviewText);
+    }
+  }
+
+  function applyPendingReviewState(isPending, message) {
+    playerPendingReview = !!isPending;
+    if (playerPendingReview) {
+      feePreview.hidden = true;
+      sweetenerPanel.hidden = true;
+      submitBtn.disabled = true;
+      showPendingReviewDialog(message || pendingReviewText);
+    }
+  }
 
   function adminTeamQuery() {
     if (!adminTeamId) return '';
@@ -210,12 +240,15 @@
     fetch(assetsUrl + '?external_team_id=' + encodeURIComponent(tid) + adminTeamQuery())
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (data.pending_review_message) pendingReviewText = data.pending_review_message;
         (data.external_roster || []).forEach(function (p) {
           var opt = document.createElement('option');
           opt.value = p.id;
           var abi = p.abi != null ? ' ABI ' + Math.round(p.abi) : '';
           var pot = p.pot != null ? ' POT ' + Math.round(p.pot) : '';
-          opt.textContent = (p.label || '') + abi + pot;
+          var suffix = p.pending_commissioner_review ? ' — pending review' : '';
+          opt.textContent = (p.label || '') + abi + pot + suffix;
+          if (p.pending_commissioner_review) opt.dataset.pendingReview = '1';
           playerSelect.appendChild(opt);
         });
         playerSelect.disabled = false;
@@ -228,16 +261,26 @@
   playerSelect.addEventListener('change', function () {
     var pid = playerSelect.value;
     var tid = teamSelect.value;
+    var playerOpt = playerSelect.options[playerSelect.selectedIndex];
     playerHidden.value = pid;
+    playerPendingReview = false;
     if (!pid || !tid) {
       feePreview.hidden = true;
       sweetenerPanel.hidden = true;
       submitBtn.disabled = true;
       return;
     }
+    if (playerOpt && playerOpt.dataset.pendingReview === '1') {
+      applyPendingReviewState(true, pendingReviewText);
+      return;
+    }
     fetch(previewUrl + '?external_team_id=' + encodeURIComponent(tid) + '&player_id=' + encodeURIComponent(pid) + adminTeamQuery())
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (data.pending_commissioner_review) {
+          applyPendingReviewState(true, data.pending_review_message || pendingReviewText);
+          return;
+        }
         var req = data.required_pta_fee_usd || 0;
         var lines = ['Required PTA / transfer fee: $' + req.toLocaleString()];
         if (data.salary_cap_usd) {
@@ -278,6 +321,11 @@
   cashInput.addEventListener('input', syncCompensation);
   document.getElementById('transfer-tool-form').addEventListener('submit', function (e) {
     syncCompensation();
+    if (playerPendingReview) {
+      e.preventDefault();
+      showPendingReviewDialog(pendingReviewText);
+      return;
+    }
     if (submitBtn.disabled) {
       e.preventDefault();
       return;

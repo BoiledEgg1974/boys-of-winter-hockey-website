@@ -1120,13 +1120,30 @@ def _sync_team_discord_fields(
     return out
 
 
-def _ensure_team_gm_mention_for_payload(session, *, league_slug: str, payload: dict) -> dict:
+def _ensure_team_gm_mention_for_payload(
+    session,
+    *,
+    league_slug: str,
+    payload: dict,
+    event_key: str = "",
+) -> dict:
     out = dict(payload or {})
+    ek = str(event_key or "").strip()
+    ops_gm_mentions = ek in ("confirmed_trade", "confirmed_transfer")
     # Dual-GM trade posts set gm_mentions intentionally. News articles must not
     # keep a stale gm_mentions / team_gm_mention from the queue.
-    if str(out.get("gm_mentions") or "").strip() and out.get("article_id") is None:
+    if str(out.get("gm_mentions") or "").strip() and (
+        out.get("article_id") is None or ops_gm_mentions
+    ):
+        if ops_gm_mentions and out.get("article_id") is not None:
+            team = _resolve_team_for_news_discord(
+                session, league_slug=league_slug, payload=out
+            )
+            out = _sync_team_discord_fields(
+                session, league_slug=league_slug, payload=out, team=team
+            )
         return out
-    if out.get("article_id") is not None:
+    if out.get("article_id") is not None and not ops_gm_mentions:
         out.pop("gm_mentions", None)
     # Per-team boxscore posts intentionally omit GM pings.
     if out.get("game_id") is not None and out.get("away_team") is not None:
@@ -2696,6 +2713,7 @@ def serialize_pending_events_for_bot(
                 session,
                 league_slug=league_slug,
                 payload=payload,
+                event_key=str(r.event_key or ""),
             )
             payload = sanitize_discord_event_payload(league_slug, payload)
             if str(r.event_key or "") in OPS_TEXT_ONLY_DISCORD_EVENT_KEYS:

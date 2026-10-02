@@ -560,6 +560,39 @@ class DiscordEventMentionTests(unittest.TestCase):
         self.assertNotIn("team_id", payload)
         self.assertNotIn("fhm_team_id", payload)
 
+    def test_ensure_mention_preserves_gm_mentions_for_confirmed_transfer(self) -> None:
+        session = MagicMock()
+        team = SimpleNamespace(id=5, fhm_team_id="1", abbreviation="VAN")
+
+        with (
+            patch(
+                "app.services.discord_events._resolve_team_for_news_discord",
+                return_value=team,
+            ),
+            patch(
+                "app.services.discord_events._sync_team_discord_fields",
+                side_effect=lambda _s, league_slug, payload, team: {
+                    **payload,
+                    "fhm_team_id": 1,
+                    "team_abbrev": "VAN",
+                },
+            ),
+        ):
+            from app.services.discord_events import _ensure_team_gm_mention_for_payload
+
+            payload = _ensure_team_gm_mention_for_payload(
+                session,
+                league_slug="bowl-fantasy",
+                event_key="confirmed_transfer",
+                payload={
+                    "article_id": 42,
+                    "gm_mentions": "<@333333333333333333>",
+                    "team_id": 5,
+                },
+            )
+
+        self.assertEqual(payload["gm_mentions"], "<@333333333333333333>")
+
     def test_ensure_mention_preserves_league_wide_gm_role(self) -> None:
         session = MagicMock()
         with (

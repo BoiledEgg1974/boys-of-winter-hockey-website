@@ -44,6 +44,27 @@ class TradeMarketAllLeaguesTest(unittest.TestCase):
         self.assertIn("confirmed_trade", DEFAULT_EVENT_KEYS)
         self.assertEqual(DEFAULT_EVENT_CHANNEL_KEY.get("confirmed_trade"), "confirm-trade")
 
+    def test_confirmed_transfer_discord_formatter_emote_and_gm_on_first_line(self) -> None:
+        msg = format_discord_message(
+            {
+                "league_slug": "bowl-fantasy",
+                "event_key": "confirmed_transfer",
+                "payload": {
+                    "title": "Transfer: Vancouver Canucks — external signing",
+                    "body": "Transfer: Vancouver acquires from SKA.\n\nIncoming players:\n  • Player One",
+                    "team_abbrev": "VAN",
+                    "team_name": "Vancouver Canucks",
+                    "fhm_team_id": 1,
+                    "gm_mentions": "<@333333333333333333>",
+                },
+            }
+        )
+        content = msg.get("content", "")
+        self.assertIn("<:VAN:1549540952492998746> <@333333333333333333>", content)
+        self.assertIn("**VAN**", content)
+        self.assertIn("Transfer: Vancouver acquires", content)
+        self.assertNotIn("embeds", msg)
+
     def test_trade_approval_only_queues_confirmed_trade_for_discord(self) -> None:
         text = (
             Path(__file__).resolve().parents[1] / "app" / "routes" / "site_portal.py"

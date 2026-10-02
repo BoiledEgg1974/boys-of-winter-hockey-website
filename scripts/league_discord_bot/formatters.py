@@ -43,6 +43,7 @@ ARTICLE_TEXT_DISCORD_EVENT_KEYS = frozenset(
 ALWAYS_TEXT_ONLY_DISCORD_EVENT_KEYS = frozenset(
     {
         "confirmed_trade",
+        "confirmed_transfer",
         "trade_request",
         "staff_transaction_posted",
         "draft_hub_pick_made",
@@ -225,19 +226,30 @@ def _text_only_header_lines(
     title: str,
 ) -> list[str]:
     lines: list[str] = []
-    if event_key in (
+    if event_key == "confirmed_transfer":
+        mention = _gm_mentions_line(payload) or _team_gm_mention_line(payload)
+        prefix = team_emoji_prefix(league_slug, payload).strip()
+        if mention:
+            lines.append(f"{prefix} {mention}".strip() if prefix else mention)
+        team_line = format_team_label(league_slug, payload, include_emoji_prefix=False)
+        if team_line:
+            lines.append(team_line)
+        lines.append(f"**{title}**")
+    elif event_key == "confirmed_trade":
+        team_line = format_team_label(league_slug, payload)
+        if team_line:
+            lines.append(team_line)
+        _append_gm_mentions(lines, payload)
+        lines.append(f"**{title}**")
+    elif event_key in (
         "news_published",
         "gm_news_published",
         "admin_news_published",
-        "confirmed_trade",
-        "confirmed_transfer",
     ):
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)
-        if event_key in ("confirmed_trade", "confirmed_transfer"):
-            _append_gm_mentions(lines, payload)
-        elif team_line or payload.get("league_wide"):
+        if team_line or payload.get("league_wide"):
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     elif event_key == "announcement_posted":

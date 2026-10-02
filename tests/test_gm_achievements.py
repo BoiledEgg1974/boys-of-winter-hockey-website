@@ -616,6 +616,22 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(consecutive_champ_streak_ending_in([1967, 1968, 1969, 1970, 1971], 1972), 0)
         self.assertEqual(consecutive_champ_streak_ending_in([1967, 1968, 1969, 1970, 1971], 1968), 2)
 
+    def test_homegrown_cup_requires_cup_winning_season_roster(self) -> None:
+        from app.services.gm_achievements import HOMEGROWN_CUP_TARGET
+
+        drafted = {19: set(range(20))}
+        cup_wins = {(19, 1988)}  # franchise won in 1988, not the active season
+        roster_by_season = {
+            2025: {19: set(range(20))},
+            1988: {19: set(range(5))},
+        }
+        awarded: list[int] = []
+        for tid, sid in cup_wins:
+            grown = roster_by_season.get(sid, {}).get(tid, set()) & drafted.get(tid, set())
+            if len(grown) >= HOMEGROWN_CUP_TARGET:
+                awarded.append(tid)
+        self.assertEqual(awarded, [])
+
     def test_team_badges_omit_heritage_pinnacle_and_dynasty(self) -> None:
         self.app = create_app(make_league_config("bowl-cap"))
         with self.app.app_context():

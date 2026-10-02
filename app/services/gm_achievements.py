@@ -1431,6 +1431,103 @@ def _record_is_current_season(
     )
 
 
+def _season_id_lookup(session: Session) -> tuple[dict[str, int], dict[int, int]]:
+    """Map display labels and start years to ``Season.id``."""
+    by_label: dict[str, int] = {}
+    by_start_year: dict[int, int] = {}
+    for row in session.scalars(select(Season)).all():
+        lab = season_display_label(row)
+        if lab:
+            by_label[lab] = int(row.id)
+        if row.start_year is not None:
+            by_start_year[int(row.start_year)] = int(row.id)
+    return by_label, by_start_year
+
+
+def _season_id_for_team_record(
+    rec: TeamSeasonRecord,
+    *,
+    by_label: dict[str, int],
+    by_start_year: dict[int, int],
+) -> int | None:
+    lab = (rec.season_year_label or "").strip()
+    if lab and lab in by_label:
+        return by_label[lab]
+    if rec.start_year is not None:
+        return by_start_year.get(int(rec.start_year))
+    return None
+
+
+def _cup_win_team_season_pairs(
+    session: Session,
+    *,
+    records_by_team: dict[int, list[TeamSeasonRecord]],
+    going_forward: bool,
+    season_label: str,
+    current_start: int | None,
+    season: Season | None,
+) -> set[tuple[int, int]]:
+    """Each pair is (team_id, season_id) for a BOWL Cup title."""
+    by_label, by_start_year = _season_id_lookup(session)
+    wins: set[tuple[int, int]] = set()
+    for recs in records_by_team.values():
+        for rec in recs:
+            if not rec.team_id or not _is_champion_result(rec.result):
+                continue
+            if going_forward and not _record_is_current_season(
+                rec, season_label=season_label, start_year=current_start
+            ):
+                continue
+            sid = _season_id_for_team_record(rec, by_label=by_label, by_start_year=by_start_year)
+            if sid is not None:
+                wins.add((int(rec.team_id), int(sid)))
+    for row in session.scalars(select(HistoryChampion)).all():
+        if not row.team_id:
+            continue
+        if going_forward and not _history_champ_is_current_season(
+            row, current=season, season_label=season_label
+        ):
+            continue
+        wins.add((int(row.team_id), int(row.season_id)))
+    return wins
+
+
+def _playoff_rosters_for_seasons(
+    session: Session,
+    season_ids: set[int],
+    *,
+    as_of_game_date: date | None,
+) -> dict[int, dict[int, set[int]]]:
+    """season_id -> team_id -> player ids from playoff boxscores."""
+    if not season_ids:
+        return {}
+    game_q = select(Game).where(Game.status == "final", Game.season_id.in_(season_ids))
+    if as_of_game_date is not None:
+        game_q = game_q.where(Game.game_date <= as_of_game_date)
+    playoff_games = [
+        g for g in session.scalars(game_q).all() if g.id and is_playoff_game_type(g.game_type)
+    ]
+    if not playoff_games:
+        return {}
+    season_for_game = {int(g.id): int(g.season_id) for g in playoff_games}
+    game_ids = list(season_for_game.keys())
+    skater_lines = list(
+        session.scalars(select(GameSkaterStat).where(GameSkaterStat.game_id.in_(game_ids))).all()
+    )
+    goalie_lines = list(
+        session.scalars(select(GameGoalieStat).where(GameGoalieStat.game_id.in_(game_ids))).all()
+    )
+    out: dict[int, dict[int, set[int]]] = {}
+    for ln in skater_lines + goalie_lines:
+        if not ln.game_id or not ln.team_id or not ln.player_id:
+            continue
+        sid = season_for_game.get(int(ln.game_id))
+        if sid is None:
+            continue
+        out.setdefault(sid, {}).setdefault(int(ln.team_id), set()).add(int(ln.player_id))
+    return out
+
+
 def _history_champ_is_current_season(
     row: HistoryChampion,
     *,
@@ -2333,18 +2430,32 @@ def discover_true_achievements(
     drafted_ids_by_team: dict[int, set[int]] = {}
     for pick in session.scalars(select(DraftPick).where(DraftPick.player_id.is_not(None), DraftPick.team_id.is_not(None))).all():
         drafted_ids_by_team.setdefault(int(pick.team_id), set()).add(int(pick.player_id))
-    po_roster: dict[int, set[int]] = {}
-    for ln in skater_lines + goalie_lines:
-        if ln.game_id in po_order and ln.team_id and ln.player_id:
-            po_roster.setdefault(int(ln.team_id), set()).add(int(ln.player_id))
-    for tid in champ_team_ids:
-        grown = po_roster.get(tid, set()) & drafted_ids_by_team.get(tid, set())
-        if len(grown) >= HOMEGROWN_CUP_TARGET:
-            mark(
-                tid,
-                "homegrown_cup",
-                {"count": len(grown), "detail": f"Won the Cup with {len(grown)} self-drafted playoff players"},
-            )
+    cup_win_pairs = _cup_win_team_season_pairs(
+        session,
+        records_by_team=records_by_team,
+        going_forward=going_forward,
+        season_label=season_label or "",
+        current_start=current_start,
+        season=season,
+    )
+    if cup_win_pairs and drafted_ids_by_team:
+        po_roster_by_season = _playoff_rosters_for_seasons(
+            session,
+            {sid for _, sid in cup_win_pairs},
+            as_of_game_date=as_of_game_date,
+        )
+        for tid, sid in cup_win_pairs:
+            roster = po_roster_by_season.get(sid, {}).get(tid, set())
+            grown = roster & drafted_ids_by_team.get(tid, set())
+            if len(grown) >= HOMEGROWN_CUP_TARGET:
+                mark(
+                    tid,
+                    "homegrown_cup",
+                    {
+                        "count": len(grown),
+                        "detail": f"Won the Cup with {len(grown)} self-drafted playoff players",
+                    },
+                )
 
     for tid, recs in records_by_team.items():
         champ_years = [int(r.start_year) for r in recs if r.start_year and _is_champion_result(r.result)]
@@ -2893,6 +3004,49 @@ def _revoke_unearned_heist(
             deleted_refs.add(str(unlock.source_ref))
         session.delete(unlock)
         dropped.add((int(unlock.team_id), key))
+    if dropped:
+        watermark = session.scalar(
+            select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
+        )
+        if watermark is not None:
+            kept = {pair for pair in _already_pairs(watermark) if pair not in dropped}
+            if len(kept) != len(_already_pairs(watermark)):
+                watermark.already_true_json = _pairs_to_json(kept)
+                watermark.evaluated_at = datetime.utcnow()
+        _cancel_pending_achievement_discord(session, league_slug, deleted_refs)
+    return dropped
+
+
+def _revoke_unearned_homegrown_cup(
+    session: Session,
+    *,
+    league_slug: str,
+    truths: dict[int, dict[str, Any]],
+) -> set[tuple[int, str]]:
+    """Drop Homegrown Cup tickets that are not true after season-scoped evaluation."""
+    dropped: set[tuple[int, str]] = set()
+    live_teams = {
+        int(tid)
+        for tid, keys in truths.items()
+        if any(catalog_key_from_storage(key) == "homegrown_cup" for key in keys)
+    }
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    deleted_refs: set[str] = set()
+    for unlock in rows:
+        if catalog_key_from_storage(unlock.achievement_key) != "homegrown_cup":
+            continue
+        if int(unlock.team_id) in live_teams:
+            continue
+        if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            clawback_achievement_ap(unlock)
+        if unlock.source_ref:
+            deleted_refs.add(str(unlock.source_ref))
+        session.delete(unlock)
+        dropped.add((int(unlock.team_id), str(unlock.achievement_key)))
     if dropped:
         watermark = session.scalar(
             select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
@@ -3462,6 +3616,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
         "heritage_career_revoked": 0,
         "perfect_attendance_revoked": 0,
         "heist_revoked": 0,
+        "homegrown_cup_revoked": 0,
     }
     if slug not in HOCKEY_SLUGS:
         stats["skipped"] = 1
@@ -3562,6 +3717,19 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     false_heist = _revoke_unearned_heist(session, league_slug=slug, truths=truths)
     existing -= false_heist
     stats["heist_revoked"] = len(false_heist)
+    false_homegrown = _revoke_unearned_homegrown_cup(session, league_slug=slug, truths=truths)
+    false_homegrown_expanded = expand_legacy_pairs(false_homegrown, season_label or "")
+    already -= false_homegrown_expanded
+    existing -= false_homegrown_expanded
+    stats["homegrown_cup_revoked"] = len(false_homegrown)
+    live_homegrown = {
+        int(tid)
+        for tid, keys in truths.items()
+        if any(catalog_key_from_storage(key) == "homegrown_cup" for key in keys)
+    }
+    for pair in list(already):
+        if catalog_key_from_storage(pair[1]) == "homegrown_cup" and pair[0] not in live_homegrown:
+            already.discard(pair)
     drop = stale | orphan
     if drop:
         already -= drop

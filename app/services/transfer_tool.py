@@ -179,6 +179,7 @@ def validate_transfer_submission(
     player_ids: list[int],
     compensation: dict[str, Any],
     raw_dir: Path | None,
+    exclude_proposal_id: int | None = None,
 ) -> str | None:
     if not is_transfer_tool_league(league_slug):
         return "Transfer Tool is only available on BOWL-Relegation."
@@ -251,6 +252,7 @@ def validate_transfer_submission(
         site_session,
         league_slug=league_slug,
         player_ids=player_ids,
+        exclude_proposal_id=exclude_proposal_id,
     )
     if pending_err:
         return pending_err
@@ -621,6 +623,7 @@ def publish_transfer_proposal(
         player_ids=parse_player_ids(proposal.player_ids_json),
         compensation=parse_compensation_payload(proposal.compensation_json),
         raw_dir=raw_dir,
+        exclude_proposal_id=int(proposal.id),
     )
     if err:
         return None, err

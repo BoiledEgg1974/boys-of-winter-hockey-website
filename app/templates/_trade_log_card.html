@@ -1,9 +1,9 @@
 {% set view = trade_log_card_view(row) %}
 {% set logo_a = trade_log_team_logo_url(row, row.team_a, view.team_a.team_label) if trade_log_team_logo_url is defined else '' %}
 {% set logo_b = trade_log_team_logo_url(row, row.team_b, view.team_b.team_label) if trade_log_team_logo_url is defined else '' %}
-{% set trade_ref = row.entry_id if row.entry_id else row.article_id %}
+{% set trade_ref = row.proposal_id if row.proposal_id else (row.entry_id if row.entry_id else row.article_id) %}
 <article class="trade-log-card trade-log-modern-card"
-         {% if can_trade_ai is defined and can_trade_ai %}data-source="{{ row.source }}" data-row-id="{{ row.article_id if row.source == 'site' else row.entry_id }}"{% endif %}>
+         {% if can_trade_ai is defined and can_trade_ai %}data-source="{{ row.source }}" data-row-id="{{ row.article_id if row.source == 'site' else (row.proposal_id if row.proposal_id else row.entry_id) }}"{% endif %}>
   <header class="trade-log-modern-card__top">
     <span>Trade{% if trade_ref %} #{{ trade_ref }}{% endif %}</span>
     <span>

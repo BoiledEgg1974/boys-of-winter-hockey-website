@@ -36,6 +36,7 @@ class TradeLogSourceLabelTest(unittest.TestCase):
         self.assertEqual(trade_log_source_label("manual"), "Manual")
         self.assertEqual(trade_log_source_label("csv"), "CSV import")
         self.assertEqual(trade_log_source_label("site"), "Trade Tool")
+        self.assertEqual(trade_log_source_label("transfer"), "Cross-league transfer")
 
 
 class ManualTradeLogSummaryTest(unittest.TestCase):

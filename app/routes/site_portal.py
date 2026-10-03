@@ -2326,7 +2326,7 @@ def trade_log_ai_take():
         row_id = int(data.get("id"))
     except (TypeError, ValueError):
         return jsonify({"error": "id required"}), 400
-    if source not in ("manual", "csv", "site") or row_id <= 0:
+    if source not in ("manual", "csv", "site", "transfer") or row_id <= 0:
         return jsonify({"error": "Invalid trade log reference."}), 400
     slug = _league_slug()
     row = resolve_trade_log_row(db.session, db.session, league_slug=slug, source=source, row_id=row_id)

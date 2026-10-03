@@ -293,6 +293,20 @@ class TransferAiPartnerTests(unittest.TestCase):
                             )
         self.assertIsNone(err)
 
+    def test_validate_excludes_own_proposal_on_commissioner_publish(self):
+        site_session = MagicMock()
+        own = MagicMock()
+        own.id = 30
+        own.player_ids_json = "[7]"
+        site_session.scalars.return_value.all.return_value = [own]
+        err = pending_review_error_for_players(
+            site_session,
+            league_slug="bowl-fantasy",
+            player_ids=[7],
+            exclude_proposal_id=30,
+        )
+        self.assertIsNone(err)
+
     def test_pending_commissioner_blocks_new_transfer(self):
         site_session = MagicMock()
         blocking = MagicMock()

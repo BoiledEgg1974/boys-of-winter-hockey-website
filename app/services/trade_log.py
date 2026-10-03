@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Season, Team, TradeLogEntry
-from app.site_models import NewsArticle
+from app.site_models import GmTransferProposal, NewsArticle
+from app.services.transfer_rules import STATUS_PUBLISHED, is_transfer_tool_league
 from app.services.franchise_identities import team_identity_for_season
 
 _TRADE_TITLE_RE = re.compile(r"^Trade:\s*(.+?)\s*↔\s*(.+?)\s*$", re.IGNORECASE)
@@ -52,7 +53,7 @@ def trade_log_era_start_year(
             return int(trade_date.year)
         return league_year
 
-    if src == "site":
+    if src in ("site", "transfer"):
         return league_year
 
     if trade_date is not None:
@@ -90,6 +91,7 @@ class TradeLogRow:
     era_start_year: int | None = None
     article_id: int | None = None
     entry_id: int | None = None
+    proposal_id: int | None = None
     log_key: str = ""
 
 
@@ -116,6 +118,8 @@ def trade_log_source_label(source: str) -> str:
         return "CSV import"
     if s == "site":
         return "Trade Tool"
+    if s == "transfer":
+        return "Cross-league transfer"
     return (source or "Unknown").strip() or "Unknown"
 
 
@@ -183,10 +187,18 @@ def trade_log_card_view(row: TradeLogRow) -> TradeLogCardView:
     )
 
 
-def trade_log_row_key(*, source: str, entry_id: int | None = None, article_id: int | None = None) -> str:
+def trade_log_row_key(
+    *,
+    source: str,
+    entry_id: int | None = None,
+    article_id: int | None = None,
+    proposal_id: int | None = None,
+) -> str:
     s = (source or "").strip().lower()
     if s == "site" and article_id:
         return f"site:{int(article_id)}"
+    if s == "transfer" and proposal_id:
+        return f"transfer:{int(proposal_id)}"
     if entry_id is not None:
         return f"{s}:{int(entry_id)}"
     return ""
@@ -278,6 +290,34 @@ def resolve_trade_log_row(
             era_start_year=era_y,
             article_id=int(art.id),
             log_key=trade_log_row_key(source="site", article_id=int(art.id)),
+        )
+    if src == "transfer":
+        prop = site_session.get(GmTransferProposal, rid)
+        if not prop or prop.league_slug != league_slug or prop.status != STATUS_PUBLISHED:
+            return None
+        from app.services.transfer_tool import format_transfer_summary
+
+        ta = league_session.get(Team, int(prop.bowl_team_id))
+        tb = league_session.get(Team, int(prop.external_team_id))
+        sort_at = prop.commissioner_acted_at or prop.created_at or datetime.min
+        trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
+        body = format_transfer_summary(league_session, prop)
+        era_y = trade_log_era_start_year(league_session, source="transfer", trade_date=trade_d, body=body)
+        label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
+        title = f"Transfer: {label_a} ↔ {label_b}"
+        return TradeLogRow(
+            sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
+            trade_date=trade_d,
+            team_a=ta,
+            team_b=tb,
+            title=title,
+            body=body,
+            source="transfer",
+            team_a_label=label_a,
+            team_b_label=label_b,
+            era_start_year=era_y,
+            proposal_id=int(prop.id),
+            log_key=trade_log_row_key(source="transfer", proposal_id=int(prop.id)),
         )
     return None
 
@@ -414,6 +454,46 @@ def trade_log_rows(
             if team_id is None or _row_involves_team(row, team_id):
                 rows.append(row)
 
-    rows.sort(key=lambda r: (r.sort_at, r.article_id or 0), reverse=True)
+        if is_transfer_tool_league(league_slug):
+            from app.services.transfer_tool import format_transfer_summary
+
+            transfer_props = site_session.scalars(
+                select(GmTransferProposal)
+                .where(
+                    GmTransferProposal.league_slug == league_slug,
+                    GmTransferProposal.status == STATUS_PUBLISHED,
+                )
+                .order_by(GmTransferProposal.commissioner_acted_at.desc(), GmTransferProposal.id.desc())
+                .limit(500)
+            ).all()
+        else:
+            transfer_props = []
+        for prop in transfer_props:
+            ta = league_session.get(Team, int(prop.bowl_team_id))
+            tb = league_session.get(Team, int(prop.external_team_id))
+            sort_at = prop.commissioner_acted_at or prop.created_at or datetime.min
+            trade_d = sort_at.date() if isinstance(sort_at, datetime) else None
+            body = format_transfer_summary(league_session, prop)
+            era_y = trade_log_era_start_year(league_session, source="transfer", trade_date=trade_d, body=body)
+            label_a, label_b = _trade_team_labels(league_session, ta, tb, era_y)
+            title = f"Transfer: {label_a} ↔ {label_b}"
+            row = TradeLogRow(
+                sort_at=sort_at if isinstance(sort_at, datetime) else datetime.min,
+                trade_date=trade_d,
+                team_a=ta,
+                team_b=tb,
+                title=title,
+                body=body,
+                source="transfer",
+                team_a_label=label_a,
+                team_b_label=label_b,
+                era_start_year=era_y,
+                proposal_id=int(prop.id),
+                log_key=trade_log_row_key(source="transfer", proposal_id=int(prop.id)),
+            )
+            if team_id is None or _row_involves_team(row, team_id):
+                rows.append(row)
+
+    rows.sort(key=lambda r: (r.sort_at, r.proposal_id or r.article_id or 0), reverse=True)
     cap = max(1, min(500, int(limit)))
     return rows[:cap]

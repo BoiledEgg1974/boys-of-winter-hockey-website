@@ -349,6 +349,8 @@ def _game_type_label(game: Game) -> str:
         or "exhibition" in folded
     ):
         label = "PS"
+    elif raw and "prospect tournament" in folded:
+        label = "PT"
     elif raw and "playoff" in folded:
         label = "PO"
     else:
@@ -938,16 +940,59 @@ def recent_final_game_ids_for_boxscores(
     return [int(gid) for gid in ids], start, latest
 
 
+def final_game_ids_for_boxscore_queue(
+    league_session: Session,
+    *,
+    days: int = 7,
+    game_type: str | None = None,
+) -> tuple[list[int], date | None, date | None]:
+    """Current-season final game ids for manual boxscore queue (by window or game type)."""
+    from app.services.seasons import get_current_season
+
+    gt = str(game_type or "").strip()
+    if not gt:
+        return recent_final_game_ids_for_boxscores(league_session, days=days)
+    season = get_current_season()
+    if season is None:
+        return [], None, None
+    rows = list(
+        league_session.scalars(
+            select(Game.id)
+            .where(
+                Game.season_id == int(season.id),
+                Game.status == "final",
+                Game.game_type == gt,
+                Game.game_date.is_not(None),
+            )
+            .order_by(Game.game_date.asc(), Game.id.asc())
+        ).all()
+    )
+    if not rows:
+        return [], None, None
+    ids = [int(gid) for gid in rows]
+    bounds = league_session.execute(
+        select(func.min(Game.game_date), func.max(Game.game_date)).where(
+            Game.id.in_(ids)
+        )
+    ).one()
+    start, latest = bounds[0], bounds[1]
+    return ids, start, latest
+
+
 def queue_recent_game_boxscores(
     league_session: Session,
     site_session: Session,
     *,
     league_slug: str,
     days: int = 7,
+    game_type: str | None = None,
     created_by_user_id: int | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     """Enqueue franchise boxscores for finals in the last N in-game days.
+
+    When ``game_type`` is set, queue every final in the current season with that
+    FHM type (``days`` is ignored). Useful to re-post Prospect Tournament reports.
 
     When ``force`` is True, clear delivered/idempotency locks for matching
     game:team sources so already-sent games can be re-posted (new Discord
@@ -958,14 +1003,16 @@ def queue_recent_game_boxscores(
         window_days = max(1, int(days))
     except (TypeError, ValueError):
         window_days = 7
-    game_ids, start, latest = recent_final_game_ids_for_boxscores(
-        league_session, days=window_days
+    gt = str(game_type or "").strip() or None
+    game_ids, start, latest = final_game_ids_for_boxscore_queue(
+        league_session, days=window_days, game_type=gt
     )
     stats: dict[str, Any] = {
         "games": 0,
         "queued": 0,
         "skipped": 0,
         "days": window_days,
+        "game_type": gt,
         "window_start": start.isoformat() if start is not None else None,
         "window_end": latest.isoformat() if latest is not None else None,
         "force": bool(force),
@@ -978,7 +1025,10 @@ def queue_recent_game_boxscores(
         stats["message"] = "Missing league slug."
         return stats
     if not game_ids:
-        stats["message"] = "No final games found in that in-game day window."
+        if gt:
+            stats["message"] = f"No final games found with game type {gt!r} in the current season."
+        else:
+            stats["message"] = "No final games found in that in-game day window."
         stats["ok"] = True
         return stats
     ensure_game_boxscore_team_channels(site_session, league_session, slug)
@@ -1041,10 +1091,14 @@ def queue_recent_game_boxscores(
             f" Force re-queue cleared {stats['delivered_cleared']} delivered mark(s) "
             f"and cancelled {stats['outbound_cancelled']} prior event(s)."
         )
+    scope = (
+        f"game type {gt!r}"
+        if gt
+        else f"{stats['days']} in-game day(s)"
+    )
     stats["message"] = (
         f"Queued {stats['queued']} boxscore event(s) for {stats['games']} final game(s) "
-        f"from {stats['window_start']} to {stats['window_end']} "
-        f"({stats['days']} in-game day(s)).{force_note}"
+        f"from {stats['window_start']} to {stats['window_end']} ({scope}).{force_note}"
     )
     _log.info("Manual game boxscore queue for %s: %s", slug, stats)
     return stats

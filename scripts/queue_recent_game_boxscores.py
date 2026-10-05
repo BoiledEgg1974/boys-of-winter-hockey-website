@@ -6,6 +6,7 @@ Uses the same helper as Admin → Discord Integration → Queue recent boxscores
   python scripts/queue_recent_game_boxscores.py --league bowl-cap --days 7
   python scripts/queue_recent_game_boxscores.py --all --dry-run
   python scripts/queue_recent_game_boxscores.py --league bowl-historical --days 7 --force
+  python scripts/queue_recent_game_boxscores.py --league bowl-fantasy --game-type "Prospect Tournament" --force
 """
 
 from __future__ import annotations
@@ -30,13 +31,20 @@ def _target_slugs(args: argparse.Namespace) -> list[str]:
     raise SystemExit("Pass --all or --league <slug>.")
 
 
-def _queue_league(slug: str, *, days: int, dry_run: bool, force: bool) -> dict:
+def _queue_league(
+    slug: str,
+    *,
+    days: int,
+    game_type: str | None,
+    dry_run: bool,
+    force: bool,
+) -> dict:
     from app import create_app
     from app.config import make_league_config
     from app.league_db import db
     from app.services.game_boxscore_discord import (
+        final_game_ids_for_boxscore_queue,
         queue_recent_game_boxscores,
-        recent_final_game_ids_for_boxscores,
     )
     from app.sqlite_retry import commit_with_sqlite_retry
 
@@ -44,11 +52,12 @@ def _queue_league(slug: str, *, days: int, dry_run: bool, force: bool) -> dict:
     app = create_app(make_league_config(slug))
     with app.app_context():
         if dry_run:
-            game_ids, start, latest = recent_final_game_ids_for_boxscores(
-                db.session, days=days
+            game_ids, start, latest = final_game_ids_for_boxscore_queue(
+                db.session, days=days, game_type=game_type
             )
+            scope = f"type={game_type!r}" if game_type else f"days={days}"
             print(
-                f"{slug}: dry-run window {start} → {latest}; "
+                f"{slug}: dry-run ({scope}) {start} -> {latest}; "
                 f"{len(game_ids)} final game(s): {game_ids}"
                 + (" (force)" if force else "")
             )
@@ -63,6 +72,7 @@ def _queue_league(slug: str, *, days: int, dry_run: bool, force: bool) -> dict:
             db.session,
             league_slug=slug,
             days=days,
+            game_type=game_type,
             force=force,
         )
         commit_with_sqlite_retry(db.session)
@@ -91,6 +101,12 @@ def main() -> int:
         action="store_true",
         help="Re-queue already-sent games (clears delivery locks; posts new Discord messages).",
     )
+    ap.add_argument(
+        "--game-type",
+        dest="game_type",
+        default=None,
+        help='Queue all current-season finals with this FHM type (e.g. "Prospect Tournament"). Ignores --days.',
+    )
     args = ap.parse_args()
     if args.days < 1:
         raise SystemExit("--days must be >= 1")
@@ -100,6 +116,7 @@ def main() -> int:
         stats = _queue_league(
             slug,
             days=int(args.days),
+            game_type=(str(args.game_type).strip() if args.game_type else None),
             dry_run=bool(args.dry_run),
             force=bool(args.force),
         )

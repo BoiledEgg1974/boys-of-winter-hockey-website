@@ -948,6 +948,67 @@ class FormatterTest(unittest.TestCase):
         self.assertEqual(payload["game_type_label"], "PS")
         self.assertEqual(payload["date"], "1971-09-24")
 
+    def test_payload_builder_labels_prospect_tournament(self) -> None:
+        home = SimpleNamespace(
+            id=1,
+            abbreviation="BGK",
+            name="Home",
+            fhm_team_id="1",
+            full_display_name=lambda: "Home",
+        )
+        away = SimpleNamespace(
+            id=2,
+            abbreviation="DBB",
+            name="Away",
+            fhm_team_id="2",
+            full_display_name=lambda: "Away",
+        )
+        game = SimpleNamespace(
+            id=16902,
+            home_team=home,
+            away_team=away,
+            home_team_id=1,
+            away_team_id=2,
+            home_score=13,
+            away_score=14,
+            home_shots=20,
+            away_shots=20,
+            pp_goals_home=0,
+            pp_opp_home=0,
+            pp_goals_away=0,
+            pp_opp_away=0,
+            pim_home=0,
+            pim_away=0,
+            hits_home=0,
+            hits_away=0,
+            game_date=date(2025, 8, 14),
+            game_type="Prospect Tournament",
+            went_to_overtime=False,
+            went_to_shootout=False,
+            status="final",
+            fhm_star1_player_id=None,
+            fhm_star2_player_id=None,
+            fhm_star3_player_id=None,
+        )
+        league = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.build_league_public_url",
+            return_value="https://www.bowlhockey.com/bowl-fantasy/game/16902",
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_skater_rows",
+            return_value=[],
+        ), patch(
+            "app.services.game_boxscore_discord._load_game_goalie_rows",
+            return_value=[],
+        ):
+            payload = build_game_boxscore_discord_payload(
+                league,
+                league_slug="bowl-fantasy",
+                game=game,
+                target_team_id=2,
+            )
+        self.assertEqual(payload["game_type_label"], "PT")
+
     def test_payload_builder_includes_leaders_and_goalies(self) -> None:
         home = SimpleNamespace(
             id=12,

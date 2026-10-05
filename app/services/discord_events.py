@@ -1545,6 +1545,96 @@ def _normalize_expansion_draft_discord_routes(session, league_slug: str) -> bool
     return changed
 
 
+def _normalize_hockey_sim_log_discord_routes(session, league_slug: str) -> bool:
+    """Backfill guild + #sim-log / #gm-export-tracker IDs from env (all hockey leagues)."""
+    from app.config import (
+        HOCKEY_LEAGUE_SLUGS,
+        default_discord_guild_id_for_league,
+        discord_gm_export_tracker_channel_id,
+        discord_sim_log_channel_id,
+    )
+
+    slug = str(league_slug or "").strip()
+    if slug not in HOCKEY_LEAGUE_SLUGS:
+        return False
+
+    sim_log_cid = discord_sim_log_channel_id(slug)
+    tracker_cid = discord_gm_export_tracker_channel_id(slug)
+    default_guild = default_discord_guild_id_for_league(slug)
+    if not sim_log_cid and not tracker_cid and not default_guild:
+        return False
+
+    changed = False
+    now = datetime.utcnow()
+
+    cfg = _ensure_discord_bot_cfg_row(session, slug)
+    if default_guild and not str(cfg.guild_id or "").strip():
+        cfg.guild_id = default_guild[:64]
+        cfg.updated_at = now
+        changed = True
+    if not bool(cfg.is_enabled):
+        cfg.is_enabled = True
+        cfg.updated_at = now
+        changed = True
+
+    if sim_log_cid and SIM_CYCLE_UPDATE_EVENT_KEY in _suppressed_default_route_keys(
+        session, slug
+    ):
+        _forget_removed_default_route(session, slug, SIM_CYCLE_UPDATE_EVENT_KEY)
+        changed = True
+    if tracker_cid and GM_EXPORT_TRACKER_POLL_EVENT_KEY in _suppressed_default_route_keys(
+        session, slug
+    ):
+        _forget_removed_default_route(session, slug, GM_EXPORT_TRACKER_POLL_EVENT_KEY)
+        changed = True
+
+    by_key = _route_map(session, slug)
+
+    def _apply_route(event_key: str, channel_key: str, cid: str) -> None:
+        nonlocal changed
+        if not cid:
+            return
+        row = by_key.get(event_key)
+        if row is None:
+            session.add(
+                DiscordChannelRoute(
+                    league_slug=slug,
+                    event_key=event_key,
+                    channel_key=channel_key,
+                    discord_channel_id=cid[:32],
+                    discord_channel_id_2="",
+                    discord_channel_id_3="",
+                    label=DEFAULT_EVENT_LABELS.get(event_key, ""),
+                    description="",
+                    is_enabled=True,
+                    updated_by_user_id=None,
+                    updated_at=now,
+                )
+            )
+            changed = True
+            return
+        if not str(row.discord_channel_id or "").strip():
+            row.discord_channel_id = cid[:32]
+            row.updated_at = now
+            changed = True
+        if not bool(row.is_enabled):
+            row.is_enabled = True
+            row.updated_at = now
+            changed = True
+
+    _apply_route(
+        SIM_CYCLE_UPDATE_EVENT_KEY,
+        default_channel_key_for_event(slug, SIM_CYCLE_UPDATE_EVENT_KEY),
+        sim_log_cid,
+    )
+    _apply_route(
+        GM_EXPORT_TRACKER_POLL_EVENT_KEY,
+        default_channel_key_for_event(slug, GM_EXPORT_TRACKER_POLL_EVENT_KEY),
+        tracker_cid,
+    )
+    return changed
+
+
 def _normalize_racing_discord_routes(session, league_slug: str) -> bool:
     """Align Formula / Demolition routes to #formula-bowl / #demolition-bowl channel keys."""
     from app.config import is_racing_league
@@ -1654,6 +1744,8 @@ def ensure_discord_routes(session, league_slug: str, updated_by_user_id: int | N
                 break
         changed = True
     if _normalize_expansion_draft_discord_routes(session, league_slug):
+        changed = True
+    if _normalize_hockey_sim_log_discord_routes(session, league_slug):
         changed = True
     if _normalize_racing_discord_routes(session, league_slug):
         changed = True

@@ -8765,10 +8765,27 @@ def admin_ap_export_multileague():
             from app.services.sim_cycle_discord import handle_sim_cycle_after_admin_export
             from app.sqlite_retry import commit_with_sqlite_retry
 
-            handle_sim_cycle_after_admin_export(
+            sim_action = handle_sim_cycle_after_admin_export(
                 db.session, db.session, cur_slug, export_date
             )
             commit_with_sqlite_retry(db.session)
+            if sim_action != "closed":
+                from app.config import default_discord_guild_id_for_league
+
+                guild_hint = default_discord_guild_id_for_league(cur_slug)
+                guild_line = (
+                    f" Expected guild ID for this league: {guild_hint}."
+                    if guild_hint
+                    else ""
+                )
+                flash(
+                    f"Export saved for {label}, but no closed sim-log recap was queued. "
+                    "On Admin → Discord integration, enable Bot connection and map "
+                    "`sim_cycle_update` → #sim-log (channel snowflake), or set "
+                    "DISCORD_SIM_LOG_CHANNEL_IDS in the site .env."
+                    f"{guild_line}",
+                    "err",
+                )
         except Exception:
             db.session.rollback()
             current_app.logger.exception(

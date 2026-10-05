@@ -40,6 +40,53 @@ LEAGUE_DISCORD_INVITE_URLS: dict[str, str] = {
     "bowl-fantasy": "https://discord.gg/4u4vZM8u6d",
 }
 
+# Default Discord server (guild) IDs for hockey leagues — used when Admin → Discord
+# integration has Bot connection guild left blank (env overrides via DISCORD_LEAGUE_GUILD_IDS).
+DEFAULT_HOCKEY_DISCORD_GUILD_IDS: dict[str, str] = {
+    "bowl-historical": "1218341313208914002",
+    "bowl-fantasy": "1201286402046955580",
+    "bowl-cap": "1333298384701755473",
+}
+
+
+def _parse_league_discord_snowflake_map(raw: str) -> dict[str, str]:
+    """Parse ``slug:snowflake,slug:snowflake`` env values."""
+    out: dict[str, str] = {}
+    for part in str(raw or "").split(","):
+        piece = part.strip()
+        if not piece or ":" not in piece:
+            continue
+        slug, channel_id = piece.split(":", 1)
+        slug = slug.strip()
+        channel_id = channel_id.strip()
+        if slug and 17 <= len(channel_id) <= 20 and channel_id.isdigit():
+            out[slug] = channel_id
+    return out
+
+
+def default_discord_guild_id_for_league(league_slug: str) -> str:
+    slug = str(league_slug or "").strip()
+    env_map = _parse_league_discord_snowflake_map(
+        os.environ.get("DISCORD_LEAGUE_GUILD_IDS", "")
+    )
+    if slug in env_map:
+        return env_map[slug]
+    return DEFAULT_HOCKEY_DISCORD_GUILD_IDS.get(slug, "")
+
+
+def discord_sim_log_channel_id(league_slug: str) -> str:
+    slug = str(league_slug or "").strip()
+    return _parse_league_discord_snowflake_map(
+        os.environ.get("DISCORD_SIM_LOG_CHANNEL_IDS", "")
+    ).get(slug, "")
+
+
+def discord_gm_export_tracker_channel_id(league_slug: str) -> str:
+    slug = str(league_slug or "").strip()
+    return _parse_league_discord_snowflake_map(
+        os.environ.get("DISCORD_GM_EXPORT_TRACKER_CHANNEL_IDS", "")
+    ).get(slug, "")
+
 
 def league_discord_invite_url(league_slug: str) -> str | None:
     return LEAGUE_DISCORD_INVITE_URLS.get(league_slug)

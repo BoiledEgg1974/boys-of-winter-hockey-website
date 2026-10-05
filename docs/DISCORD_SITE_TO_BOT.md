@@ -67,6 +67,8 @@ Delivery resolves `discord_channel_id` from the team row (the master route ID is
 
 **Historical example (Discord server guild `1218341313208914002`):** set that guild ID under Bot connection on `bowl-historical`; map channel snowflakes roughly as: `announcement_posted` → `#announcements`, `ap_redemption_posted` → `#ap-repemptions` (or `#ap-redemptions`), `gm_news_published` → `#team-news`, `admin_news_published` → `#league-news`, `draft_hub_pick_made` / `draft_hub_on_clock` / `draft_hub_completed` → `#draft-discussion`, `expansion_draft_pick_made` / `expansion_draft_on_clock` / `expansion_draft_completed` / `expansion_draft_command_list` → `#expansion-draft`, `expansion_draft_command_pick` → `#expansion-draft-pick`.
 
+**Relegation (`bowl-fantasy`, guild `1201286402046955580`):** map **`sim_cycle_update`** → `#sim-log` and **`gm_export_tracker_poll`** → `#gm-export-tracker` on **bowl-fantasy → Discord integration** (or set `DISCORD_SIM_LOG_CHANNEL_IDS` / `DISCORD_GM_EXPORT_TRACKER_CHANNEL_IDS` in site `.env`) so admin **EXPORT** queues the same closed recap as Historical/Cap.
+
 ## Smoke tests
 
 Use **Queue test event** on **Admin → Discord integration** against any configured route (`event_key` must match `[a-z][a-z0-9_]{0,63}`). Add custom routes with **Add route** if needed.

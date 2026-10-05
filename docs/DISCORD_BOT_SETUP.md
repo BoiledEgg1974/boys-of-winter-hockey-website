@@ -45,6 +45,10 @@ Removing a **default** route (seeded event keys like `calder_trophy_posted`) hid
 
 **Historical example guild `1218341313208914002`:** on **bowl-historical → Discord integration**, set Bot connection guild to that ID, then paste channel IDs: `#announcements` → `announcement_posted`; `#team-news` → `gm_news_published`; `#league-news` → `admin_news_published`; AP channel → `ap_redemption_posted`; `#draft-discussion` → draft hub live feeds; `#expansion-draft` → expansion live feeds + `/expansionlist`; `#expansion-draft-pick` → `/expansionpick`.
 
+**Relegation (BOWL-Fantasy) guild `1201286402046955580`:** same pattern on **bowl-fantasy → Discord integration** — Bot connection guild ID, then map **`sim_cycle_update`** → `#sim-log` and **`gm_export_tracker_poll`** → `#gm-export-tracker` so admin **EXPORT** in the AP ledger queues a closed recap (same as Historical/Cap). You can paste channel snowflakes in the admin UI or set `DISCORD_SIM_LOG_CHANNEL_IDS` / `DISCORD_GM_EXPORT_TRACKER_CHANNEL_IDS` in the site `.env` (see `.env.example`).
+
+**Cap guild `1333298384701755473`:** configure on **bowl-cap → Discord integration** the same way.
+
 ## 3. Website environment
 
 On the web app (all mounts share `instance/site_membership.db`):

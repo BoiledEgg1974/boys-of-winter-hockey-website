@@ -506,6 +506,45 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(CATALOG_BY_KEY["league_first_hat"].race)
         self.assertTrue(CATALOG_BY_KEY["the_heist"].repeatable)
 
+    def test_relegation_achievements_limited_to_human_gm_teams(self) -> None:
+        app = create_app(make_league_config("bowl-fantasy"))
+        with app.app_context():
+            active = list(
+                db.session.scalars(
+                    select(GmLeagueMembership).where(
+                        GmLeagueMembership.league_slug == "bowl-fantasy",
+                        GmLeagueMembership.status == "active",
+                    )
+                ).all()
+            )
+            for row in active:
+                db.session.delete(row)
+            db.session.flush()
+            self.assertEqual(discover_true_achievements(db.session, "bowl-fantasy"), {})
+
+            team = db.session.scalar(select(Team).order_by(Team.id).limit(1))
+            self.assertIsNotNone(team)
+            tid = int(team.id)
+            user = User(
+                email="relegation-ach-gm@example.invalid",
+                password_hash="x",
+                discord_name="Rel Ach GM",
+            )
+            db.session.add(user)
+            db.session.flush()
+            db.session.add(
+                GmLeagueMembership(
+                    league_slug="bowl-fantasy",
+                    user_id=int(user.id),
+                    team_id=tid,
+                    status="active",
+                )
+            )
+            db.session.flush()
+            truths = discover_true_achievements(db.session, "bowl-fantasy")
+            self.assertTrue(set(truths).issubset({tid}))
+            db.session.rollback()
+
     def test_catalog_artwork_covers_visible_achievements(self) -> None:
         missing_art = {"going_up", "reverse_sweep", "award_shelf"}
         for spec in CATALOG:

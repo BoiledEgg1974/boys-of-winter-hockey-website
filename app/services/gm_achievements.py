@@ -1586,6 +1586,44 @@ def _active_memberships(site_session: Session, league_slug: str) -> dict[int, Gm
     return {int(r.team_id): r for r in rows if r.team_id is not None}
 
 
+def _achievement_human_gm_team_ids(site_session: Session, league_slug: str) -> frozenset[int] | None:
+    """On BOWL-Relegation, only franchises with an active site GM earn achievements."""
+    if league_slug not in RELEGATION_ONLY:
+        return None
+    return frozenset(_active_memberships(site_session, league_slug))
+
+
+def _team_achievement_eligible(team_id: int | None, human_gm_teams: frozenset[int] | None) -> bool:
+    if not team_id:
+        return False
+    if human_gm_teams is None:
+        return True
+    return int(team_id) in human_gm_teams
+
+
+def _first_eligible_race_winner(
+    rows: list[tuple[Any, ...]],
+    human_gm_teams: frozenset[int] | None,
+    *,
+    team_idx: int = 2,
+) -> tuple[Any, ...] | None:
+    for row in rows:
+        if _team_achievement_eligible(int(row[team_idx]), human_gm_teams):
+            return row
+    return None
+
+
+def _filter_unlock_rows_for_league(
+    site_session: Session,
+    league_slug: str,
+    rows: list[GmAchievementUnlock],
+) -> list[GmAchievementUnlock]:
+    eligible = _achievement_human_gm_team_ids(site_session, league_slug)
+    if eligible is None:
+        return rows
+    return [row for row in rows if int(row.team_id) in eligible]
+
+
 def _player_name(session: Session, player_id: int | None) -> str:
     if not player_id:
         return ""
@@ -1646,11 +1684,14 @@ def discover_true_achievements(
     the rolling 45-day window is fully after that day.
     """
     allowed = {item.key for item in catalog_for_league(league_slug)}
+    human_gm_teams = _achievement_human_gm_team_ids(session, league_slug)
     hits: dict[int, dict[str, dict[str, Any]]] = {}
 
     def mark(team_id: int | None, key: str, meta: dict[str, Any] | None = None) -> None:
         base = catalog_key_from_storage(key)
         if not team_id or (key not in allowed and base not in allowed):
+            return
+        if not _team_achievement_eligible(int(team_id), human_gm_teams):
             return
         bucket = hits.setdefault(int(team_id), {})
         if key not in bucket:
@@ -1786,17 +1827,18 @@ def discover_true_achievements(
         )
     if hat_trick_games:
         hat_trick_games.sort(key=lambda row: (row[0], row[1], row[2]))
-        first = hat_trick_games[0]
-        mark(
-            first[2],
-            "league_first_hat",
-            {
-                "player_id": first[3] or None,
-                "player_name": first[4],
-                "game_id": first[1],
-                "detail": f"{first[4] or 'A player'} scored the first hat trick of the season",
-            },
-        )
+        first = _first_eligible_race_winner(hat_trick_games, human_gm_teams)
+        if first is not None:
+            mark(
+                first[2],
+                "league_first_hat",
+                {
+                    "player_id": first[3] or None,
+                    "player_name": first[4],
+                    "game_id": first[1],
+                    "detail": f"{first[4] or 'A player'} scored the first hat trick of the season",
+                },
+            )
 
     four_goal_games: list[tuple[date, int, int, int, str]] = []
     for ln in skater_lines:
@@ -1816,17 +1858,18 @@ def discover_true_achievements(
         )
     if four_goal_games:
         four_goal_games.sort(key=lambda row: (row[0], row[1], row[2]))
-        first = four_goal_games[0]
-        mark(
-            first[2],
-            "league_first_four",
-            {
-                "player_id": first[3] or None,
-                "player_name": first[4],
-                "game_id": first[1],
-                "detail": f"{first[4] or 'A player'} scored the first 4-goal game of the season",
-            },
-        )
+        first = _first_eligible_race_winner(four_goal_games, human_gm_teams)
+        if first is not None:
+            mark(
+                first[2],
+                "league_first_four",
+                {
+                    "player_id": first[3] or None,
+                    "player_name": first[4],
+                    "game_id": first[1],
+                    "detail": f"{first[4] or 'A player'} scored the first 4-goal game of the season",
+                },
+            )
 
     shutout_games: list[tuple[date, int, int, int, str]] = []
     for ln in goalie_lines:
@@ -1846,17 +1889,18 @@ def discover_true_achievements(
         )
     if shutout_games:
         shutout_games.sort(key=lambda row: (row[0], row[1], row[2]))
-        first = shutout_games[0]
-        mark(
-            first[2],
-            "league_first_shutout",
-            {
-                "player_id": first[3] or None,
-                "player_name": first[4],
-                "game_id": first[1],
-                "detail": f"{first[4] or 'A goalie'} recorded the first shutout of the season",
-            },
-        )
+        first = _first_eligible_race_winner(shutout_games, human_gm_teams)
+        if first is not None:
+            mark(
+                first[2],
+                "league_first_shutout",
+                {
+                    "player_id": first[3] or None,
+                    "player_name": first[4],
+                    "game_id": first[1],
+                    "detail": f"{first[4] or 'A goalie'} recorded the first shutout of the season",
+                },
+            )
 
     for gid, events in scoring_by_game.items():
         pid = detect_natural_hat_trick(events)
@@ -3233,7 +3277,10 @@ def seed_heritage_race_unlocks(
     }
     created = 0
     now = datetime.utcnow()
+    human_gm_teams = _achievement_human_gm_team_ids(session, league_slug)
     for tid, keys in truths.items():
+        if not _team_achievement_eligible(int(tid), human_gm_teams):
+            continue
         for key, meta in keys.items():
             spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
             if spec is None or not spec.race:
@@ -3634,6 +3681,7 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     max_gid = _max_game_id(session)
     tiers_now = _team_tiers_now(session, slug)
     memberships = _active_memberships(session, slug)
+    human_gm_teams = _achievement_human_gm_team_ids(session, slug)
 
     if watermark is None:
         truths = rewrite_truths_to_storage(discover_true_achievements(session, slug), season_label or "")
@@ -3742,6 +3790,8 @@ def evaluate_gm_achievements_after_import(app) -> dict[str, int]:
     awarded = 0
     recap_by_user: dict[int, dict[str, Any]] = {}
     for team_id, key, meta in collect_new_hits(truths, already, existing):
+        if not _team_achievement_eligible(int(team_id), human_gm_teams):
+            continue
         spec = CATALOG_BY_KEY.get(catalog_key_from_storage(key))
         if spec is None:
             continue
@@ -4399,6 +4449,8 @@ def team_achievement_badges(
     team_id: int,
 ) -> list[dict[str, Any]]:
     """Post-watermark unlocks for the team page banner."""
+    if not _team_achievement_eligible(int(team_id), _achievement_human_gm_team_ids(session, league_slug)):
+        return []
     badges: list[dict[str, Any]] = []
     for row in session.scalars(
         select(GmAchievementUnlock).where(
@@ -4490,8 +4542,14 @@ def _places_by_catalog_key(
 
 def build_achievement_leaderboard(session: Session, league_slug: str) -> dict[str, Any]:
     """Public trophy standings: AP earned, unlock count, and first-to-unlock races."""
-    rows = list(
-        session.scalars(select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)).all()
+    rows = _filter_unlock_rows_for_league(
+        session,
+        league_slug,
+        list(
+            session.scalars(
+                select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+            ).all()
+        ),
     )
     by_team: dict[int, dict[str, Any]] = {}
     for row in rows:

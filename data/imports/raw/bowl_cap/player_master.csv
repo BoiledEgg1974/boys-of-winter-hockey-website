@@ -657,7 +657,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 17507;183;183;Matt;Hunwick;;71;194;1985-5-21;Washington Park;IL;The United States;;;0;Left;1
 17004;155;155;Jonas;Gustavsson;The Monster;75;212;1984-10-24;Danderyd;STO;Sweden;;;0;Left;1
 657;186;186;Rick;Hayward;;72;180;1966-2-25;Toledo;OH;The United States;;;0;Left;0
-15472;66;15;Kevin;Dallman;;70;194;1981-2-26;Niagara Falls;ON;Kazakhstan;Canada;;0;Right;1
+15472;15;15;Kevin;Dallman;;70;194;1981-2-26;Niagara Falls;ON;Kazakhstan;Canada;;0;Right;1
 659;186;186;Shawn;Heaphy;;68;180;1968-11-27;Sudbury;ON;Canada;;;0;Left;0
 17005;183;183;Jimmy;Howard;;73;218;1984-3-26;Terryville;NY;The United States;;;0;Left;1
 661;221;221;Johan;Hedberg;Moose;72;185;1973-5-5;Stockholm;STO;Sweden;;;0;Left;0
@@ -3191,7 +3191,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 15536;68;17;Sergei;Mozyakin;;71;185;1981-3-30;Yaroslavl;YAR;Russia;;;0;Right;0
 16078;181;181;Charles;Linglet;;74;203;1982-6-22;Murdochville;QC;Belarus;Canada;;0;Left;0
 14552;63;12;Kyle;Calder;;71;180;1979-1-5;Lousana;AB;Canada;;;0;Left;0
-15032;66;15;Dmitri;Afanasenkov;;74;209;1980-5-12;Arkhangelsk;ARK;Russia;;;0;Right;0
+15032;15;15;Dmitri;Afanasenkov;;74;209;1980-5-12;Arkhangelsk;ARK;Russia;;;0;Right;1
 17614;179;179;Chris;Holt;;76;227;1985-6-5;Vernon;BC;Canada;;;0;Left;1
 13523;14;14;Eric;Belanger;;72;188;1977-12-16;Sorel-Tracy;QC;Canada;;;0;Left;0
 15033;231;229;Dean;Arsene;;74;205;1980-7-20;Maple Ridge;BC;Canada;;;0;Left;1
@@ -6351,7 +6351,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14115;186;186;Richard;Scott;;74;195;1978-8-1;Orillia;ON;Canada;;;0;Left;0
 14116;186;186;Cam;Severson;;74;229;1978-1-15;Esterhazy;SK;Canada;;;0;Left;0
 14117;215;214;Ben;Simon;;72;195;1978-6-14;South Point;OH;The United States;;;0;Left;0
-14118;66;15;Dan;Snyder;;72;190;1978-2-23;Elmira;ON;Canada;;;0;Left;0
+14118;15;15;Dan;Snyder;;72;190;1978-2-23;Elmira;ON;Canada;;;0;Left;1
 14119;215;214;Martin;Sonnenberg;;72;197;1978-1-23;Wainwright;AB;Canada;;;0;Left;0
 14120;220;220;Marco;Sturm;;72;194;1978-9-8;Dingolfing;BAV;Germany;;;0;Left;0
 14121;219;217;Brad;Tapper;;72;185;1978-4-28;Toronto;ON;Canada;;;0;Right;0

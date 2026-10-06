@@ -1,4 +1,4 @@
-"""Discord sim cycle export board (#sim-log closed recap only; FTP bot handles live)."""
+"""Discord sim cycle export board (#sim-log closed recap on admin EXPORT only)."""
 from __future__ import annotations
 
 import hashlib
@@ -357,12 +357,21 @@ def start_sim_cycle(
     return state, True
 
 
+def finish_closed_sim_cycle_after_ack(
+    site_session: Session,
+    league_slug: str,
+) -> SimCycleState:
+    """After closed recap delivery: return to idle (no live #sim-log tracking)."""
+    slug = str(league_slug or "").strip()
+    return reset_sim_cycle_state(site_session, slug)
+
+
 def restart_sim_cycle_after_close_ack(
     site_session: Session,
     league_session: Session,
     league_slug: str,
 ) -> tuple[SimCycleState, bool]:
-    """After closed recap delivery: begin internal live tracking (FTP bot posts #sim-log)."""
+    """Legacy live-cycle start; prefer finish_closed_sim_cycle_after_ack for #sim-log."""
     slug = str(league_slug or "").strip()
     state = get_or_create_sim_cycle_state(site_session, slug)
     cycle_anchor = state.cycle_started_at
@@ -443,7 +452,7 @@ def handle_sim_cycle_after_admin_export(
     league_slug: str,
     export_date: date,
 ) -> str:
-    """Post a closed recap when admin runs EXPORT; live cycle starts after that delivery."""
+    """Post a closed recap when admin runs EXPORT in the AP ledger."""
     if publish_closed_sim_cycle_from_admin_export(
         site_session, league_session, league_slug, export_date
     ):
@@ -519,21 +528,9 @@ def recover_stalled_live_sim_cycle(
     league_session: Session,
     league_slug: str,
 ) -> bool:
-    """Start live when a prior closed recap was delivered before live auto-start existed."""
-    slug = str(league_slug or "").strip()
-    if not slug or not sim_log_route_ready(site_session, slug):
-        return False
-    state = site_session.scalar(
-        select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
-    )
-    if state is None:
-        return False
-    if str(state.phase or "") != "closed":
-        return False
-    if bool(state.finalize_on_ack):
-        return False
-    _state, queued = restart_sim_cycle_after_close_ack(site_session, league_session, slug)
-    return queued
+    """No-op: live #sim-log tracking is disabled."""
+    _ = site_session, league_session, league_slug
+    return False
 
 
 def force_start_live_sim_cycle(
@@ -541,27 +538,12 @@ def force_start_live_sim_cycle(
     league_session: Session,
     league_slug: str,
 ) -> tuple[bool, str]:
-    """Admin one-shot: start internal live tracking after a closed recap (no news-bot post)."""
+    """Reset sim cycle state to idle (legacy admin action name)."""
     slug = str(league_slug or "").strip()
     if not slug:
         return False, "Missing league slug."
-    if not sim_log_route_ready(site_session, slug):
-        return (
-            False,
-            "Sim log route is not configured. Map sim_cycle_update → #sim-log channel ID.",
-        )
-    state = site_session.scalar(
-        select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
-    )
-    phase = str(getattr(state, "phase", None) or "idle")
-    if state is None or phase != "closed":
-        if phase == "live":
-            return False, "Sim cycle is already live. FTP bot posts live #sim-log updates."
-        return False, "No closed sim cycle to promote. Run EXPORT in the AP ledger first."
-    _state, started = restart_sim_cycle_after_close_ack(site_session, league_session, slug)
-    if not started:
-        return False, "Live sim cycle could not be started."
-    return True, "Started live sim cycle tracking. FTP bot posts live #sim-log updates."
+    finish_closed_sim_cycle_after_ack(site_session, slug)
+    return True, "Sim cycle reset to idle. #sim-log posts only after AP ledger EXPORT."
 
 
 def sim_cycle_tracker_config(site_session: Session, league_slug: str) -> dict[str, Any]:
@@ -617,12 +599,5 @@ def record_sim_cycle_discord_ack(
         state.updated_at = datetime.utcnow()
         session.flush()
         return
-    league_sess = league_session or session
-    # Begin internal live tracking after the closed recap is delivered. FTP bot
-    # posts live #sim-log updates; news-bot does not enqueue live boards.
-    if sim_log_route_ready(session, league_slug):
-        restart_sim_cycle_after_close_ack(session, league_sess, league_slug)
-    else:
-        state.finalize_on_ack = False
-        state.updated_at = datetime.utcnow()
-        session.flush()
+    _ = league_session
+    finish_closed_sim_cycle_after_ack(session, league_slug)

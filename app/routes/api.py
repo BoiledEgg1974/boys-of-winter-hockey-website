@@ -1492,6 +1492,27 @@ def homepage_summary():
     return resp
 
 
+@api_bp.get("/league/active-gm-teams")
+def league_active_gm_teams():
+    """Public list of franchise team ids with an active human GM (for stats bot / integrations)."""
+    slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+    site_engine = db.engines.get("site")
+    if not slug or site_engine is None:
+        return jsonify({"team_ids": []})
+    with site_engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT team_id FROM gm_league_memberships "
+                "WHERE league_slug = :slug AND status = 'active'"
+            ),
+            {"slug": slug},
+        ).fetchall()
+    team_ids = sorted({int(r[0]) for r in rows if r[0] is not None})
+    resp = jsonify({"team_ids": team_ids})
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    return resp
+
+
 @api_bp.get("/homepage/leaders")
 def homepage_leaders():
     """League Leaders panel only (RS / PS / PO); avoids reloading the full dashboard."""
@@ -2323,7 +2344,7 @@ def discord_sim_cycle_ingest_tracker():
             db.session, db.session, slug, messages, initial_sync=initial_sync
         )
         commit_with_sqlite_retry(db.session)
-        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": bool(changed)})
+        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": False})
     except Exception:
         db.session.rollback()
         current_app.logger.exception("sim cycle tracker ingest failed for %s", slug)

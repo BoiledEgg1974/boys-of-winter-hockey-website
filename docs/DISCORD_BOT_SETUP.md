@@ -37,7 +37,7 @@ In each league’s admin page (`/<league-slug>/admin/discord-integration`):
 | Sim cycle board (closed recap) | `sim_cycle_update` | `sim-log` |
 | Legacy (optional) | `news_published` | `league-news` |
 
-**Sim log:** After admin **EXPORT** in the AP ledger, the site queues a **closed** export recap to `#sim-log` (route **`sim_cycle_update`**) using GM export attendance for that date. Map **`sim_cycle_update`** to `#sim-log` on each league server. There is no live in-progress board.
+**Sim log:** After admin **EXPORT** in the AP ledger, the site queues a **closed** export recap to `#sim-log` (route **`sim_cycle_update`**) using GM export attendance for that date. Map **`sim_cycle_update`** to `#sim-log` on each league server. No live in-progress board and no scheduled sim-log posts.
 
 **Optional:** paste the same Discord channel ID onto multiple routes if you want combined feeds into one `#channel`.
 

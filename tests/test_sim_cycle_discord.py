@@ -183,7 +183,7 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         self.assertTrue(payload.get("post_new_message"))
         self.assertNotIn("edit_message_id", payload)
 
-    def test_record_ack_restarts_live_cycle_on_finalize(self) -> None:
+    def test_record_ack_resets_idle_on_finalize(self) -> None:
         session = MagicMock()
         state = SimpleNamespace(
             league_slug="bowl-cap",
@@ -194,12 +194,9 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         )
         session.scalar.return_value = state
         with patch(
-            "app.services.sim_cycle_discord.sim_log_route_ready",
-            return_value=True,
-        ), patch(
-            "app.services.sim_cycle_discord.restart_sim_cycle_after_close_ack"
-        ) as restart_mock:
-            restart_mock.return_value = (state, True)
+            "app.services.sim_cycle_discord.finish_closed_sim_cycle_after_ack"
+        ) as finish_mock:
+            finish_mock.return_value = state
             record_sim_cycle_discord_ack(
                 session,
                 event_key="sim_cycle_update",
@@ -207,33 +204,7 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
                 discord_message_id="123456789012345678",
                 discord_channel_id="999",
             )
-        restart_mock.assert_called_once_with(session, session, "bowl-cap")
-
-    def test_record_ack_skips_live_start_without_sim_log_route(self) -> None:
-        session = MagicMock()
-        state = SimpleNamespace(
-            league_slug="bowl-cap",
-            phase="closed",
-            finalize_on_ack=True,
-            cycle_started_at=datetime.utcnow(),
-            updated_at=None,
-        )
-        session.scalar.return_value = state
-        with patch(
-            "app.services.sim_cycle_discord.sim_log_route_ready",
-            return_value=False,
-        ), patch(
-            "app.services.sim_cycle_discord.restart_sim_cycle_after_close_ack"
-        ) as restart_mock:
-            record_sim_cycle_discord_ack(
-                session,
-                event_key="sim_cycle_update",
-                payload={"source_id": "bowl-cap", "finalize_on_ack": True},
-                discord_message_id="123456789012345678",
-                discord_channel_id="999",
-            )
-        restart_mock.assert_not_called()
-        self.assertFalse(state.finalize_on_ack)
+        finish_mock.assert_called_once_with(session, "bowl-cap")
 
     def test_restart_after_close_starts_fresh_live_cycle(self) -> None:
         site_session = MagicMock()
@@ -412,54 +383,17 @@ class SimCycleDiscordPayloadTests(unittest.TestCase):
         ):
             self.assertTrue(sim_cycle_routes_ready(site_session, "bowl-cap"))
 
-    def test_force_start_live_from_closed_phase(self) -> None:
+    def test_force_start_resets_sim_cycle(self) -> None:
         site_session = MagicMock()
-        league_session = MagicMock()
-        state = SimpleNamespace(
-            league_slug="bowl-cap",
-            phase="closed",
-            cycle_started_at=datetime(2026, 7, 5, 12, 0, 0),
-            finalize_on_ack=True,
-        )
-        site_session.scalar.return_value = state
         with patch(
-            "app.services.sim_cycle_discord.sim_log_route_ready",
-            return_value=True,
-        ), patch(
-            "app.services.sim_cycle_discord.restart_sim_cycle_after_close_ack",
-            return_value=(SimpleNamespace(phase="live"), True),
-        ) as restart_mock:
+            "app.services.sim_cycle_discord.finish_closed_sim_cycle_after_ack"
+        ) as finish_mock:
             ok, message = force_start_live_sim_cycle(
-                site_session, league_session, "bowl-cap"
+                site_session, MagicMock(), "bowl-cap"
             )
         self.assertTrue(ok)
-        self.assertIn("Started live sim cycle", message)
-        restart_mock.assert_called_once_with(site_session, league_session, "bowl-cap")
-
-    def test_force_start_live_rejects_when_not_closed(self) -> None:
-        site_session = MagicMock()
-        site_session.scalar.return_value = SimpleNamespace(phase="live")
-        with patch(
-            "app.services.sim_cycle_discord.sim_log_route_ready",
-            return_value=True,
-        ):
-            ok, message = force_start_live_sim_cycle(
-                site_session, MagicMock(), "bowl-cap"
-            )
-        self.assertFalse(ok)
-        self.assertIn("already live", message.lower())
-
-    def test_force_start_live_requires_sim_log_route(self) -> None:
-        site_session = MagicMock()
-        with patch(
-            "app.services.sim_cycle_discord.sim_log_route_ready",
-            return_value=False,
-        ):
-            ok, message = force_start_live_sim_cycle(
-                site_session, MagicMock(), "bowl-cap"
-            )
-        self.assertFalse(ok)
-        self.assertIn("sim log route", message.lower())
+        self.assertIn("idle", message.lower())
+        finish_mock.assert_called_once_with(site_session, "bowl-cap")
 
     def test_tracker_route_ready_uses_channel_id(self) -> None:
         site_session = MagicMock()

@@ -601,15 +601,6 @@ class LeagueDiscordBot:
                 except Exception:
                     log.exception("fail report failed for sim cycle event %s", ev.get("id"))
 
-    def run_tracker_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> None:
-        """Fast poll of #gm-export-tracker for every configured league."""
-        for slug in sorted(self.settings.league_base_urls):
-            try:
-                if self.refresh_sim_cycle_tracker(site_client, discord_client, slug):
-                    self.deliver_pending_sim_cycle_updates(site_client, discord_client, slug)
-            except Exception:
-                log.exception("sim cycle tracker refresh failed for %s", slug)
-
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
         delay = float(self.settings.delivery_delay_seconds)
@@ -663,10 +654,9 @@ class LeagueDiscordBot:
     def run_forever(self) -> None:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         log.info(
-            "Starting league_discord_bot for leagues: %s (poll=%.1fs, tracker_poll=%.1fs, delay=%.1fs, max_parts=%s, site_timeout=%.0fs)",
+            "Starting league_discord_bot for leagues: %s (poll=%.1fs, delay=%.1fs, max_parts=%s, site_timeout=%.0fs)",
             ", ".join(sorted(self.settings.league_base_urls)),
             self.settings.poll_seconds,
-            self.settings.tracker_poll_seconds,
             self.settings.delivery_delay_seconds,
             self.settings.max_message_parts,
             self.settings.site_timeout_seconds,
@@ -681,18 +671,13 @@ class LeagueDiscordBot:
         with httpx.Client(timeout=site_timeout) as site_client, httpx.Client(
             timeout=discord_timeout
         ) as discord_client:
-            next_tracker = 0.0
             next_full = 0.0
-            tracker_interval = max(2.0, float(self.settings.tracker_poll_seconds))
-            full_interval = max(tracker_interval, float(self.settings.poll_seconds))
+            full_interval = max(2.0, float(self.settings.poll_seconds))
             started_head = _repo_git_head()
             if started_head:
                 log.info("league_discord_bot repo HEAD %s", started_head[:12])
             while True:
                 now = time.monotonic()
-                if now >= next_tracker:
-                    self.run_tracker_cycle(site_client, discord_client)
-                    next_tracker = now + tracker_interval
                 if now >= next_full:
                     self.run_cycle(site_client, discord_client)
                     next_full = now + full_interval
@@ -704,8 +689,5 @@ class LeagueDiscordBot:
                             current_head[:12],
                         )
                         return
-                sleep_for = min(
-                    max(0.25, next_tracker - time.monotonic()),
-                    max(0.25, next_full - time.monotonic()),
-                )
+                sleep_for = max(0.25, next_full - time.monotonic())
                 time.sleep(sleep_for)

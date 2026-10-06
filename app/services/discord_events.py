@@ -225,7 +225,7 @@ DEFAULT_EVENT_LABELS = {
     "trade_market_buying_posted": "Trade Market — buying interests",
     "playoff_predictions": "Playoff predictions (/predict)",
     "playoff_bracket_update": "Playoff bracket (live series posts)",
-    "sim_cycle_update": "Sim cycle export board (live + closed in #sim-log)",
+    "sim_cycle_update": "Sim cycle closed export recap (#sim-log, admin EXPORT only)",
     "gm_export_tracker_poll": "GM export tracker (read-only poll source)",
     "record_broken": "Record broken (game / season / all-time / team)",
     "injury_report_delta": "Injury report changes (after FHM import)",

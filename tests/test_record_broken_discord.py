@@ -305,12 +305,42 @@ class GameRecordBreakCollectionTest(unittest.TestCase):
         self.assertEqual(drain_stashed_game_record_breaks(), [])
 
 
+class RecordBrokenHumanGmLeagueTest(unittest.TestCase):
+    def test_enqueue_skips_when_league_has_no_active_gms(self) -> None:
+        from app.services.record_broken_discord import enqueue_record_broken_event
+
+        session = MagicMock()
+        with patch(
+            "app.services.gm_messaging.league_has_active_human_gms",
+            return_value=False,
+        ), patch(
+            "app.services.record_broken_discord.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.record_broken_discord.enqueue_discord_event",
+        ) as enqueue:
+            ok = enqueue_record_broken_event(
+                session,
+                league_slug="bowl-historical",
+                payload={
+                    "title": "League Season Record — Goals (Regular Season)",
+                    "new_record_line": "Player (MTL) — 55 · 2025–26",
+                },
+                source_id="season:league:rs:goals:player:2:55.0",
+            )
+        self.assertFalse(ok)
+        enqueue.assert_not_called()
+
+
 class RecordBrokenChannelConflictTest(unittest.TestCase):
     def test_enqueue_skips_when_channel_belongs_to_other_league(self) -> None:
         from app.services.record_broken_discord import enqueue_record_broken_event
 
         session = MagicMock()
         with patch(
+            "app.services.gm_messaging.league_has_active_human_gms",
+            return_value=True,
+        ), patch(
             "app.services.record_broken_discord.is_discord_event_route_active",
             return_value=True,
         ), patch(
@@ -338,6 +368,9 @@ class NotifyIdempotencyTest(unittest.TestCase):
 
         session = MagicMock()
         with patch(
+            "app.services.gm_messaging.league_has_active_human_gms",
+            return_value=True,
+        ), patch(
             "app.services.record_broken_discord.is_discord_event_route_active",
             return_value=True,
         ), patch(
@@ -363,6 +396,9 @@ class NotifyIdempotencyTest(unittest.TestCase):
 
         session = MagicMock()
         with patch(
+            "app.services.gm_messaging.league_has_active_human_gms",
+            return_value=True,
+        ), patch(
             "app.services.record_broken_discord.is_discord_event_route_active",
             return_value=True,
         ), patch(

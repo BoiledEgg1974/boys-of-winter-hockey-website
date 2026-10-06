@@ -83,6 +83,22 @@ def active_peer_membership(league_slug: str, peer_user_id: int) -> GmLeagueMembe
     )
 
 
+def league_has_active_human_gms(site_session, league_slug: str) -> bool:
+    """True when at least one franchise has an active site GM membership."""
+    slug = str(league_slug or "").strip()
+    if not slug:
+        return False
+    found = site_session.scalar(
+        select(GmLeagueMembership.id)
+        .where(
+            GmLeagueMembership.league_slug == slug,
+            GmLeagueMembership.status == "active",
+        )
+        .limit(1)
+    )
+    return found is not None
+
+
 def unread_count_for_user(league_slug: str, user_id: int) -> int:
     n = db.session.scalar(
         select(func.count())

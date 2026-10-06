@@ -713,13 +713,21 @@ def enqueue_record_broken_event(
     payload: dict[str, Any],
     source_id: str,
 ) -> bool:
+    from app.services.gm_messaging import league_has_active_human_gms
+
+    slug = str(league_slug or "").strip()
+    if not league_has_active_human_gms(site_session, slug):
+        _log.debug(
+            "%s: skipping record_broken Discord enqueue (no active human GMs on site)",
+            slug,
+        )
+        return False
     if not is_discord_event_route_active(
         site_session, league_slug=league_slug, event_key=RECORD_BROKEN_EVENT_KEY
     ):
         return False
     from app.services.discord_events import record_broken_channel_conflict
 
-    slug = str(league_slug or "").strip()
     channel_id = _record_broken_delivery_channel(site_session, slug)
     conflict = record_broken_channel_conflict(
         site_session, league_slug=slug, channel_id=channel_id

@@ -1068,18 +1068,33 @@ def import_skater_segment(
     season: Season,
     players_fhm: dict[int, int],
     teams_fhm: dict[int, int],
+    *,
+    site_tier_fhm_league_ids: tuple[int, ...] | None = None,
 ) -> int:
     path = raw_dir / fname
     if not path.exists():
         return 0
     df = read_csv_normalized(path)
+    tier_leagues = (
+        frozenset(int(x) for x in site_tier_fhm_league_ids)
+        if site_tier_fhm_league_ids
+        else None
+    )
     n = 0
+    skipped_non_tier = 0
     for _, row in df.iterrows():
         r = row.to_dict()
         pid = to_int(cell_val(r, "playerid"))
         tid = to_int(cell_val(r, "teamid"))
         if pid is None or pid not in players_fhm:
             continue
+        if tier_leagues is not None and tid is not None and tid in teams_fhm:
+            fhm_lid = db.session.scalar(
+                select(Team.fhm_league_id).where(Team.id == teams_fhm[tid]).limit(1)
+            )
+            if fhm_lid is not None and int(fhm_lid) not in tier_leagues:
+                skipped_non_tier += 1
+                continue
         row_db = db.session.scalars(
             select(PlayerSkaterStat).where(
                 PlayerSkaterStat.season_id == season.id,
@@ -1140,6 +1155,13 @@ def import_skater_segment(
         if n % 400 == 0:
             commit_with_sqlite_retry(db.session)
     commit_with_sqlite_retry(db.session)
+    if skipped_non_tier and tier_leagues is not None:
+        log.info(
+            "%s: skipped %d row(s) outside site tier FHM leagues %s.",
+            fname,
+            skipped_non_tier,
+            tuple(sorted(tier_leagues)),
+        )
     if n == 0:
         _warn_zero_season_segment_import(path, fname, len(df))
     return n
@@ -1206,18 +1228,33 @@ def import_goalie_segment(
     season: Season,
     players_fhm: dict[int, int],
     teams_fhm: dict[int, int],
+    *,
+    site_tier_fhm_league_ids: tuple[int, ...] | None = None,
 ) -> int:
     path = raw_dir / fname
     if not path.exists():
         return 0
     df = read_csv_normalized(path)
+    tier_leagues = (
+        frozenset(int(x) for x in site_tier_fhm_league_ids)
+        if site_tier_fhm_league_ids
+        else None
+    )
     n = 0
+    skipped_non_tier = 0
     for _, row in df.iterrows():
         r = row.to_dict()
         pid = to_int(cell_val(r, "playerid"))
         tid = to_int(cell_val(r, "teamid"))
         if pid is None or pid not in players_fhm:
             continue
+        if tier_leagues is not None and tid is not None and tid in teams_fhm:
+            fhm_lid = db.session.scalar(
+                select(Team.fhm_league_id).where(Team.id == teams_fhm[tid]).limit(1)
+            )
+            if fhm_lid is not None and int(fhm_lid) not in tier_leagues:
+                skipped_non_tier += 1
+                continue
         row_db = db.session.scalars(
             select(PlayerGoalieStat).where(
                 PlayerGoalieStat.season_id == season.id,
@@ -1255,6 +1292,13 @@ def import_goalie_segment(
         )
         n += 1
     commit_with_sqlite_retry(db.session)
+    if skipped_non_tier and tier_leagues is not None:
+        log.info(
+            "%s: skipped %d row(s) outside site tier FHM leagues %s.",
+            fname,
+            skipped_non_tier,
+            tuple(sorted(tier_leagues)),
+        )
     if n == 0:
         _warn_zero_season_segment_import(path, fname, len(df))
     return n
@@ -1645,18 +1689,48 @@ def run_fhm_import(raw_dir: Path, app, league_filter: LeagueFilter = 0) -> dict[
     commit_with_sqlite_retry(db.session)
     log.info("Cleared player_skater_stats / player_goalie_stats for season_id=%s before FHM segment import.", sid)
 
+    site_tier_fhm_league_ids: tuple[int, ...] | None = None
+    try:
+        from flask import current_app
+
+        if str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy":
+            site_tier_fhm_league_ids = relegation_tier_league_ids(raw_dir)
+            if site_tier_fhm_league_ids:
+                log.info(
+                    "BOWL-Relegation player season stats: keeping FHM leagues %s only (site /statistics scope).",
+                    site_tier_fhm_league_ids,
+                )
+    except RuntimeError:
+        pass
+
     for fname, seg in [
         ("player_skater_stats_rs.csv", "rs"),
         ("player_skater_stats_ps.csv", "ps"),
         ("player_skater_stats_po.csv", "po"),
     ]:
-        counts[f"skater_{seg}"] = import_skater_segment(raw_dir, fname, seg, season, players_fhm, teams_fhm)
+        counts[f"skater_{seg}"] = import_skater_segment(
+            raw_dir,
+            fname,
+            seg,
+            season,
+            players_fhm,
+            teams_fhm,
+            site_tier_fhm_league_ids=site_tier_fhm_league_ids,
+        )
     for fname, seg in [
         ("player_goalie_stats_rs.csv", "rs"),
         ("player_goalie_stats_ps.csv", "ps"),
         ("player_goalie_stats_po.csv", "po"),
     ]:
-        counts[f"goalie_{seg}"] = import_goalie_segment(raw_dir, fname, seg, season, players_fhm, teams_fhm)
+        counts[f"goalie_{seg}"] = import_goalie_segment(
+            raw_dir,
+            fname,
+            seg,
+            season,
+            players_fhm,
+            teams_fhm,
+            site_tier_fhm_league_ids=site_tier_fhm_league_ids,
+        )
 
     sk_career_files = [
         ("player_skater_career_stats_rs.csv", "rs"),

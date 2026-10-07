@@ -1,15 +1,21 @@
-"""Enqueue Discord injury deltas after FHM import (BOWL-Relegation)."""
+"""Enqueue Discord injury snapshots after FHM import (BOWL-Relegation)."""
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.injuries import INJURY_LEAGUE_SLUG
 from app.site_models import InjuryImportSnapshot
+
+_log = logging.getLogger(__name__)
+
+INJURY_DISCORD_TITLE = "BLUP / BLOW injury report"
 
 
 def _snapshot_rows(session: Session) -> list[dict[str, Any]]:
@@ -22,19 +28,29 @@ def _snapshot_rows(session: Session) -> list[dict[str, Any]]:
         int(t.id)
         for t in filter_teams_to_main_tiers(list(session.scalars(select(Team)).all()), tier_cfg)
     )
-    rows = injury_payload_league_wide(session, main_ids)
+    rows = injury_payload_league_wide(session, main_ids, league_slug=INJURY_LEAGUE_SLUG)
     out: list[dict[str, Any]] = []
     for row in rows:
         out.append(
             {
                 "player_id": int(row["player_id"]),
+                "player_name": str(row.get("player_name") or "").strip(),
                 "team_id": int(row["team_id"]) if row.get("team_id") else None,
+                "team_abbr": str(row.get("team_abbr") or "").strip(),
+                "team_name": str(row.get("team_name") or "").strip(),
                 "injury_name": str(row.get("injury_name") or ""),
                 "recovery_days": row.get("recovery_days"),
                 "status": row.get("status"),
+                "status_label": str(row.get("status_label") or "").strip(),
             }
         )
-    out.sort(key=lambda r: (int(r["player_id"]), str(r.get("injury_name") or "")))
+    out.sort(
+        key=lambda r: (
+            str(r.get("team_abbr") or r.get("team_name") or ""),
+            str(r.get("player_name") or ""),
+            int(r["player_id"]),
+        )
+    )
     return out
 
 
@@ -61,10 +77,16 @@ def diff_injury_snapshots(
     return {"added": added, "removed": removed, "changed": changed}
 
 
+def _snapshots_equal(
+    previous: list[dict[str, Any]], current: list[dict[str, Any]]
+) -> bool:
+    return json.dumps(previous, sort_keys=True) == json.dumps(current, sort_keys=True)
+
+
 def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> bool:
-    """Compare injury CSV state to last snapshot; enqueue Discord event when changed."""
+    """Publish BLUP/BLOW injury snapshot to Discord after each changed FHM import."""
     slug = str(league_slug or "").strip()
-    if slug != "bowl-fantasy":
+    if slug != INJURY_LEAGUE_SLUG:
         return False
     from app.services.injuries import injuries_supported_for_league
 
@@ -83,30 +105,25 @@ def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> boo
         except (TypeError, ValueError, json.JSONDecodeError):
             previous = []
 
-    delta = diff_injury_snapshots(previous, current)
-    if not delta["added"] and not delta["removed"] and not delta["changed"]:
-        if snap is None:
-            session.add(
-                InjuryImportSnapshot(
-                    league_slug=slug,
-                    snapshot_json=json.dumps(current),
-                    updated_at=datetime.utcnow(),
-                )
-            )
+    first_publish = snap is None
+    state_changed = not _snapshots_equal(previous, current)
+    if not first_publish and not state_changed:
         return False
 
     digest = hashlib.sha256(json.dumps(current, sort_keys=True).encode("utf-8")).hexdigest()[:24]
     batch_id = datetime.utcnow().strftime("%Y%m%d%H%M") + "-" + digest
+    delta = diff_injury_snapshots(previous, current)
 
     from app.league_db import db
     from app.services.discord_events import enqueue_discord_event
 
-    enqueue_discord_event(
+    row = enqueue_discord_event(
         db.session,
         league_slug=slug,
         event_key="injury_report_delta",
         payload={
-            "title": "Injury report update",
+            "title": INJURY_DISCORD_TITLE,
+            "active": current,
             "added": delta["added"],
             "removed": delta["removed"],
             "changed": delta["changed"],
@@ -116,6 +133,12 @@ def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> boo
         source_type="fhm_import",
         source_id=batch_id,
     )
+    if row is None:
+        _log.warning(
+            "%s: injury_report_delta not queued (disabled route/bot, missing channel, or duplicate id)",
+            slug,
+        )
+        return False
 
     if snap is None:
         snap = InjuryImportSnapshot(league_slug=slug, snapshot_json="[]")

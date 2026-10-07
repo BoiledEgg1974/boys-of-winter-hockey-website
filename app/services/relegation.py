@@ -307,6 +307,13 @@ def filter_teams_to_main_tiers(
     return [t for t in teams if team_tier(t, config) is not None]
 
 
+def relegation_main_tier_team_ids(session: Session) -> frozenset[int]:
+    """Site ``Team.id`` values for BLUP + BLOW clubs (excludes farm / overseas)."""
+    teams = list(session.scalars(select(Team)).all())
+    cfg = get_tier_config(session)
+    return frozenset(int(t.id) for t in filter_teams_to_main_tiers(teams, cfg))
+
+
 def filter_standings_by_scope(
     rows: list[TeamStanding],
     scope: RelegationScope,

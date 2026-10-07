@@ -48,6 +48,11 @@ DEFAULT_HOCKEY_DISCORD_GUILD_IDS: dict[str, str] = {
     "bowl-cap": "1333298384701755473",
 }
 
+# BOWL-Relegation #injury-report (injury_report_delta); override via env on other hosts.
+DEFAULT_HOCKEY_DISCORD_INJURY_REPORT_CHANNEL_IDS: dict[str, str] = {
+    "bowl-fantasy": "1209648773307957258",
+}
+
 
 def _parse_league_discord_snowflake_map(raw: str) -> dict[str, str]:
     """Parse ``slug:snowflake,slug:snowflake`` env values."""
@@ -86,6 +91,16 @@ def discord_gm_export_tracker_channel_id(league_slug: str) -> str:
     return _parse_league_discord_snowflake_map(
         os.environ.get("DISCORD_GM_EXPORT_TRACKER_CHANNEL_IDS", "")
     ).get(slug, "")
+
+
+def discord_injury_report_channel_id(league_slug: str) -> str:
+    slug = str(league_slug or "").strip()
+    env_map = _parse_league_discord_snowflake_map(
+        os.environ.get("DISCORD_INJURY_REPORT_CHANNEL_IDS", "")
+    )
+    if slug in env_map:
+        return env_map[slug]
+    return DEFAULT_HOCKEY_DISCORD_INJURY_REPORT_CHANNEL_IDS.get(slug, "")
 
 
 def league_discord_invite_url(league_slug: str) -> str | None:

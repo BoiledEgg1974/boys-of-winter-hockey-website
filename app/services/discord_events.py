@@ -161,7 +161,7 @@ DEFAULT_EVENT_CHANNEL_KEY = {
     "sim_cycle_update": "sim-log",
     "gm_export_tracker_poll": "gm-export-tracker",
     "record_broken": "broken-records",
-    "injury_report_delta": "league-news",
+    "injury_report_delta": "injury-report",
     "game_boxscore": "boxscores",
     "achievement_unlocked": "achievements",
     "achievement_league_first": "achievements",
@@ -1551,6 +1551,7 @@ def _normalize_hockey_sim_log_discord_routes(session, league_slug: str) -> bool:
         HOCKEY_LEAGUE_SLUGS,
         default_discord_guild_id_for_league,
         discord_gm_export_tracker_channel_id,
+        discord_injury_report_channel_id,
         discord_sim_log_channel_id,
     )
 
@@ -1560,8 +1561,9 @@ def _normalize_hockey_sim_log_discord_routes(session, league_slug: str) -> bool:
 
     sim_log_cid = discord_sim_log_channel_id(slug)
     tracker_cid = discord_gm_export_tracker_channel_id(slug)
+    injury_cid = discord_injury_report_channel_id(slug)
     default_guild = default_discord_guild_id_for_league(slug)
-    if not sim_log_cid and not tracker_cid and not default_guild:
+    if not sim_log_cid and not tracker_cid and not injury_cid and not default_guild:
         return False
 
     changed = False
@@ -1632,6 +1634,12 @@ def _normalize_hockey_sim_log_discord_routes(session, league_slug: str) -> bool:
         default_channel_key_for_event(slug, GM_EXPORT_TRACKER_POLL_EVENT_KEY),
         tracker_cid,
     )
+    if injury_cid:
+        _apply_route(
+            "injury_report_delta",
+            default_channel_key_for_event(slug, "injury_report_delta"),
+            injury_cid,
+        )
     return changed
 
 

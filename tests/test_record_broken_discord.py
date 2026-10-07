@@ -305,6 +305,87 @@ class GameRecordBreakCollectionTest(unittest.TestCase):
         self.assertEqual(drain_stashed_game_record_breaks(), [])
 
 
+class RecordBrokenRelegationTierTest(unittest.TestCase):
+    def test_farm_team_break_skipped_on_bowl_fantasy(self) -> None:
+        from app.services.record_broken_discord import (
+            enqueue_record_broken_event,
+            record_broken_eligible_for_discord,
+        )
+
+        session = MagicMock()
+        payload = {
+            "title": "Game Record — Goals",
+            "record_category": "game",
+            "record_scope": "league",
+            "new_record_line": "Farm Player (AHL) — 7",
+            "team_id": 999,
+        }
+        with patch(
+            "app.services.relegation.relegation_main_tier_team_ids",
+            return_value=frozenset({10, 11}),
+        ):
+            self.assertFalse(
+                record_broken_eligible_for_discord(
+                    session, league_slug="bowl-fantasy", payload=payload
+                )
+            )
+        with patch(
+            "app.services.record_broken_discord.record_broken_eligible_for_discord",
+            return_value=False,
+        ), patch(
+            "app.services.gm_messaging.league_has_active_human_gms",
+            return_value=True,
+        ), patch(
+            "app.services.record_broken_discord.enqueue_discord_event",
+        ) as enqueue:
+            ok = enqueue_record_broken_event(
+                session,
+                league_slug="bowl-fantasy",
+                payload=payload,
+                source_id="game:rs:all:skater:goals:player:2:7.0",
+            )
+        self.assertFalse(ok)
+        enqueue.assert_not_called()
+
+    def test_blup_team_break_allowed(self) -> None:
+        from app.services.record_broken_discord import record_broken_eligible_for_discord
+
+        session = MagicMock()
+        payload = {
+            "record_category": "game",
+            "team_id": 10,
+            "new_record_line": "Player (MTL) — 6",
+        }
+        with patch(
+            "app.services.relegation.relegation_main_tier_team_ids",
+            return_value=frozenset({10, 11}),
+        ):
+            self.assertTrue(
+                record_broken_eligible_for_discord(
+                    session, league_slug="bowl-fantasy", payload=payload
+                )
+            )
+
+    def test_league_season_board_without_team_id_allowed(self) -> None:
+        from app.services.record_broken_discord import record_broken_eligible_for_discord
+
+        session = MagicMock()
+        payload = {
+            "record_category": "season",
+            "record_scope": "league",
+            "new_record_line": "Player — 55",
+        }
+        with patch(
+            "app.services.relegation.relegation_main_tier_team_ids",
+            return_value=frozenset({10}),
+        ):
+            self.assertTrue(
+                record_broken_eligible_for_discord(
+                    session, league_slug="bowl-fantasy", payload=payload
+                )
+            )
+
+
 class RecordBrokenHumanGmLeagueTest(unittest.TestCase):
     def test_enqueue_skips_when_league_has_no_active_gms(self) -> None:
         from app.services.record_broken_discord import enqueue_record_broken_event

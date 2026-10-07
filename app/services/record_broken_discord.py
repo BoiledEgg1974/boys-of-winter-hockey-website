@@ -690,6 +690,33 @@ def _refresh_record_payload_urls(league_slug: str, payload: dict[str, Any]) -> d
     return out
 
 
+def record_broken_eligible_for_discord(
+    league_session: Session,
+    *,
+    league_slug: str,
+    payload: dict[str, Any] | None,
+) -> bool:
+    """On BOWL-Relegation, only #broken-records posts tied to BLUP/BLOW clubs."""
+    from app.services.relegation import is_relegation_league, relegation_main_tier_team_ids
+
+    slug = str(league_slug or "").strip()
+    if not is_relegation_league(slug):
+        return True
+    main_ids = relegation_main_tier_team_ids(league_session)
+    if not main_ids:
+        return True
+    p = dict(payload or {})
+    team_id = _as_int_or_none(p.get("team_id"))
+    if team_id is not None:
+        return int(team_id) in main_ids
+    category = str(p.get("record_category") or "").strip()
+    scope = str(p.get("record_scope") or "").strip()
+    # League boards on the site already aggregate BLUP+BLOW only.
+    if category in ("season", "all_time") and scope == "league":
+        return True
+    return False
+
+
 def _record_broken_delivery_channel(site_session: Session, league_slug: str) -> str:
     from app.services.discord_events import (
         _route_map,
@@ -712,10 +739,21 @@ def enqueue_record_broken_event(
     league_slug: str,
     payload: dict[str, Any],
     source_id: str,
+    league_session: Session | None = None,
 ) -> bool:
     from app.services.gm_messaging import league_has_active_human_gms
 
     slug = str(league_slug or "").strip()
+    league_sess = league_session if league_session is not None else site_session
+    if not record_broken_eligible_for_discord(
+        league_sess, league_slug=slug, payload=payload
+    ):
+        _log.debug(
+            "%s: skipping record_broken Discord enqueue (outside BLUP/BLOW); %s",
+            slug,
+            describe_record_broken_source(payload=payload, source_id=source_id),
+        )
+        return False
     if not league_has_active_human_gms(site_session, slug):
         _log.debug(
             "%s: skipping record_broken Discord enqueue (no active human GMs on site)",
@@ -767,9 +805,17 @@ def enqueue_record_broken_events_from_deploy(
     *,
     league_slug: str,
     events: list[dict[str, Any]] | None,
+    league_session: Session | None = None,
 ) -> dict[str, int]:
     """Enqueue sidecar / reconstructed record-break events against live Discord routes."""
-    stats = {"events": 0, "queued": 0, "suppressed": 0, "skipped_incomplete": 0}
+    stats = {
+        "events": 0,
+        "queued": 0,
+        "suppressed": 0,
+        "skipped_incomplete": 0,
+        "skipped_non_tier": 0,
+    }
+    league_sess = league_session if league_session is not None else site_session
     normalized: list[tuple[str, dict[str, Any]]] = []
     for raw in events or []:
         source_id = str(raw.get("source_id") or "").strip()
@@ -798,11 +844,17 @@ def enqueue_record_broken_events_from_deploy(
                 describe_record_broken_source(payload=payload, source_id=source_id),
             )
             continue
+        if not record_broken_eligible_for_discord(
+            league_sess, league_slug=slug, payload=payload
+        ):
+            stats["skipped_non_tier"] += 1
+            continue
         if enqueue_record_broken_event(
             site_session,
             league_slug=league_slug,
             payload=payload,
             source_id=source_id,
+            league_session=league_sess,
         ):
             stats["queued"] += 1
     return stats
@@ -974,6 +1026,7 @@ def notify_record_breaks_after_import(
                 league_slug=slug,
                 payload=payload,
                 source_id=source_id,
+                league_session=league_session,
             ):
                 stats["queued"] += 1
                 stats["game_breaks"] += 1
@@ -1012,6 +1065,7 @@ def notify_record_breaks_after_import(
                     league_slug=slug,
                     payload=payload,
                     source_id=source_id,
+                    league_session=league_session,
                 ):
                     stats["queued"] += 1
 

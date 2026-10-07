@@ -27,6 +27,11 @@ class HockeySimLogDiscordDefaultsTests(unittest.TestCase):
             is_enabled=True,
             channel_key="gm-export-tracker",
         )
+        injury_route = MagicMock(
+            discord_channel_id="",
+            is_enabled=True,
+            channel_key="injury-report",
+        )
 
         with patch(
             "app.services.discord_events._ensure_discord_bot_cfg_row",
@@ -39,6 +44,7 @@ class HockeySimLogDiscordDefaultsTests(unittest.TestCase):
             return_value={
                 SIM_CYCLE_UPDATE_EVENT_KEY: sim_route,
                 GM_EXPORT_TRACKER_POLL_EVENT_KEY: tracker_route,
+                "injury_report_delta": injury_route,
             },
         ), patch(
             "app.config.default_discord_guild_id_for_league",
@@ -49,6 +55,9 @@ class HockeySimLogDiscordDefaultsTests(unittest.TestCase):
         ), patch(
             "app.config.discord_gm_export_tracker_channel_id",
             return_value="234567890123456789",
+        ), patch(
+            "app.config.discord_injury_report_channel_id",
+            return_value="1209648773307957258",
         ):
             changed = _normalize_hockey_sim_log_discord_routes(session, "bowl-fantasy")
 
@@ -56,6 +65,7 @@ class HockeySimLogDiscordDefaultsTests(unittest.TestCase):
         self.assertEqual(cfg.guild_id, "1201286402046955580")
         self.assertEqual(sim_route.discord_channel_id, "123456789012345678")
         self.assertEqual(tracker_route.discord_channel_id, "234567890123456789")
+        self.assertEqual(injury_route.discord_channel_id, "1209648773307957258")
 
     def test_normalize_noop_for_racing_league(self) -> None:
         session = MagicMock()

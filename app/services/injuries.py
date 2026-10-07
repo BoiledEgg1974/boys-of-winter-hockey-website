@@ -46,8 +46,13 @@ def classify_injury_status(recovery_days: int | None, min_days: int | None, max_
     return "out"
 
 
-def injuries_for_teams(session: Session, team_ids: set[int] | frozenset[int] | None = None) -> list[PlayerInjury]:
-    if not injuries_supported_for_league():
+def injuries_for_teams(
+    session: Session,
+    team_ids: set[int] | frozenset[int] | None = None,
+    *,
+    league_slug: str | None = None,
+) -> list[PlayerInjury]:
+    if not injuries_supported_for_league(league_slug):
         return []
     q = (
         select(PlayerInjury)
@@ -70,8 +75,13 @@ def injury_payload_for_team(session: Session, team_id: int) -> list[dict[str, ob
     return [_injury_row_dict(row) for row in rows]
 
 
-def injury_payload_league_wide(session: Session, team_ids: frozenset[int] | None = None) -> list[dict[str, object]]:
-    rows = injuries_for_teams(session, team_ids)
+def injury_payload_league_wide(
+    session: Session,
+    team_ids: frozenset[int] | None = None,
+    *,
+    league_slug: str | None = None,
+) -> list[dict[str, object]]:
+    rows = injuries_for_teams(session, team_ids, league_slug=league_slug)
     return [_injury_row_dict(row) for row in rows]
 
 

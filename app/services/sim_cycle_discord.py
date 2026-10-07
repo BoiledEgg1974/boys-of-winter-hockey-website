@@ -1,4 +1,4 @@
-"""Discord sim cycle export board (#sim-log closed recap on admin EXPORT only)."""
+"""Discord sim cycle export board (#sim-log closed recap + live cycle tracking)."""
 from __future__ import annotations
 
 import hashlib
@@ -286,9 +286,14 @@ def maybe_enqueue_sim_cycle_discord(
     force: bool = False,
     post_new_message: bool = False,
     finalize_on_ack: bool = False,
+    allow_live: bool = False,
 ) -> bool:
-    # News-bot posts closed recaps only; the FTP bot owns live #sim-log updates.
-    if str(state.phase or "") != "closed":
+    phase = str(state.phase or "")
+    if phase == "closed":
+        pass
+    elif phase == "live" and allow_live:
+        pass
+    else:
         return False
     payload = build_sim_cycle_discord_payload(
         site_session,
@@ -357,32 +362,33 @@ def start_sim_cycle(
     return state, True
 
 
-def finish_closed_sim_cycle_after_ack(
-    site_session: Session,
-    league_slug: str,
-) -> SimCycleState:
-    """After closed recap delivery: return to idle (no live #sim-log tracking)."""
-    slug = str(league_slug or "").strip()
-    return reset_sim_cycle_state(site_session, slug)
-
-
 def restart_sim_cycle_after_close_ack(
     site_session: Session,
     league_session: Session,
     league_slug: str,
 ) -> tuple[SimCycleState, bool]:
-    """Legacy live-cycle start; prefer finish_closed_sim_cycle_after_ack for #sim-log."""
+    """After closed recap delivery: begin live tracking and queue a fresh live #sim-log board."""
     slug = str(league_slug or "").strip()
     state = get_or_create_sim_cycle_state(site_session, slug)
     cycle_anchor = state.cycle_started_at
     reset_sim_cycle_state(site_session, slug)
-    return start_sim_cycle(
+    live_state, started = start_sim_cycle(
         site_session,
         league_session,
         slug,
         export_date=datetime.utcnow().date(),
         cycle_started_at=cycle_anchor,
     )
+    if started and sim_log_route_ready(site_session, slug):
+        maybe_enqueue_sim_cycle_discord(
+            site_session,
+            league_session,
+            live_state,
+            force=True,
+            post_new_message=True,
+            allow_live=True,
+        )
+    return live_state, started
 
 
 def sim_log_route_ready(site_session: Session, league_slug: str) -> bool:
@@ -467,12 +473,14 @@ def ingest_tracker_messages(
     messages: list[dict[str, Any]],
     *,
     initial_sync: bool = False,
-) -> bool:
+) -> tuple[bool, bool]:
     """
     Re-scan recent #gm-export-tracker posts and refresh the live export board.
 
     Uses the full message window each poll (not incremental merge) so exports are
     not lost when an earlier parse pass missed a post.
+
+    Returns ``(export_data_changed, discord_update_queued)``.
     """
     from app.services.sim_cycle_tracker_parser import (
         newest_message_id,
@@ -488,7 +496,7 @@ def ingest_tracker_messages(
         ).limit(1)
     )
     if state is None:
-        return False
+        return False, False
 
     allowed: set[str] | None = None
     bot_id = str(state.tracker_bot_user_id or "").strip()
@@ -516,11 +524,14 @@ def ingest_tracker_messages(
     current = _load_live_exported_fhm_ids(state)
     merged = current | parsed_ids
     if merged == current:
-        return False
+        return False, False
     _store_live_exported_fhm_ids(state, merged)
     state.updated_at = datetime.utcnow()
     site_session.flush()
-    return True
+    queued = maybe_enqueue_sim_cycle_discord(
+        site_session, league_session, state, allow_live=True
+    )
+    return True, bool(queued)
 
 
 def recover_stalled_live_sim_cycle(
@@ -528,9 +539,21 @@ def recover_stalled_live_sim_cycle(
     league_session: Session,
     league_slug: str,
 ) -> bool:
-    """No-op: live #sim-log tracking is disabled."""
-    _ = site_session, league_session, league_slug
-    return False
+    """Start live when a prior closed recap was delivered before live auto-start ran."""
+    slug = str(league_slug or "").strip()
+    if not slug or not sim_log_route_ready(site_session, slug):
+        return False
+    state = site_session.scalar(
+        select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
+    )
+    if state is None:
+        return False
+    if str(state.phase or "") != "closed":
+        return False
+    if bool(state.finalize_on_ack):
+        return False
+    _state, queued = restart_sim_cycle_after_close_ack(site_session, league_session, slug)
+    return queued
 
 
 def force_start_live_sim_cycle(
@@ -538,12 +561,41 @@ def force_start_live_sim_cycle(
     league_session: Session,
     league_slug: str,
 ) -> tuple[bool, str]:
-    """Reset sim cycle state to idle (legacy admin action name)."""
+    """Admin one-shot: start live tracking after a closed recap (queues live #sim-log if configured)."""
     slug = str(league_slug or "").strip()
     if not slug:
         return False, "Missing league slug."
-    finish_closed_sim_cycle_after_ack(site_session, slug)
-    return True, "Sim cycle reset to idle. #sim-log posts only after AP ledger EXPORT."
+    if not sim_log_route_ready(site_session, slug):
+        return (
+            False,
+            "Sim log route is not configured. Map sim_cycle_update → #sim-log channel ID.",
+        )
+    state = site_session.scalar(
+        select(SimCycleState).where(SimCycleState.league_slug == slug).limit(1)
+    )
+    phase = str(getattr(state, "phase", None) or "idle")
+    if phase == "live":
+        return False, "Sim cycle is already live."
+    if state is None or phase == "idle":
+        live_state, started = start_sim_cycle(site_session, league_session, slug)
+        if started:
+            maybe_enqueue_sim_cycle_discord(
+                site_session,
+                league_session,
+                live_state,
+                force=True,
+                post_new_message=True,
+                allow_live=True,
+            )
+        if not started:
+            return False, "Live sim cycle could not be started."
+        return True, "Started live sim cycle from idle (recovery)."
+    if phase != "closed":
+        return False, "No closed sim cycle to promote. Run EXPORT in the AP ledger first."
+    _state, started = restart_sim_cycle_after_close_ack(site_session, league_session, slug)
+    if not started:
+        return False, "Live sim cycle could not be started."
+    return True, "Started live sim cycle. News-bot queued the live #sim-log board."
 
 
 def sim_cycle_tracker_config(site_session: Session, league_slug: str) -> dict[str, Any]:
@@ -599,5 +651,8 @@ def record_sim_cycle_discord_ack(
         state.updated_at = datetime.utcnow()
         session.flush()
         return
-    _ = league_session
-    finish_closed_sim_cycle_after_ack(session, league_slug)
+    league_sess = league_session or session
+    if sim_log_route_ready(session, league_slug):
+        restart_sim_cycle_after_close_ack(session, league_sess, league_slug)
+    else:
+        reset_sim_cycle_state(session, league_slug)

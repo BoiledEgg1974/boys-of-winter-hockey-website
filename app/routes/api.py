@@ -2379,11 +2379,17 @@ def discord_sim_cycle_ingest_tracker():
     from app.sqlite_retry import commit_with_sqlite_retry
 
     try:
-        changed = ingest_tracker_messages(
+        changed, sim_cycle_queued = ingest_tracker_messages(
             db.session, db.session, slug, messages, initial_sync=initial_sync
         )
         commit_with_sqlite_retry(db.session)
-        return jsonify({"ok": True, "changed": bool(changed), "sim_cycle_queued": False})
+        return jsonify(
+            {
+                "ok": True,
+                "changed": bool(changed),
+                "sim_cycle_queued": bool(sim_cycle_queued),
+            }
+        )
     except Exception:
         db.session.rollback()
         current_app.logger.exception("sim cycle tracker ingest failed for %s", slug)

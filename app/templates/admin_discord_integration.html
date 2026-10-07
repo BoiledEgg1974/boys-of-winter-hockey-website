@@ -223,10 +223,10 @@
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="force_start_live_sim_cycle">
-    <button type="submit" class="admin-news-body-btn">Reset sim cycle state</button>
+    <button type="submit" class="admin-news-body-btn">Start / recover live sim cycle</button>
     <span class="muted">
       Current sim cycle phase: <strong>{{ sim_cycle_phase }}</strong>.
-      Clears stuck state; <code>#sim-log</code> only posts after AP ledger <strong>EXPORT</strong>.
+      Promotes a stuck closed cycle to live (queues live <code>#sim-log</code> when configured).
     </span>
   </form>
   <form method="post" style="display:flex;gap:0.6rem;align-items:end;flex-wrap:wrap;margin:0 0 0.55rem;">

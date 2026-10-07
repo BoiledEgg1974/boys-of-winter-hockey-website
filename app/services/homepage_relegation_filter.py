@@ -12,6 +12,7 @@ from app.services.relegation import (
     RelegationScope,
     filter_teams_to_main_tiers,
     get_tier_config,
+    is_relegation_league,
     normalize_relegation_scope,
     relegation_features_enabled,
     team_ids_for_scope,
@@ -27,14 +28,18 @@ def resolve_homepage_relegation_scope(
 ) -> tuple[RelegationScope, frozenset[int] | None]:
     """Return (scope, team_ids) where team_ids is set when upper/lower filtering applies."""
     scope: RelegationScope = normalize_relegation_scope(raw_scope)
-    if league_slug != "bowl-fantasy" or not relegation_features_enabled(league_slug):
+    if not is_relegation_league(league_slug):
         return "combined", None
     cfg = get_tier_config(session, raw_import_dir=raw_import_dir)
+    main = filter_teams_to_main_tiers(
+        list(session.scalars(select(Team)).all()),
+        cfg,
+    )
+    if not main:
+        return scope, None
     if scope == "combined":
-        main = filter_teams_to_main_tiers(
-            list(session.scalars(select(Team)).all()),
-            cfg,
-        )
+        return scope, frozenset(int(t.id) for t in main)
+    if not relegation_features_enabled(league_slug):
         return scope, frozenset(int(t.id) for t in main)
     ids = team_ids_for_scope(session, scope, cfg)
     return scope, frozenset(int(x) for x in ids) if ids else frozenset()
@@ -126,7 +131,7 @@ def leaders_fhm_league_ids_for_scope(
     raw_import_dir,
 ) -> tuple[int, ...] | None:
     """Narrow FHM league id filter for homepage leaders on upper/lower tabs."""
-    if league_slug != "bowl-fantasy" or not relegation_features_enabled(league_slug):
+    if not is_relegation_league(league_slug):
         return None
     cfg = get_tier_config(session, raw_import_dir=raw_import_dir)
     if scope == "combined" and cfg.upper_league_ids and cfg.lower_league_ids:

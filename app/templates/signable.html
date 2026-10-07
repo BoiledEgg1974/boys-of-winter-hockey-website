@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "macros/player_overall.html" import overall_cell %}
 {% from "macros/prospect_projection.html" import prospect_projection_headers_row, prospect_projection_cells, prospect_projection_footnote_block %}
-{% block title %}Signable (18–20) — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
+{% block title %}Player Registry — {{ config.LEAGUE_DISPLAY_NAME }}{% endblock %}
 {% macro attr_pill(val) -%}
 {% if val is none or val == '' %}—{% else %}
 <span class="stats-badge stats-badge--rating prospects-rankings__attr-pill" style="{{ val|attr_rating_style }}">{{ val|float|round(0)|int }}</span>
@@ -15,9 +15,9 @@
 {% macro sign_sort_th(sk, label, tip='') -%}
 {% set ord = ('asc' if prospect_order == 'desc' else 'desc') if sk == prospect_sort else ('desc' if sk in prospect_sort_desc_defaults else 'asc') %}
 {% if prospect_expanded %}
-{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none, expanded=1) %}
+{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none, league=registry_league_filter or none, team=registry_team_filter or none, expanded=1) %}
 {% else %}
-{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none) %}
+{% set href = url_for('main.signable', sort=sk, order=ord, position=position or none, league=registry_league_filter or none, team=registry_team_filter or none) %}
 {% endif %}
 <th scope="col"{% if tip %} title="{{ tip|e }}"{% endif %}>
   <a href="{{ href }}"
@@ -26,12 +26,28 @@
 {%- endmacro %}
 {% block content %}
 <div class="prospects-rankings-page">
-  <h1 class="page-title">Signable (18–20)</h1>
-  <p class="muted">Amateur-aged players who are not on a BLUP/BLOW roster and are not held on another BOWL club’s rights list. BOWL-Relegation does not run an entry draft.</p>
+  <h1 class="page-title">Player Registry</h1>
+  <p class="muted">Every active player under contract on a roster anywhere in the export — BLUP, BLOW, farm, and overseas. Filter by league and club, or open a player for full details.</p>
   <form method="get" class="card prospects-rankings-page__filters">
     <input type="hidden" name="sort" value="{{ prospect_sort }}">
     <input type="hidden" name="order" value="{{ prospect_order }}">
     {% if prospect_expanded %}<input type="hidden" name="expanded" value="1">{% endif %}
+    <label class="prospects-rankings-page__field">League
+      <select name="league" onchange="this.form.querySelector('[name=team]').value=''; this.form.submit()">
+        <option value="">All leagues</option>
+        {% for opt in registry_league_options %}
+        <option value="{{ opt.fhm_league_id }}" {{ 'selected' if registry_league_filter == (opt.fhm_league_id ~ '') else '' }}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="prospects-rankings-page__field">Team
+      <select name="team" onchange="this.form.submit()"{% if not registry_league_filter %} disabled{% endif %}>
+        <option value="">All teams</option>
+        {% for opt in registry_team_options %}
+        <option value="{{ opt.team_id }}" {{ 'selected' if registry_team_filter == (opt.team_id ~ '') else '' }}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label class="prospects-rankings-page__field">Position
       <select name="position" onchange="this.form.submit()">
         <option value="">All</option>
@@ -77,15 +93,15 @@
     {% if total_prospects > prospect_page_limit %}
     <p class="stats-list-foot muted">
       {% if prospect_expanded %}
-      Showing all {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none) }}">Top {{ prospect_page_limit }}</a>
+      Showing all {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none, league=registry_league_filter or none, team=registry_team_filter or none) }}">Top {{ prospect_page_limit }}</a>
       {% else %}
-      Top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none, expanded=1) }}">Show all</a>
+      Top {{ prospect_page_limit }} of {{ total_prospects }}. <a href="{{ url_for('main.signable', sort=prospect_sort, order=prospect_order, position=position or none, league=registry_league_filter or none, team=registry_team_filter or none, expanded=1) }}">Show all</a>
       {% endif %}
     </p>
     {% endif %}
     {{ prospect_projection_footnote_block() }}
     {% else %}
-    <p class="empty-state">No signable players match this filter.</p>
+    <p class="empty-state">No players match this filter.</p>
     {% endif %}
   </div>
 </div>

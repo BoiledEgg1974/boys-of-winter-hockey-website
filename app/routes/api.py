@@ -1604,18 +1604,24 @@ def homepage_postseason_odds():
         if canonical_season
         else None
     )
+    from app.services.relegation import normalize_relegation_scope
+
+    rel_scope = normalize_relegation_scope(request.args.get("scope"))
     season_id = int(getattr(dashboard_season, "id", None) or 0)
 
     return jsonify_cached(
         "postseason_odds",
-        (season_id,),
+        (season_id, rel_scope),
         DEFAULT_TTL_SECONDS["postseason_odds"],
-        _build_homepage_postseason_odds_payload,
+        lambda: _build_homepage_postseason_odds_payload(relegation_scope=rel_scope),
         cache_control=60,
     )
 
 
-def _build_homepage_postseason_odds_payload() -> dict[str, object]:
+def _build_homepage_postseason_odds_payload(
+    *,
+    relegation_scope: str = "combined",
+) -> dict[str, object]:
     canonical_season = get_current_season()
     if not canonical_season:
         return {}
@@ -1628,11 +1634,26 @@ def _build_homepage_postseason_odds_payload() -> dict[str, object]:
             select(TeamStanding).where(TeamStanding.season_id == season.id)
         ).all()
     }
+    from app.services.homepage_relegation_filter import resolve_homepage_relegation_scope
+
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    _, scope_team_ids = resolve_homepage_relegation_scope(
+        db.session,
+        league_slug=league_slug,
+        raw_scope=relegation_scope,
+        raw_import_dir=raw_dir,
+    )
     tm_map = {
         tid: t
         for tid in standings_by_team
         if (t := db.session.get(Team, tid)) is not None
     }
+    if scope_team_ids is not None:
+        tm_map = {tid: tm for tid, tm in tm_map.items() if tid in scope_team_ids}
+        standings_by_team = {
+            tid: st for tid, st in standings_by_team.items() if tid in scope_team_ids
+        }
     n_sims = int(current_app.config.get("HOMEPAGE_POSTSEASON_MC_SIMS", 600) or 600)
     payload = build_postseason_odds_payload(
         db.session, season.id, tm_map, n_sims=max(100, min(n_sims, 2000))
@@ -1804,7 +1825,13 @@ def _build_homepage_summary_payload(
         game_of_the_night = None
     if not game_spotlight_in_scope(next_game_to_watch, scope_slugs):
         next_game_to_watch = None
-    stars_bundle = build_stars_windows(db.session, season.id, league_cal, logo_season_year=logo_sy)
+    stars_bundle = build_stars_windows(
+        db.session,
+        season.id,
+        league_cal,
+        logo_season_year=logo_sy,
+        allowed_team_ids=scope_team_ids,
+    )
     star_selection_leaders = build_star_selection_leaders(
         db.session, season.id, logo_season_year=logo_sy
     )
@@ -1819,6 +1846,12 @@ def _build_homepage_summary_payload(
         logo_season_year=logo_sy,
         player_photo_url=_player_photo_url,
     )
+    if scope_slugs is not None:
+        process_momentum = {
+            **process_momentum,
+            "skaters": filter_rows_by_team_slug(process_momentum.get("skaters") or [], scope_slugs),
+            "goalies": filter_rows_by_team_slug(process_momentum.get("goalies") or [], scope_slugs),
+        }
     from app.services.season_war import build_war_leaders_payload
 
     war_leaders = build_war_leaders_payload(
@@ -1827,6 +1860,12 @@ def _build_homepage_summary_payload(
         segment,
         league_slug=league_slug,
     )
+    if scope_slugs is not None:
+        war_leaders = {
+            **war_leaders,
+            "skaters": filter_rows_by_team_slug(war_leaders.get("skaters") or [], scope_slugs),
+            "goalies": filter_rows_by_team_slug(war_leaders.get("goalies") or [], scope_slugs),
+        }
     trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}

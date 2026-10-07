@@ -7,11 +7,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import coerce_raw_import_dir, league_raw_import_path
-from app.models import Player, Prospect, Team
+from app.models import LeagueMeta, Player, PlayerContract, Prospect, Team
 from app.services.all_time_records import bowl_nhl_league_ids
 from app.services.draft_hub_eligibility import (
     DraftEligibilityParams,
@@ -211,26 +211,88 @@ def fetch_radar_prospect_players(session: Session) -> list[Player]:
     return out
 
 
-def fetch_signable_players(session: Session, league_slug: str) -> list[Player]:
-    """Ages 18–20, no BOWL org rights, not on BLUP/BLOW roster."""
-    main_ids = main_league_fhm_ids(session)
-    params = signable_age_params(session, league_slug)
-    rights_ids = bowl_org_rights_player_ids_for_league(session, league_slug)
+def player_under_contract_clause():
+    """Rostered or export contract row tied to an FHM team."""
+    return or_(
+        Player.current_team_id.isnot(None),
+        PlayerContract.fhm_team_id.isnot(None),
+    )
+
+
+def fetch_player_registry_players(
+    session: Session,
+    *,
+    league_fhm_id: int | None = None,
+    team_id: int | None = None,
+) -> list[Player]:
+    """All active players under contract on any league roster (BLUP, BLOW, farm, overseas)."""
     q = (
         select(Player)
+        .outerjoin(PlayerContract, PlayerContract.player_id == Player.id)
         .options(joinedload(Player.current_team))
-        .where(Player.retired.is_(False), Player.birth_date.isnot(None))
+        .where(Player.retired.is_(False), player_under_contract_clause())
     )
-    if rights_ids:
-        q = q.where(Player.id.not_in(rights_ids))
-    out: list[Player] = []
-    for pl in session.scalars(q).unique().all():
-        if not player_passes_age_rules(pl.birth_date, params):
-            continue
-        if player_on_main_league_roster(pl, main_ids):
-            continue
-        out.append(pl)
+    if team_id is not None:
+        q = q.where(Player.current_team_id == int(team_id))
+    elif league_fhm_id is not None:
+        q = q.join(Team, Player.current_team_id == Team.id).where(
+            Team.fhm_league_id == int(league_fhm_id)
+        )
+    return list(session.scalars(q).unique().all())
+
+
+def fetch_signable_players(session: Session, league_slug: str) -> list[Player]:
+    """Backward-compatible alias for the Player Registry pool."""
+    _ = league_slug
+    return fetch_player_registry_players(session)
+
+
+def player_registry_league_filter_options(session: Session) -> list[dict[str, Any]]:
+    league_ids = session.scalars(
+        select(Team.fhm_league_id)
+        .join(Player, Player.current_team_id == Team.id)
+        .where(Player.retired.is_(False), Team.fhm_league_id.isnot(None))
+        .distinct()
+        .order_by(Team.fhm_league_id)
+    ).all()
+    if not league_ids:
+        return []
+    meta_rows = session.scalars(
+        select(LeagueMeta).where(LeagueMeta.fhm_league_id.in_(tuple(int(x) for x in league_ids)))
+    ).all()
+    meta_by_id = {int(m.fhm_league_id): m for m in meta_rows}
+    out: list[dict[str, Any]] = []
+    for lid in league_ids:
+        lid_i = int(lid)
+        lm = meta_by_id.get(lid_i)
+        label = (lm.abbreviation or lm.name if lm else None) or str(lid_i)
+        out.append({"fhm_league_id": lid_i, "label": label})
+    out.sort(key=lambda r: str(r.get("label") or "").lower())
     return out
+
+
+def player_registry_team_filter_options(
+    session: Session,
+    *,
+    league_fhm_id: int | None,
+) -> list[dict[str, Any]]:
+    q = (
+        select(Team)
+        .join(Player, Player.current_team_id == Team.id)
+        .where(Player.retired.is_(False))
+        .distinct()
+    )
+    if league_fhm_id is not None:
+        q = q.where(Team.fhm_league_id == int(league_fhm_id))
+    teams = session.scalars(q.order_by(Team.name)).all()
+    return [
+        {
+            "team_id": int(t.id),
+            "label": t.full_display_name(),
+            "fhm_league_id": int(t.fhm_league_id) if t.fhm_league_id is not None else None,
+        }
+        for t in teams
+    ]
 
 
 def fetch_overseas_transfer_players(
@@ -321,20 +383,29 @@ def fetch_relegation_free_agent_players(
     role: str,
 ) -> list[tuple[Player, dict[str, Any]]]:
     """Unsigned players (no team assignment) with rights and transfer-fee hints."""
-    main_ids = main_league_fhm_ids(session)
     raw_dir = _raw_dir_for_league(league_slug)
     holders = rights_holder_map(session, league_slug)
+    season = get_current_season(session)
+    age_ref = season_age_reference_date(season)
+    not_under_contract = and_(
+        Player.current_team_id.is_(None),
+        or_(PlayerContract.id.is_(None), PlayerContract.fhm_team_id.is_(None)),
+    )
     q = (
         select(Player)
+        .outerjoin(PlayerContract, PlayerContract.player_id == Player.id)
         .options(joinedload(Player.contract), joinedload(Player.current_team))
         .where(
             Player.retired.is_(False),
-            Player.current_team_id.is_(None),
+            not_under_contract,
             position_clause_for_role(role),
         )
     )
     out: list[tuple[Player, dict[str, Any]]] = []
     for pl in session.scalars(q).unique().all():
+        age = age_as_of(pl.birth_date, age_ref)
+        if age is not None and 14 <= age <= 16:
+            continue
         rights = resolve_player_rights_info(session, league_slug, int(pl.id), holders=holders)
         meta: dict[str, Any] = {
             "rights_holder_team": rights.holder_team,

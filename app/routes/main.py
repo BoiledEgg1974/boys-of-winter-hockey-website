@@ -3361,9 +3361,13 @@ def _render_overseas_transfers_page(league_slug: str):
 
 @main_bp.get("/signable")
 def signable():
-    """BOWL-Relegation: amateur signings ages 18–20 (no entry draft)."""
+    """BOWL-Relegation: Player Registry — all contracted players by league and team."""
     from app.services.relegation import relegation_signing_pools_enabled
-    from app.services.relegation_signing_pools import fetch_signable_players
+    from app.services.relegation_signing_pools import (
+        fetch_player_registry_players,
+        player_registry_league_filter_options,
+        player_registry_team_filter_options,
+    )
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     if not relegation_signing_pools_enabled(league_slug):
@@ -3372,6 +3376,20 @@ def signable():
     season = get_current_season()
     age_ref = season_age_reference_date(season)
     pos = request.args.get("position")
+    league_filter_raw = (request.args.get("league") or "").strip()
+    team_filter_raw = (request.args.get("team") or "").strip()
+    league_fhm_id: int | None = None
+    team_id: int | None = None
+    if league_filter_raw:
+        try:
+            league_fhm_id = int(league_filter_raw)
+        except ValueError:
+            league_fhm_id = None
+    if team_filter_raw:
+        try:
+            team_id = int(team_filter_raw)
+        except ValueError:
+            team_id = None
     expanded = request.args.get("expanded") == "1"
     page_limit = 50
     overview_headers = PROSPECT_OVERVIEW_HEADERS
@@ -3389,7 +3407,11 @@ def signable():
     if order not in ("asc", "desc"):
         order = "desc"
 
-    pool = fetch_signable_players(session, league_slug)
+    pool = fetch_player_registry_players(
+        session,
+        league_fhm_id=league_fhm_id,
+        team_id=team_id,
+    )
     items: list[dict] = []
     for pl in pool:
         if not _prospect_pos_matches(pl.position, pos):
@@ -3455,6 +3477,12 @@ def signable():
         player_overall_by_id=player_overall_by_id,
         prospect_projection_headers=PROSPECT_PROJECTION_HEADERS,
         prospect_projection_footnote=PROSPECT_PROJECTION_FOOTNOTE,
+        registry_league_options=player_registry_league_filter_options(session),
+        registry_league_filter=league_filter_raw,
+        registry_team_options=player_registry_team_filter_options(
+            session, league_fhm_id=league_fhm_id
+        ),
+        registry_team_filter=team_filter_raw,
     )
 
 

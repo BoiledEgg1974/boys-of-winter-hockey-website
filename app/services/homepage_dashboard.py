@@ -446,6 +446,7 @@ def _stars_skaters_in_window(
     end: date,
     limit: int = 3,
     logo_season_year: int | None = None,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> list[dict[str, Any]]:
     game_ids = session.scalars(
         select(Game.id).where(
@@ -459,22 +460,27 @@ def _stars_skaters_in_window(
     if not game_ids:
         return []
     gid_set = [int(x) for x in game_ids]
-    rows = session.execute(
+    stat_q = (
         select(GameSkaterStat, Game, Player, Team)
         .join(Game, GameSkaterStat.game_id == Game.id)
         .join(Player, GameSkaterStat.player_id == Player.id)
         .outerjoin(Team, GameSkaterStat.team_id == Team.id)
         .where(GameSkaterStat.game_id.in_(gid_set))
-    ).all()
+    )
+    if allowed_team_ids is not None:
+        if not allowed_team_ids:
+            return []
+        stat_q = stat_q.where(GameSkaterStat.team_id.in_(tuple(allowed_team_ids)))
+    rows = session.execute(stat_q).all()
     pts_by_player: dict[int, dict[str, Any]] = defaultdict(lambda: {"g": 0, "a": 0, "gp_set": set()})
     for gss, _g, pl, tm in rows:
         pid = pl.id
         pts_by_player[pid]["player_id"] = pid
         pts_by_player[pid]["player"] = pl.full_name
-        pts_by_player[pid]["player_photo_url"] = _player_photo_url(pl)
+        pts_by_player[pid]["_player"] = pl
+        pts_by_player[pid]["_team"] = tm
         pts_by_player[pid]["team"] = tm.abbreviation if tm else ""
         pts_by_player[pid]["team_slug"] = tm.slug if tm else ""
-        pts_by_player[pid]["team_logo_url"] = dashboard_team_logo_url(tm, logo_season_year) if tm else ""
         pts_by_player[pid]["g"] += int(gss.goals or 0)
         pts_by_player[pid]["a"] += int(gss.assists or 0)
         pts_by_player[pid]["gp_set"].add(gss.game_id)
@@ -486,26 +492,38 @@ def _stars_skaters_in_window(
     scored.sort(key=lambda x: (-x[0], -x[1], x[2].get("player") or ""))
     out: list[dict[str, Any]] = []
     for p, gp, d in scored[:limit]:
+        pl = d.pop("_player", None)
+        tm = d.pop("_team", None)
         d2 = {k: v for k, v in d.items() if k != "gp_set"}
         d2["points"] = p
         d2["games"] = gp
+        if pl is not None:
+            d2["player_photo_url"] = _player_photo_url(pl)
+        if tm is not None:
+            d2["team_logo_url"] = dashboard_team_logo_url(tm, logo_season_year)
         out.append(d2)
     return out
 
 
 def build_stars_windows(
-    session, season_id: int, as_of: date, logo_season_year: int | None = None
+    session,
+    season_id: int,
+    as_of: date,
+    logo_season_year: int | None = None,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Rolling N **league** days ending inclusive on ``as_of`` (see ``league_calendar_anchor_date``)."""
+    kw = {"logo_season_year": logo_season_year, "allowed_team_ids": allowed_team_ids}
     return {
         "stars_last_7d": _stars_skaters_in_window(
-            session, season_id, as_of - timedelta(days=7), as_of, logo_season_year=logo_season_year
+            session, season_id, as_of - timedelta(days=7), as_of, **kw
         ),
         "stars_last_14d": _stars_skaters_in_window(
-            session, season_id, as_of - timedelta(days=14), as_of, logo_season_year=logo_season_year
+            session, season_id, as_of - timedelta(days=14), as_of, **kw
         ),
         "stars_last_30d": _stars_skaters_in_window(
-            session, season_id, as_of - timedelta(days=30), as_of, logo_season_year=logo_season_year
+            session, season_id, as_of - timedelta(days=30), as_of, **kw
         ),
     }
 

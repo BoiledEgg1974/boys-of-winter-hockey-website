@@ -1981,7 +1981,11 @@
     if (panel) {
       panel.innerHTML = '<p class="empty-state loading-with-puck">Loading…</p>';
     }
-    fetch(withRoot('/api/homepage/postseason-odds'))
+    var oddsUrl = withRoot('/api/homepage/postseason-odds');
+    if (homeScope && homeScope !== 'combined') {
+      oddsUrl += (oddsUrl.indexOf('?') >= 0 ? '&' : '?') + 'scope=' + encodeURIComponent(homeScope);
+    }
+    fetch(oddsUrl)
       .then(function (r) {
         return r.json();
       })

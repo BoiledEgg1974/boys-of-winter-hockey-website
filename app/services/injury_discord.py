@@ -19,16 +19,16 @@ INJURY_DISCORD_TITLE = "BLUP / BLOW injury report"
 
 
 def _snapshot_rows(session: Session) -> list[dict[str, Any]]:
-    from app.models import Team
-    from app.services.injuries import injury_payload_league_wide
-    from app.services.relegation import filter_teams_to_main_tiers, get_tier_config
+    from app.services.injuries import blup_blow_injury_team_ids, injury_payload_league_wide
 
-    tier_cfg = get_tier_config(session)
-    main_ids = frozenset(
-        int(t.id)
-        for t in filter_teams_to_main_tiers(list(session.scalars(select(Team)).all()), tier_cfg)
-    )
+    main_ids = blup_blow_injury_team_ids(session)
     rows = injury_payload_league_wide(session, main_ids, league_slug=INJURY_LEAGUE_SLUG)
+    if main_ids:
+        rows = [
+            row
+            for row in rows
+            if row.get("team_id") is not None and int(row["team_id"]) in main_ids
+        ]
     out: list[dict[str, Any]] = []
     for row in rows:
         out.append(

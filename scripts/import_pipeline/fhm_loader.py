@@ -1787,6 +1787,16 @@ def import_injuries(
         return 0
 
     allowed_teams = set(teams_fhm.keys())
+    tier_leagues: frozenset[int] | None = None
+    try:
+        from flask import current_app
+
+        if str(current_app.config.get("LEAGUE_SLUG") or "") == "bowl-fantasy":
+            tier_ids = relegation_tier_league_ids(raw_dir)
+            if tier_ids:
+                tier_leagues = frozenset(int(x) for x in tier_ids)
+    except RuntimeError:
+        pass
     type_path = raw_dir / "injuries_data.csv"
     active_path = raw_dir / "player_injuries.csv"
     if not type_path.is_file() and not active_path.is_file():
@@ -1825,6 +1835,12 @@ def import_injuries(
                 continue
             if tm_fhm is not None and tm_fhm not in allowed_teams:
                 continue
+            if tier_leagues is not None and tm_fhm is not None and tm_fhm in teams_fhm:
+                fhm_lid = db.session.scalar(
+                    select(Team.fhm_league_id).where(Team.id == teams_fhm[tm_fhm]).limit(1)
+                )
+                if fhm_lid is None or int(fhm_lid) not in tier_leagues:
+                    continue
             inj_fhm = to_int(cell_val(r, "injury_id", "injuryid", "injury id"))
             recovery = to_int(cell_val(r, "recovery_time", "recovery time", "recoverytime"))
             team_id = teams_fhm.get(tm_fhm) if tm_fhm is not None else None

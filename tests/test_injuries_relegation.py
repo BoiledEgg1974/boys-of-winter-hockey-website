@@ -1,7 +1,10 @@
 """Injury classification and Discord delta helpers."""
 from __future__ import annotations
 
+import tempfile
 import unittest
+import uuid
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from app.config import discord_injury_report_channel_id
@@ -102,6 +105,88 @@ class InjuryDiscordEnqueueTest(unittest.TestCase):
             ok = maybe_enqueue_injury_report_delta(session, "bowl-fantasy")
         self.assertFalse(ok)
         enqueue.assert_not_called()
+
+
+class InjuryImportTierFilterTests(unittest.TestCase):
+    def test_import_skips_non_blup_blow_team_injuries(self) -> None:
+        from app import create_app
+        from app.config import make_league_config
+        from app.models import Player, PlayerInjury, Team, db
+        from scripts.import_pipeline.fhm_loader import import_injuries
+
+        app = create_app(make_league_config("bowl-fantasy"))
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = Path(tmp)
+            (raw / "league_data.csv").write_text(
+                "LeagueId;Name;Abbr\n0;BOWL-Upper;BLUP\n1;BOWL-Lower;BLOW\n2;AHL;AHL\n",
+                encoding="utf-8",
+            )
+            (raw / "injuries_data.csv").write_text(
+                "Injury Id;Name;Min Days;Max Days\n5;Sprained Knee;7;14\n",
+                encoding="utf-8",
+            )
+            (raw / "player_injuries.csv").write_text(
+                "PlayerId;Team Id;Franchise Id;Injury Id;Recovery Time\n"
+                "101;10;10;5;10\n"
+                "102;20;20;5;12\n",
+                encoding="utf-8",
+            )
+            with app.app_context():
+                db.create_all()
+                suffix = uuid.uuid4().hex[:8]
+                blup = Team(
+                    fhm_team_id=f"inj-blup-{suffix}",
+                    fhm_league_id=0,
+                    slug=f"blup-t-{suffix}",
+                    abbreviation="BLU",
+                    name="BLUP Club",
+                )
+                ahl = Team(
+                    fhm_team_id=f"inj-ahl-{suffix}",
+                    fhm_league_id=2,
+                    slug=f"ahl-t-{suffix}",
+                    abbreviation="AHL",
+                    name="Farm Club",
+                )
+                p1 = Player(
+                    fhm_player_id=f"inj-p1-{suffix}",
+                    first_name="A",
+                    last_name="One",
+                    full_name="A One",
+                )
+                p2 = Player(
+                    fhm_player_id=f"inj-p2-{suffix}",
+                    first_name="B",
+                    last_name="Two",
+                    full_name="B Two",
+                )
+                db.session.add_all([blup, ahl, p1, p2])
+                db.session.commit()
+                n = import_injuries(raw, {101: p1.id, 102: p2.id}, {10: blup.id, 20: ahl.id})
+                self.assertEqual(n, 1)
+                rows = list(db.session.scalars(db.select(PlayerInjury)))
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(int(rows[0].team_id), int(blup.id))
+
+
+class InjuryDiscordSnapshotFilterTests(unittest.TestCase):
+    def test_snapshot_excludes_farm_team_injuries(self) -> None:
+        from app.services.injury_discord import _snapshot_rows
+
+        session = MagicMock()
+        with patch(
+            "app.services.injuries.blup_blow_injury_team_ids",
+            return_value=frozenset({5}),
+        ), patch(
+            "app.services.injuries.injury_payload_league_wide",
+            return_value=[
+                {"player_id": 1, "team_id": 5, "player_name": "Main", "team_abbr": "MTL"},
+                {"player_id": 2, "team_id": 99, "player_name": "Farm", "team_abbr": "AHL"},
+            ],
+        ):
+            rows = _snapshot_rows(session)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["player_id"], 1)
 
 
 class InjuryDiscordChannelConfigTest(unittest.TestCase):

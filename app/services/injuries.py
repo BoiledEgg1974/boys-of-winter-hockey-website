@@ -85,6 +85,25 @@ def injury_payload_league_wide(
     return [_injury_row_dict(row) for row in rows]
 
 
+def blup_blow_injury_team_ids(session: Session) -> frozenset[int]:
+    """Site ``Team.id`` values eligible for Relegation injury list + Discord (#injury-report)."""
+    from app.services.relegation import relegation_main_tier_team_ids
+
+    return relegation_main_tier_team_ids(session)
+
+
+def injury_payload_blup_blow(
+    session: Session,
+    *,
+    league_slug: str | None = None,
+) -> list[dict[str, object]]:
+    """Active injuries on BLUP/BLOW rosters only (excludes farm, overseas, etc.)."""
+    team_ids = blup_blow_injury_team_ids(session)
+    if not team_ids:
+        return []
+    return injury_payload_league_wide(session, team_ids, league_slug=league_slug)
+
+
 def injuries_by_player_id(session: Session, player_ids: set[int]) -> dict[int, dict[str, object]]:
     if not player_ids or not injuries_supported_for_league():
         return {}

@@ -52,6 +52,7 @@ instance/.deploy_manifest_*.json
 
 # Local PythonAnywhere deploy wizard (machine-specific CSV paths)
 scripts/pythonanywhere_csv_sources.json
+scripts/deploy-live-vps.env
 
 # Saved-game CSV locations (created when you run STEP1_update_from_saved_game.py and save paths)
 scripts/saved_game_csv_paths.json

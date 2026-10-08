@@ -33,7 +33,8 @@ For the usual CSV + import + reload sequence from your machine, prefer
   With no arguments (e.g. Run / F5 in IDLE on this file), ``deploy`` is assumed.
 
 Environment: PA_HOST, PA_USER, PA_REMOTE_PATH, PA_SSH_KEY; for deploy also PA_REMOTE_VENV_BIN,
-PA_WSGI_FILE (see --help on each subcommand). PA_AUTO_PIP=1 skips the prompt and runs pip
+PA_WSGI_FILE (see --help on each subcommand). VPS: BOWL_DEPLOY_TARGET=vps or scripts/deploy-live-vps.env
+(BOWL_WEB_RELOAD=systemd restarts bowl-web instead of touching WSGI). PA_AUTO_PIP=1 skips the prompt and runs pip
 when paramiko is missing (useful for automation; in non-interactive mode this is required to auto-install).
 Encrypted SSH keys: set PA_SSH_PASSPHRASE for this session if your terminal cannot hide input (IDE),
 or use ssh-agent; you cannot remove encryption from an existing key without the passphrase.
@@ -730,6 +731,62 @@ def _touch_wsgi_bash(wsgi_file: str | None) -> list[str]:
     return [f"touch {shlex.quote(path)} 2>/dev/null || true" for path in files]
 
 
+def _uses_systemd_web_reload(*, ssh_user: str | None = None) -> bool:
+    from scripts.deploy_live_host import uses_vps_deploy
+
+    mode = (os.environ.get("BOWL_WEB_RELOAD") or "").strip().lower()
+    if mode in ("wsgi", "pythonanywhere", "pa"):
+        return False
+    if mode in ("systemd", "vps", "gunicorn"):
+        return True
+    return uses_vps_deploy()
+
+
+def _vps_fix_ownership_fragments(*, remote_project: str, ssh_user: str | None) -> list[str]:
+    user = (ssh_user or os.environ.get("PA_USER") or "").strip()
+    if user != "root" or not _uses_systemd_web_reload(ssh_user=user):
+        return []
+    owner = (os.environ.get("BOWL_REMOTE_APP_USER") or "bowl").strip() or "bowl"
+    rp = shlex.quote(remote_project.rstrip("/"))
+    o = shlex.quote(owner)
+    return [
+        f"chown -R {o}:{o} {rp}/instance {rp}/app/static 2>/dev/null || true",
+    ]
+
+
+def _web_reload_label(wsgi_file: str | None, *, ssh_user: str | None = None) -> str:
+    if wsgi_file is None:
+        return "(skip reload)"
+    if _uses_systemd_web_reload(ssh_user=ssh_user):
+        svc = (os.environ.get("BOWL_SYSTEMD_WEB_SERVICE") or "bowl-web").strip() or "bowl-web"
+        extra = (os.environ.get("BOWL_SYSTEMD_RESTART_EXTRA") or "").strip()
+        if extra:
+            return f"systemd ({svc}, {extra})"
+        return f"systemd ({svc})"
+    return f"wsgi touch ({wsgi_file})"
+
+
+def web_reload_bash_fragments(
+    wsgi_file: str | None,
+    *,
+    ssh_user: str | None = None,
+) -> list[str]:
+    """Remote bash fragments to reload the web app after deploy."""
+    if wsgi_file is None:
+        return []
+    if not _uses_systemd_web_reload(ssh_user=ssh_user):
+        return _touch_wsgi_bash(wsgi_file)
+    services = [
+        (os.environ.get("BOWL_SYSTEMD_WEB_SERVICE") or "bowl-web").strip() or "bowl-web"
+    ]
+    extra = (os.environ.get("BOWL_SYSTEMD_RESTART_EXTRA") or "").strip()
+    if extra:
+        services.extend(part.strip() for part in extra.split(",") if part.strip())
+    user = (ssh_user or os.environ.get("PA_USER") or "BoiledEgg1974").strip()
+    prefix = "sudo " if user and user != "root" else ""
+    return [f"{prefix}systemctl restart {shlex.quote(svc)}" for svc in services]
+
+
 def build_import_and_reload_script(
     remote_project: str,
     venv_bin: str,
@@ -737,6 +794,7 @@ def build_import_and_reload_script(
     wsgi_file: str | None,
     *,
     install_requirements: bool = False,
+    ssh_user: str | None = None,
 ) -> str:
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
@@ -754,7 +812,7 @@ def build_import_and_reload_script(
             f"if test -f {shlex.quote(sheet_rel)}; then {py} {shlex.quote(sheet_rel)} {shlex.quote(slug)}; "
             f"else echo {shlex.quote('WARN: missing ' + sheet_rel + ' — git pull on server or upgrade repo')}; fi"
         )
-    parts.extend(_touch_wsgi_bash(wsgi_file))
+    parts.extend(web_reload_bash_fragments(wsgi_file, ssh_user=ssh_user))
     return "; ".join(parts)
 
 
@@ -926,6 +984,7 @@ def build_post_db_upload_script(
     notify_discord: bool = True,
     discord_fallback_days: int = 7,
     notify_league: str | None = None,
+    ssh_user: str | None = None,
 ) -> str:
     """SSH script: atomically promote staged DBs, drop WAL sidecars, integrity-check, reload WSGI."""
     rp = shlex.quote(remote_project.rstrip("/"))
@@ -958,7 +1017,8 @@ def build_post_db_upload_script(
         # Enqueue boxscores, broken records, BOWL Six, and playoff bracket.
         days = max(1, int(discord_fallback_days))
         parts.append(f"{py} {notify} --fallback-days {days}{league_flag}")
-    parts.extend(_touch_wsgi_bash(wsgi_file))
+    parts.extend(_vps_fix_ownership_fragments(remote_project=remote_project, ssh_user=ssh_user))
+    parts.extend(web_reload_bash_fragments(wsgi_file, ssh_user=ssh_user))
     return "; ".join(parts)
 
 
@@ -1042,6 +1102,8 @@ def build_full_remote_rebuild_prep_script(
     remote_project: str,
     venv_bin: str,
     wsgi_file: str | None,
+    *,
+    ssh_user: str | None = None,
 ) -> str:
     """Hard-reset repo + rebuild venv on PythonAnywhere before normal deploy/import flow."""
     rp = shlex.quote(remote_project.rstrip("/"))
@@ -1065,7 +1127,7 @@ def build_full_remote_rebuild_prep_script(
         f"{py} -c \"import flask, flask_login, flask_sqlalchemy, flask_wtf, werkzeug; print('imports ok')\"",
         f"{py} -c \"import sys; print(sys.executable)\"",
     ]
-    parts.extend(_touch_wsgi_bash(wsgi_file))
+    parts.extend(web_reload_bash_fragments(wsgi_file, ssh_user=ssh_user))
     return "; ".join(parts)
 
 
@@ -1102,6 +1164,8 @@ def build_remote_ap_catalog_reconcile_script(
     remote_project: str,
     venv_bin: str,
     wsgi_file: str | None,
+    *,
+    ssh_user: str | None = None,
 ) -> str:
     rp = shlex.quote(remote_project.rstrip("/"))
     act = shlex.quote(f"{venv_bin.rstrip('/')}/activate")
@@ -1114,7 +1178,7 @@ def build_remote_ap_catalog_reconcile_script(
         "export LEAGUE_SLUG=bowl-fantasy",
         f"{py} {reconcile}",
     ]
-    parts.extend(_touch_wsgi_bash(wsgi_file))
+    parts.extend(web_reload_bash_fragments(wsgi_file, ssh_user=ssh_user))
     return "; ".join(parts)
 
 
@@ -1158,6 +1222,38 @@ def sync_local_ap_catalog_from_remote(
     )
 
 
+def _bootstrap_deploy_env_files() -> None:
+    """Load scripts/deploy-live-vps.env when the shell did not set a deploy target."""
+    if (os.environ.get("BOWL_DEPLOY_TARGET") or os.environ.get("PA_HOST") or "").strip():
+        return
+    for name in ("deploy-live-vps.env", "deploy-live-vps.env.example"):
+        path = _SCRIPT_DIR / name
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip('"'))
+        return
+
+
+def _resolve_ns_connection(ns: argparse.Namespace) -> None:
+    from scripts.deploy_live_host import resolve_step2_connection
+
+    host, user, remote_path, venv_bin = resolve_step2_connection(
+        host=ns.host,
+        user=ns.user,
+        remote_path=ns.remote_path,
+        venv_bin=ns.venv_bin,
+    )
+    ns.host = host
+    ns.user = user
+    ns.remote_path = remote_path
+    ns.venv_bin = venv_bin
+
+
 def add_connection_args(p: argparse.ArgumentParser, default_remote: str, default_user: str) -> None:
     p.add_argument("--local-root", type=Path, default=_REPO_ROOT, help="Repo root")
     p.add_argument("--host", default=os.environ.get("PA_HOST", "ssh.pythonanywhere.com"))
@@ -1171,6 +1267,7 @@ def add_connection_args(p: argparse.ArgumentParser, default_remote: str, default
 
 
 def cmd_sync(ns: argparse.Namespace) -> int:
+    _resolve_ns_connection(ns)
     local_root = ns.local_root.resolve()
     if not (local_root / "wsgi.py").is_file():
         print(
@@ -1216,6 +1313,7 @@ def cmd_sync(ns: argparse.Namespace) -> int:
 def cmd_deploy(ns: argparse.Namespace) -> int:
     from app.config import LEAGUES, league_slugs
 
+    _resolve_ns_connection(ns)
     local_root = ns.local_root.resolve()
     remote_base = ns.remote_path.rstrip("/")
     slugs = league_slugs()
@@ -1236,7 +1334,7 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     print(f"user: {ns.user}")
     print(f"remote project: {remote_base}")
     print(f"remote venv bin: {ns.venv_bin}")
-    print(f"wsgi file: {wsgi or '(skip reload)'}")
+    print(f"web reload: {_web_reload_label(wsgi, ssh_user=ns.user)}")
     print(f"remote pip install: {'yes' if ns.remote_pip else 'no'}")
     print(f"full remote rebuild: {'yes' if ns.full_remote_rebuild else 'no'}")
     script = build_import_and_reload_script(
@@ -1245,6 +1343,7 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
         slugs,
         wsgi,
         install_requirements=bool(ns.remote_pip),
+        ssh_user=ns.user,
     )
     client = None
     total_up = 0
@@ -1252,7 +1351,9 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
     try:
         client, sftp = connect_sftp(ns.host, ns.user, ns.key)
         if ns.full_remote_rebuild:
-            prep_script = build_full_remote_rebuild_prep_script(remote_base, ns.venv_bin, wsgi)
+            prep_script = build_full_remote_rebuild_prep_script(
+                remote_base, ns.venv_bin, wsgi, ssh_user=ns.user
+            )
             if ns.dry_run:
                 print("--- would run full remote rebuild prep ---")
                 print(prep_script.replace("; ", "\n"))
@@ -1310,16 +1411,16 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
             if ns.skip_imports:
                 print("(imports skipped)")
                 if wsgi:
-                    for path in wsgi_files_to_reload(wsgi):
-                        print(f"touch {path}")
+                    for part in web_reload_bash_fragments(wsgi, ssh_user=ns.user):
+                        print(part)
             else:
                 print(script.replace("; ", "\n"))
         else:
             if ns.skip_imports:
                 if wsgi:
-                    touch_parts = _touch_wsgi_bash(wsgi)
-                    run_remote_bash(client, "set -euo pipefail; " + "; ".join(touch_parts))
-                    print(f"Reload: touched {', '.join(wsgi_files_to_reload(wsgi))}")
+                    reload_parts = web_reload_bash_fragments(wsgi, ssh_user=ns.user)
+                    run_remote_bash(client, "set -euo pipefail; " + "; ".join(reload_parts))
+                    print(f"Reload: {'; '.join(reload_parts)}")
             else:
                 print("--- remote imports (+ reload) ---")
                 run_remote_bash(client, script)
@@ -1344,6 +1445,7 @@ def cmd_deploy(ns: argparse.Namespace) -> int:
 
 def cmd_deploy_db(ns: argparse.Namespace) -> int:
     """Upload locally built league SQLite; preserve live OVR, trades, game records, and editorial data."""
+    _resolve_ns_connection(ns)
     from app.config import HOCKEY_LEAGUE_SLUGS, RACING_LEAGUE_SLUGS, league_slugs
     from app.db_utils import sqlite_integrity_message, sqlite_wal_checkpoint
 
@@ -1375,7 +1477,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     print(f"remote project: {remote_base}")
     print(f"remote venv bin: {ns.venv_bin}")
     wsgi = None if ns.skip_reload else ns.wsgi_file
-    print(f"wsgi file: {wsgi or '(skip reload)'}")
+    print(f"web reload: {_web_reload_label(wsgi, ssh_user=ns.user)}")
     print(f"hockey capture/merge leagues: {', '.join(hockey_slugs) or '(none)'}")
     print(f"racing DB upload candidates: {', '.join(racing_slugs) or '(none)'}")
 
@@ -1404,8 +1506,13 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
     capture_script = build_capture_live_ovr_baselines_script(remote_base, ns.venv_bin, slugs)
     staged_db_rels = tuple(remote_rel for _slug, _db_path, remote_rel in db_targets)
     post_upload_script = build_post_db_upload_script(
-        remote_base, ns.venv_bin, slugs, wsgi, staged_db_rels=staged_db_rels,
+        remote_base,
+        ns.venv_bin,
+        slugs,
+        wsgi,
+        staged_db_rels=staged_db_rels,
         notify_league=notify_league,
+        ssh_user=ns.user,
     )
 
     if ns.dry_run:
@@ -1686,7 +1793,7 @@ def cmd_reconcile_ap_catalog(ns: argparse.Namespace) -> int:
     remote_base = ns.remote_path.rstrip("/")
     wsgi = getattr(ns, "wsgi_file", None)
     remote_script = build_remote_ap_catalog_reconcile_script(
-        remote_base, ns.venv_bin, wsgi
+        remote_base, ns.venv_bin, wsgi, ssh_user=ns.user
     )
     catalog_files = (
         "scripts/reconcile_ap_catalog.py",
@@ -1794,6 +1901,7 @@ def main() -> int:
     if len(sys.argv) == 1:
         sys.argv.append("deploy")
 
+    _bootstrap_deploy_env_files()
     default_remote = os.environ.get(
         "PA_REMOTE_PATH",
         "/home/BoiledEgg1974/boys-of-winter-hockey-website",

@@ -1,0 +1,3 @@
+# Install: sudo cp deploy/vps/sudoers-bowl-web /etc/sudoers.d/bowl-web && chmod 440 /etc/sudoers.d/bowl-web
+# Allows deploy-db over SSH as user `bowl` without a password prompt.
+bowl ALL=(ALL) NOPASSWD: /bin/systemctl restart bowl-web

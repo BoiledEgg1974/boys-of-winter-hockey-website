@@ -111,13 +111,39 @@ RACING_RAW_DIRS: dict[str, str] = {
     "bowl-demolition": "bowl_demolition",
 }
 
-# Default PythonAnywhere deploy key (override with PA_SSH_KEY in the environment).
+# Default deploy SSH key (override with PA_SSH_KEY in the environment).
 _DEFAULT_PA_SSH_KEY = Path.home() / ".ssh" / "id_ed25519_pa"
+_DEPLOY_ENV_FILES = (
+    REPO_ROOT / "scripts" / "deploy-live-vps.env",
+    REPO_ROOT / "scripts" / "deploy-live-vps.env.example",
+)
+
+
+def _parse_deploy_env_file(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        out[key.strip()] = value.strip().strip('"')
+    return out
 
 
 def _pa_deploy_env() -> dict[str, str]:
-    """Environment for STEP2 deploy/deploy-db; sets PA_SSH_KEY when unset."""
+    """Environment for STEP2 deploy/deploy-db (VPS or PythonAnywhere)."""
     env = dict(os.environ)
+    if not (env.get("BOWL_DEPLOY_TARGET") or env.get("PA_HOST") or "").strip():
+        for path in _DEPLOY_ENV_FILES:
+            if path.is_file():
+                env.update(_parse_deploy_env_file(path))
+                print(f"Loaded deploy host settings from {path.name}")
+                break
+    from scripts.deploy_live_host import apply_live_deploy_env, live_deploy_label
+
+    env = apply_live_deploy_env(env)
     if not (env.get("PA_SSH_KEY") or "").strip():
         if _DEFAULT_PA_SSH_KEY.is_file():
             env["PA_SSH_KEY"] = str(_DEFAULT_PA_SSH_KEY)
@@ -127,18 +153,30 @@ def _pa_deploy_env() -> dict[str, str]:
                 f"Warning: PA_SSH_KEY is not set and {_DEFAULT_PA_SSH_KEY} was not found.",
                 file=sys.stderr,
             )
+    print(f"Live deploy target: {live_deploy_label(env)}")
     return env
 
 
-def _deploy_preflight_note() -> None:
-    print(
-        "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
-        "before upload so no worker is writing to SQLite.\n"
-        "This step uploads league SQLite + queues Discord "
-        "(notify_discord_after_db_deploy: boxscores / BOWL Six / playoff bracket "
-        "/ broken records). A server `git pull` / touch WSGI alone "
-        "does NOT update live data or Discord posts.\n"
-    )
+def _deploy_preflight_note(env: dict[str, str]) -> None:
+    from scripts.deploy_live_host import uses_vps_deploy
+
+    if uses_vps_deploy(env):
+        print(
+            "\nDeploy preflight (VPS): ensure gunicorn is idle enough for SQLite upload "
+            "(brief traffic dip is normal during `systemctl restart bowl-web`).\n"
+            "This step uploads league SQLite + queues Discord on the VPS "
+            "(notify_discord_after_db_deploy). `git pull` alone does NOT update live DBs "
+            "or Discord posts.\n"
+        )
+    else:
+        print(
+            "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
+            "before upload so no worker is writing to SQLite.\n"
+            "This step uploads league SQLite + queues Discord "
+            "(notify_discord_after_db_deploy: boxscores / BOWL Six / playoff bracket "
+            "/ broken records). A server `git pull` / touch WSGI alone "
+            "does NOT update live data or Discord posts.\n"
+        )
 
 
 def _no_deploy_warning() -> None:
@@ -158,18 +196,22 @@ def _no_deploy_warning() -> None:
     )
 
 
-def _deploy_success_note(*, via_deploy_db: bool = True) -> None:
+def _deploy_success_note(env: dict[str, str], *, via_deploy_db: bool = True) -> None:
+    from scripts.deploy_live_host import live_deploy_label, uses_vps_deploy
+
+    host = live_deploy_label(env)
+    reload = "systemctl restart bowl-web" if uses_vps_deploy(env) else "WSGI touched"
     if via_deploy_db:
         print(
-            "\nLive deploy-db finished: league DBs uploaded, Discord notify ran on the "
-            "server (boxscores / BOWL Six / playoff bracket / broken records as "
-            "applicable), WSGI touched.\n"
-            "No further PythonAnywhere git pull is required for this data update.\n"
+            f"\nLive deploy-db finished on {host}: league DBs uploaded, Discord notify ran "
+            "(boxscores / BOWL Six / playoff bracket / broken records as applicable), "
+            f"{reload}.\n"
+            "No extra server git pull is required for this data update.\n"
         )
     else:
         print(
-            "\nLive remote CSV deploy finished (server-side import + WSGI reload).\n"
-            "No further PythonAnywhere git pull is required for this data update.\n"
+            f"\nLive remote CSV deploy finished on {host} (server-side import + web reload).\n"
+            "No extra server git pull is required for this data update.\n"
         )
 
 
@@ -376,14 +418,14 @@ def main() -> int:
         print("BOWL-Site-Update (deploy-db only)...")
         if league:
             print(f"Single-league mode: {league}")
-        _deploy_preflight_note()
+        deploy_env = _pa_deploy_env()
+        _deploy_preflight_note(deploy_env)
         _verify_local_league_databases(verify_slugs)
         step2_cmd = [sys.executable, str(STEP2), "deploy-db", *league_args]
         if args.sync_ap_catalog_local:
             step2_cmd.append("--sync-ap-catalog-local")
-        deploy_env = _pa_deploy_env()
         _run(step2_cmd, env=deploy_env)
-        _deploy_success_note()
+        _deploy_success_note(deploy_env)
         print("\nBOWL-Site-Update complete.")
         return 0
 
@@ -450,9 +492,9 @@ def main() -> int:
 
     # 6) Deploy to PythonAnywhere.
     if not args.no_deploy:
-        _deploy_preflight_note()
-        _verify_local_league_databases(verify_slugs)
         deploy_env = _pa_deploy_env()
+        _deploy_preflight_note(deploy_env)
+        _verify_local_league_databases(verify_slugs)
         if args.remote_import:
             step2_cmd = [sys.executable, str(STEP2), "deploy", "--repo-csv"]
             if args.mode == "fullremoterebuild":
@@ -469,13 +511,13 @@ def main() -> int:
             if args.sync_ap_catalog_local:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)
-            _deploy_success_note(via_deploy_db=False)
+            _deploy_success_note(deploy_env, via_deploy_db=False)
         else:
             step2_cmd = [sys.executable, str(STEP2), "deploy-db", *league_args]
             if args.sync_ap_catalog_local:
                 step2_cmd.append("--sync-ap-catalog-local")
             _run(step2_cmd, env=deploy_env)
-            _deploy_success_note(via_deploy_db=True)
+            _deploy_success_note(deploy_env, via_deploy_db=True)
     else:
         _no_deploy_warning()
 

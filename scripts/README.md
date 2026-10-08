@@ -13,7 +13,7 @@ This is the normal nightly path. It:
 
 1. Imports FHM CSVs **locally** (including Historical awards alignment + racing when present).
 2. Commits/pushes CSV + alignment files to GitHub.
-3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket) and reloads WSGI.
+3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket) and reloads the web app (WSGI touch on PA, **`systemctl restart bowl-web`** on the VPS).
 
 League databases are **gitignored**. GitHub + a server `git pull` alone never refresh live scores, standings, or Discord queues.
 
@@ -66,7 +66,15 @@ Prefer **`deploy-db`** for the usual BOWL update.
 
 ## Moving live hosting to a VPS
 
-PythonAnywhere → nginx + gunicorn cutover (paths, rsync, DNS, Discord bot, repointing `deploy-db`): **[docs/DEPLOY-VPS-NGINX.md §11](../docs/DEPLOY-VPS-NGINX.md#11-pythonanywhere--vps-cutover-runbook)**.
+PythonAnywhere → nginx + gunicorn cutover (paths, rsync, DNS, Discord bot): **[docs/DEPLOY-VPS-NGINX.md §11](../docs/DEPLOY-VPS-NGINX.md#11-pythonanywhere--vps-cutover-runbook)**.
+
+**Nightly deploy to DigitalOcean (production):** copy **`scripts/deploy-live-vps.env.example`** to **`scripts/deploy-live-vps.env`** (gitignored) or set the same variables in your shell. Then run the usual:
+
+```bash
+python scripts/BOWL-Site-Update.py
+```
+
+`BOWL-Site-Update.py` loads `deploy-live-vps.env` when present and STEP2 uses **`BOWL_WEB_RELOAD=systemd`** instead of touching PythonAnywhere WSGI. Override with `BOWL_DEPLOY_TARGET=pa` and `PA_HOST=ssh.pythonanywhere.com` if you ever push to PA again.
 
 ---
 

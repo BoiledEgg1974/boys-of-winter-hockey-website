@@ -47,6 +47,8 @@ DEFAULT_FRESH_TTL_SECONDS: dict[str, float] = {
     "team_hover": 180.0,
     "search_players": 45.0,
     "postseason_odds": 600.0,
+    "team_page_mc": 600.0,
+    "team_shot_quality": 600.0,
 }
 
 DEFAULT_STALE_TTL_SECONDS: dict[str, float] = {
@@ -61,6 +63,8 @@ DEFAULT_STALE_TTL_SECONDS: dict[str, float] = {
     "team_hover": 7200.0,
     "search_players": 600.0,
     "postseason_odds": 7200.0,
+    "team_page_mc": 7200.0,
+    "team_shot_quality": 7200.0,
 }
 
 # Back-compat alias for callers using a single TTL.

@@ -170,7 +170,10 @@ from app.services.standings import (
     divisions_for_season,
     standings_for_season,
 )
-from app.services.postseason_odds import build_team_page_mc_bundle
+from app.services.team_page_payload_cache import (
+    get_team_page_mc_bundle_cached,
+    get_team_shot_quality_payload_cached,
+)
 from app.services.draft_eligible_settings import (
     format_draft_eligible_summary,
     load_draft_eligible_page_config,
@@ -6000,7 +6003,9 @@ def team_page(slug: str):
             tt = db.session.get(Team, st.team_id)
             if tt:
                 tm_mc[st.team_id] = tt
-        team_mc_panels = build_team_page_mc_bundle(db.session, season.id, team.id, tm_mc)
+        team_mc_panels = get_team_page_mc_bundle_cached(
+            db.session, season.id, team.id, tm_mc
+        )
     team_prospects = db.session.scalars(
         select(Prospect).options(joinedload(Prospect.player)).where(Prospect.team_id == team.id)
     ).all()
@@ -6051,7 +6056,6 @@ def team_page(slug: str):
     from app.services.advanced_stats import (
         build_team_player_analytics_archive,
         build_team_player_trends_archive,
-        build_team_shot_quality_payload,
         build_team_shot_quality_payload_from_archive,
         build_team_stats_trends_archive,
         team_shot_quality_season_options,
@@ -6105,7 +6109,7 @@ def team_page(slug: str):
             segment=sq_segment,
         )
     elif selected_sq and selected_sq.get("season_id") is not None:
-        team_shot_quality = build_team_shot_quality_payload(
+        team_shot_quality = get_team_shot_quality_payload_cached(
             db.session,
             team,
             int(selected_sq["season_id"]),

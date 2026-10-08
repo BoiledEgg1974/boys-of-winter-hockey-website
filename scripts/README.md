@@ -64,6 +64,12 @@ Prefer **`deploy-db`** for the usual BOWL update.
 
 ---
 
+## Moving live hosting to a VPS
+
+PythonAnywhere → nginx + gunicorn cutover (paths, rsync, DNS, Discord bot, repointing `deploy-db`): **[docs/DEPLOY-VPS-NGINX.md §11](../docs/DEPLOY-VPS-NGINX.md#11-pythonanywhere--vps-cutover-runbook)**.
+
+---
+
 ## PythonAnywhere bash (manual recovery only)
 
 ### Hard reset + new venv (rare)

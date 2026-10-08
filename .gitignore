@@ -20,6 +20,7 @@ htmlcov/
 # Local environment files
 .env
 .env.local
+backup-from-pa/
 
 # GM / admin headline image uploads (per league under static)
 app/static/img/news/

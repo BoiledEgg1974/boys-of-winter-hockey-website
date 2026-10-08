@@ -8,10 +8,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-from app.config import normalize_site_database_url
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 load_dotenv(ROOT / ".env")
+
+from app.config import normalize_site_database_url
 
 
 def main() -> None:

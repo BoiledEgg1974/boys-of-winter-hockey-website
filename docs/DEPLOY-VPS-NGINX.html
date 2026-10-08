@@ -218,16 +218,469 @@ env = PYTHONPATH=/srv/bowl/app
 <p>Run the league Discord bot as a <strong>separate</strong> systemd service (same repo, same <code>.env</code>), pointing <code>DISCORD_BOT_LEAGUE_BASE_URLS</code> at your public URLs.</p>
 <p>Keep using <code>scripts/run_site_update.py</code> from your dev machine or a CI runner; on the VPS you only need git pull / rsync DBs, imports, and <code>systemctl restart bowl-web</code>.</p>
 <hr />
-<h2 id="10-migration-checklist-from-pythonanywhere">10. Migration checklist from PythonAnywhere</h2>
+<h2 id="10-migration-checklist-from-pythonanywhere-summary">10. Migration checklist from PythonAnywhere (summary)</h2>
+<p>Detailed cutover steps: <strong>section 11</strong>.</p>
 <ol>
-<li>Copy <code>instance/*.db</code>, <code>instance/site_membership.db</code>, and <code>instance/league_json_cache/</code> if present.</li>
-<li>Copy <code>data/imports/raw/**</code> and <code>app/static/**</code> (logos, headshots).</li>
-<li>Set <code>SITE_DATABASE_URL</code> if using remote MySQL; otherwise migrate site DB to VPS SQLite/MySQL.</li>
-<li>Deploy code, install deps, configure systemd + nginx.</li>
-<li>Set <code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1</code>, optionally <code>HOMEPAGE_SSR_LEADERS_STANDINGS=1</code>.</li>
-<li>Restart web, run curl warm (section 7), smoke-test hub + each league + search.</li>
-<li>Update DNS A/AAAA to the VPS; keep PA up until TTL expires if doing a cutover.</li>
+<li>Copy live data and secrets from PA → VPS (§11.2–11.3).</li>
+<li>Build VPS stack (sections 2–6), test in parallel (§11.4).</li>
+<li>Cut DNS (§11.5), move Discord bot (§11.6), repoint deploy (§11.7).</li>
+<li>Decommission PA when stable (§11.8).</li>
 </ol>
+<hr />
+<h2 id="11-pythonanywhere-vps-cutover-runbook">11. PythonAnywhere → VPS cutover (runbook)</h2>
+<p>This section turns the current <strong>bowlhockey.com on PythonAnywhere</strong> setup into the nginx + gunicorn VPS layout without changing URLs (<code>/</code>, <code>/bowl-fantasy/</code>, etc.) or stat/import logic.</p>
+<h3 id="111-what-lives-on-pythonanywhere-today">11.1 What lives on PythonAnywhere today</h3>
+<p>Typical production layout (defaults in <code>scripts/STEP2_pythonanywhere.py</code> and <a href="../scripts/README.md">scripts/README.md</a>):</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>PythonAnywhere path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project root</td>
+<td><code>/home/BoiledEgg1974/boys-of-winter-hockey-website</code></td>
+</tr>
+<tr>
+<td>Virtualenv</td>
+<td><code>/home/BoiledEgg1974/venv</code></td>
+</tr>
+<tr>
+<td>WSGI reload file</td>
+<td><code>/var/www/www_bowlhockey_com_wsgi.py</code></td>
+</tr>
+<tr>
+<td>SSH</td>
+<td><code>ssh.pythonanywhere.com</code>, user <code>BoiledEgg1974</code></td>
+</tr>
+<tr>
+<td>League SQLite</td>
+<td><code>instance/bowl-historical.db</code>, <code>bowl-fantasy.db</code>, <code>bowl-cap.db</code> (+ racing if used)</td>
+</tr>
+<tr>
+<td>Site DB</td>
+<td><code>instance/site_membership.db</code> <strong>or</strong> <code>SITE_DATABASE_URL</code> → PA MySQL</td>
+</tr>
+<tr>
+<td>JSON cache</td>
+<td><code>instance/league_json_cache/</code></td>
+</tr>
+<tr>
+<td>CSV exports</td>
+<td><code>data/imports/raw/bowl_historical/</code>, <code>bowl_fantasy/</code>, <code>bowl_cap/</code></td>
+</tr>
+<tr>
+<td>Secrets / env</td>
+<td><code>boys-of-winter-hockey-website/.env</code> (Web tab vars should match this file)</td>
+</tr>
+<tr>
+<td>Discord bot</td>
+<td><strong>Always-on task:</strong> <code>python -m scripts.league_discord_bot</code> (see <a href="DISCORD_BOT_SETUP.md">DISCORD_BOT_SETUP.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>Nightly updates from your PC use <strong><code>python scripts/BOWL-Site-Update.py</code></strong>, which runs local imports then <strong><code>STEP2_pythonanywhere.py deploy-db</code></strong>: SSH to PA, <strong>capture live OVR / trade log / editorial state</strong>, merge into local DBs, upload SQLite + static, run <strong><code>notify_discord_after_db_deploy.py</code></strong>, touch WSGI to reload.</p>
+<p>The VPS target keeps the <strong>same repo</strong> and <strong><code>wsgi:application</code></strong>; only the process manager and deploy reload step change (systemd instead of <code>touch …wsgi.py</code>).</p>
+<h3 id="112-phase-a-build-the-vps-from-a-pa-snapshot-one-time">11.2 Phase A — Build the VPS from a PA snapshot (one time)</h3>
+<p>Do this <strong>before</strong> DNS cutover so the VPS is a faithful copy of live.</p>
+<p><strong>On your PC</strong> (Git Bash or WSL; install OpenSSH). Set key-based SSH to both hosts (<code>PA_SSH_KEY</code> as you use for STEP2).</p>
+<pre><code class="language-bash">PA_USER=BoiledEgg1974
+PA_HOST=ssh.pythonanywhere.com
+PA_ROOT=/home/BoiledEgg1974/boys-of-winter-hockey-website
+VPS_USER=bowl
+VPS_HOST=YOUR.VPS.IP
+VPS_ROOT=/srv/bowl/app
+</code></pre>
+<ol>
+<li>
+<p><strong>Code</strong> — on the VPS (section 3): <code>git clone</code> the same branch you deploy on PA, <code>pip install -r requirements.txt gunicorn</code>.</p>
+</li>
+<li>
+<p><strong>Databases + cache</strong> — pull from PA (does not delete PA data):</p>
+</li>
+</ol>
+<pre><code class="language-bash">rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; \
+  &quot;$PA_USER@$PA_HOST:$PA_ROOT/instance/&quot; \
+  &quot;$VPS_USER@$VPS_HOST:$VPS_ROOT/instance/&quot;
+
+rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; \
+  &quot;$PA_USER@$PA_HOST:$PA_ROOT/data/imports/raw/&quot; \
+  &quot;$VPS_USER@$VPS_HOST:$VPS_ROOT/data/imports/raw/&quot;
+</code></pre>
+<p>Include <code>instance/league_json_cache/</code> in the first rsync if present (faster first homepage load).</p>
+<ol>
+<li><strong>Static assets</strong> (logos, headshots, CSS you did not git-track):</li>
+</ol>
+<pre><code class="language-bash">rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; \
+  &quot;$PA_USER@$PA_HOST:$PA_ROOT/app/static/&quot; \
+  &quot;$VPS_USER@$VPS_HOST:$VPS_ROOT/app/static/&quot;
+</code></pre>
+<ol>
+<li><strong>Environment file</strong> — copy PA <code>.env</code> to the VPS and edit only what must change:</li>
+</ol>
+<pre><code class="language-bash">scp -i &quot;$PA_SSH_KEY&quot; \
+  &quot;$PA_USER@$PA_HOST:$PA_ROOT/.env&quot; \
+  &quot;$VPS_USER@$VPS_HOST:$VPS_ROOT/.env&quot;
+</code></pre>
+<p>On the VPS <code>.env</code>, set at minimum:</p>
+<ul>
+<li><code>FLASK_DEBUG=0</code></li>
+<li><code>SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com</code> (unchanged until you use a staging hostname)</li>
+<li><code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1</code></li>
+<li>Optional: <code>HOMEPAGE_SSR_LEADERS_STANDINGS=1</code></li>
+</ul>
+<p>Keep <strong><code>SECRET_KEY</code></strong>, <strong><code>DISCORD_EVENTS_SHARED_SECRET</code></strong>, mail settings, and <strong><code>SITE_DATABASE_URL</code></strong> the same as PA if you are not moving the site DB yet.</p>
+<ol>
+<li>Finish sections <strong>5–6</strong> (systemd + nginx). Use a <strong>staging</strong> <code>server_name</code> or test via <code>/etc/hosts</code> (§11.4) before pointing production DNS.</li>
+</ol>
+<h3 id="113-site-database-mysql-vs-sqlite">11.3 Site database (MySQL vs SQLite)</h3>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PA uses <strong>MySQL</strong> (<code>SITE_DATABASE_URL</code> in <code>.env</code>)</td>
+<td>Easiest cutover: <strong>keep the same MySQL URL</strong> from the VPS (PA MySQL allows remote if whitelisted; or migrate DB to VPS MySQL).</td>
+</tr>
+<tr>
+<td>PA uses <strong>SQLite</strong> <code>instance/site_membership.db</code></td>
+<td>Rsync copied it in §11.2; no extra step.</td>
+</tr>
+<tr>
+<td>Move MySQL <strong>onto the VPS</strong></td>
+<td>One-time: <a href="../.env.example"><code>.env.example</code></a> → <code>migrate_site_sqlite_to_mysql.py</code> / your host’s MySQL docs; then point <code>SITE_DATABASE_URL</code> at the new server and re-test GM login, news, Discord queue.</td>
+</tr>
+</tbody>
+</table>
+<p>League stats stay in <strong>per-league SQLite</strong> under <code>instance/</code>; only the <strong>site</strong> DB holds GM accounts, news queue, Discord integration, etc.</p>
+<h3 id="114-phase-b-parallel-test-no-dns-change-yet">11.4 Phase B — Parallel test (no DNS change yet)</h3>
+<ol>
+<li>On your PC, map the VPS IP to a fake name, e.g. <code>104.x.x.x staging.bowlhockey.com</code> in <code>C:\Windows\System32\drivers\etc\hosts</code>.</li>
+<li>Temporarily set nginx <code>server_name staging.bowlhockey.com;</code> and obtain TLS, <strong>or</strong> test over HTTP on the IP with <code>curl -H "Host: www.bowlhockey.com" http://VPS_IP/bowl-fantasy/</code>.</li>
+<li>Smoke-test the same list as <a href="UPDATE-NESTED-SERVER.md">UPDATE-NESTED-SERVER.md</a> §9: hub, each league home, standings, player search, GM login, admin Discord test event.</li>
+<li>Compare one heavy page (e.g. team page, homepage after cache warm) against PA.</li>
+</ol>
+<p>Fix nginx paths, <code>.env</code>, and worker count before cutover.</p>
+<h3 id="115-phase-c-production-cutover-dns">11.5 Phase C — Production cutover (DNS)</h3>
+<p>Namecheap step-by-step: <strong>§13</strong>.</p>
+<ol>
+<li><strong>Lower TTL</strong> on <code>bowlhockey.com</code> / <code>www</code> a day ahead (e.g. 300s) if your DNS provider allows.</li>
+<li><strong>Stop sending users to PA:</strong> update <strong>A/AAAA</strong> for <code>www.bowlhockey.com</code> (and apex if used) to the <strong>VPS</strong>.</li>
+<li>Run <strong>certbot</strong> on the VPS for the real <code>server_name</code> (section 6).</li>
+<li><strong>Restart web</strong> and run cache warm (section 7).</li>
+<li>Smoke-test from a network <strong>without</strong> <code>/etc/hosts</code> overrides.</li>
+<li>Leave the PA web app <strong>enabled but unused</strong> for 24–48h (rollback, §11.9).</li>
+</ol>
+<p><strong>Discord interactions URL</strong> stays <code>https://www.bowlhockey.com/api/discord/interactions</code> — no Developer Portal change if the domain is unchanged.</p>
+<h3 id="116-discord-delivery-bot-always-on-systemd">11.6 Discord delivery bot (Always-on → systemd)</h3>
+<ol>
+<li><strong>Before cutover:</strong> note PA Always-on command (usually):</li>
+</ol>
+<p><code>cd /home/BoiledEgg1974/boys-of-winter-hockey-website &amp;&amp; /home/BoiledEgg1974/venv/bin/python -m scripts.league_discord_bot</code></p>
+<ol>
+<li>On the VPS, create <code>/etc/systemd/system/bowl-discord-bot.service</code>:</li>
+</ol>
+<pre><code class="language-ini">[Unit]
+Description=BOWL league Discord delivery bot
+After=network.target bowl-web.service
+
+[Service]
+User=bowl
+Group=bowl
+WorkingDirectory=/srv/bowl/app
+EnvironmentFile=/srv/bowl/app/.env
+Environment=PYTHONPATH=/srv/bowl/app
+ExecStart=/srv/bowl/app/.venv/bin/python -m scripts.league_discord_bot
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<ol>
+<li><code>sudo systemctl enable --now bowl-discord-bot</code>.</li>
+<li>Admin → Discord integration → <strong>Queue test event</strong> on each league.</li>
+<li><strong>After the bot is healthy on the VPS</strong>, disable the PA Always-on task (only one poller should run).</li>
+</ol>
+<p>Ensure <code>.env</code> on the VPS includes <code>DISCORD_BOT_TOKEN</code>, <code>DISCORD_EVENTS_SHARED_SECRET</code>, and <code>SITE_PUBLIC_BASE_URL</code> (same as web).</p>
+<h3 id="117-phase-d-repoint-nightly-deploy-after-dns-points-to-vps">11.7 Phase D — Repoint nightly deploy (after DNS points to VPS)</h3>
+<p>Your local pipeline can <strong>keep using STEP2</strong>; point SSH env vars at the <strong>VPS</strong> instead of PythonAnywhere. The remote promote + Discord notify scripts are the same; only the reload step differs.</p>
+<p><strong>On your Windows PC</strong> (PowerShell — persist in your profile or a <code>deploy-vps.env</code> you source):</p>
+<pre><code class="language-powershell">$env:PA_HOST = &quot;YOUR.VPS.IP&quot;          # or vps.bowlhockey.com
+$env:PA_USER = &quot;bowl&quot;
+$env:PA_REMOTE_PATH = &quot;/srv/bowl/app&quot;
+$env:PA_REMOTE_VENV_BIN = &quot;/srv/bowl/app/.venv/bin&quot;
+$env:PA_SSH_KEY = &quot;$HOME\.ssh\id_ed25519_vps&quot;   # your VPS key
+</code></pre>
+<p>Then run the usual update, but <strong>skip WSGI touch</strong> and restart gunicorn over SSH:</p>
+<pre><code class="language-powershell">python scripts/BOWL-Site-Update.py --deploy-db-only
+# STEP2 post-upload script touches PA WSGI; on VPS use --skip-reload:
+python scripts/STEP2_pythonanywhere.py deploy-db --skip-reload
+ssh -i $env:PA_SSH_KEY bowl@YOUR.VPS.IP &quot;sudo systemctl restart bowl-web&quot;
+</code></pre>
+<p>Recommended habit after <strong><code>BOWL-Site-Update.py</code></strong> (full nightly): wrap STEP2 with <code>--skip-reload</code> and restart, e.g. adjust your wrapper or run:</p>
+<pre><code class="language-powershell">python scripts/BOWL-Site-Update.py --no-deploy
+python scripts/STEP2_pythonanywhere.py deploy-db --skip-reload
+ssh bowl@YOUR.VPS.IP &quot;sudo systemctl restart bowl-web&quot;
+</code></pre>
+<p>(<code>--no-deploy</code> skips the built-in PA deploy at the end of BOWL-Site-Update; you run STEP2 yourself with VPS env + <code>--skip-reload</code>.)</p>
+<p><strong>sudo:</strong> allow passwordless restart for <code>bowl</code>:</p>
+<p><code>/etc/sudoers.d/bowl-web</code>: <code>bowl ALL=(ALL) NOPASSWD: /bin/systemctl restart bowl-web</code></p>
+<p><strong>What still runs on the server during <code>deploy-db</code>:</strong> capture live OVR/trade/editorial → merge locally → upload SQLite → <code>notify_discord_after_db_deploy.py</code>. That logic is unchanged; it now runs against the VPS tree under <code>/srv/bowl/app</code>.</p>
+<p><strong>Code-only changes</strong> (no DB upload): <code>git pull</code> on the VPS + <code>systemctl restart bowl-web</code>, or extend your workflow with <code>STEP2 sync</code> targeting the VPS (same <code>PA_*</code> overrides, no import).</p>
+<h3 id="118-decommission-pythonanywhere">11.8 Decommission PythonAnywhere</h3>
+<p>When the VPS has been stable through at least one full <strong>BOWL-Site-Update</strong> cycle:</p>
+<ol>
+<li>Disable PA <strong>Web</strong> app and <strong>Always-on</strong> task.</li>
+<li>Keep a final backup: <code>python scripts/backup_all_live_data.py</code> on PA or rsync <code>instance/</code> once more.</li>
+<li>Optionally downgrade/cancel PA hosting.</li>
+</ol>
+<p>Do <strong>not</strong> delete PA until league SQLite and site DB backups are verified on the VPS.</p>
+<h3 id="119-rollback">11.9 Rollback</h3>
+<p>If something fails right after DNS change:</p>
+<ol>
+<li>Point DNS A/AAAA back to PythonAnywhere.</li>
+<li>Re-enable PA Web + Always-on bot; disable VPS bot/web if they might conflict.</li>
+<li>If you uploaded DBs to the VPS during a bad deploy, restore PA from your last good <code>instance/</code> backup — PA was unchanged during parallel testing if you did not run deploy-db against it after cutover.</li>
+</ol>
+<h3 id="1110-cutover-timeline-example">11.10 Cutover timeline (example)</h3>
+<table>
+<thead>
+<tr>
+<th>Day</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D−3</td>
+<td>Provision VPS, sections 2–6, rsync from PA (§11.2)</td>
+</tr>
+<tr>
+<td>D−2</td>
+<td>Parallel testing (§11.4), fix nginx/env</td>
+</tr>
+<tr>
+<td>D−1</td>
+<td>Lower DNS TTL; dry-run <code>deploy-db --skip-reload</code> to VPS</td>
+</tr>
+<tr>
+<td>D0</td>
+<td>DNS to VPS (§11.5); start VPS Discord bot; disable PA bot</td>
+</tr>
+<tr>
+<td>D+1</td>
+<td>Full <code>BOWL-Site-Update</code> with VPS STEP2 (§11.7)</td>
+</tr>
+<tr>
+<td>D+7</td>
+<td>Decommission PA (§11.8)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-digitalocean-droplet-created-first-hour-checklist">12. DigitalOcean Droplet created — first-hour checklist</h2>
+<p>Use this right after you create a Droplet (e.g. <strong>Basic 4 GB / 2 vCPU</strong>, <strong>Ubuntu 24.04</strong>, <strong>nyc1</strong>). Replace <code>YOUR.DROPLET.IP</code> and SSH user (<code>root</code> on first login, then <strong><code>bowl</code></strong> once created).</p>
+<h3 id="121-on-the-droplet-ssh-as-root">12.1 On the Droplet (SSH as root)</h3>
+<pre><code class="language-bash"># 1 — Base packages
+apt update &amp;&amp; apt install -y python3 python3-venv python3-pip nginx git ufw certbot python3-certbot-nginx
+
+# 2 — App user + directory
+adduser --disabled-password --gecos &quot;&quot; bowl
+mkdir -p /srv/bowl &amp;&amp; chown bowl:bowl /srv/bowl
+
+# 3 — Clone app (use your real repo URL)
+sudo -u bowl git clone https://github.com/YOUR_ORG/Boys-Of-Winter-League.git /srv/bowl/app
+cd /srv/bowl/app &amp;&amp; sudo -u bowl python3 -m venv .venv
+sudo -u bowl .venv/bin/pip install -r requirements.txt gunicorn
+
+# 4 — Firewall (SSH first, then web)
+ufw allow OpenSSH &amp;&amp; ufw allow 'Nginx Full' &amp;&amp; ufw --force enable
+
+# 5 — Copy .env from PA later (§11.2); for now:
+sudo -u bowl cp .env.example .env
+# edit: FLASK_DEBUG=0, SECRET_KEY, SITE_PUBLIC_BASE_URL, LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1
+</code></pre>
+<p>Install <strong>systemd</strong> + <strong>nginx</strong> from <strong>sections 5–6</strong> (paths <code>/srv/bowl/app</code>). Do <strong>not</strong> point production DNS yet.</p>
+<h3 id="122-one-time-data-copy-from-pythonanywhere-your-pc">12.2 One-time data copy from PythonAnywhere (your PC)</h3>
+<pre><code class="language-bash"># 6 — League DBs, site DB, JSON cache (Git Bash / WSL; set PA_SSH_KEY)
+rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; BoiledEgg1974@ssh.pythonanywhere.com:/home/BoiledEgg1974/boys-of-winter-hockey-website/instance/ bowl@YOUR.DROPLET.IP:/srv/bowl/app/instance/
+
+# 7 — CSV + static
+rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; BoiledEgg1974@ssh.pythonanywhere.com:/home/BoiledEgg1974/boys-of-winter-hockey-website/data/imports/raw/ bowl@YOUR.DROPLET.IP:/srv/bowl/app/data/imports/raw/
+rsync -avz -e &quot;ssh -i $PA_SSH_KEY&quot; BoiledEgg1974@ssh.pythonanywhere.com:/home/BoiledEgg1974/boys-of-winter-hockey-website/app/static/ bowl@YOUR.DROPLET.IP:/srv/bowl/app/app/static/
+
+# 8 — Production .env (secrets)
+scp -i &quot;$PA_SSH_KEY&quot; BoiledEgg1974@ssh.pythonanywhere.com:/home/BoiledEgg1974/boys-of-winter-hockey-website/.env bowl@YOUR.DROPLET.IP:/srv/bowl/app/.env
+</code></pre>
+<p>On the VPS, edit <code>.env</code>: set <code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1</code> (and optional <code>HOMEPAGE_SSR_LEADERS_STANDINGS=1</code>).</p>
+<h3 id="123-start-web-smoke-test-before-namecheap-cutover">12.3 Start web + smoke test (before Namecheap cutover)</h3>
+<pre><code class="language-bash"># 9 — On VPS
+sudo systemctl enable --now bowl-web
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+
+# 10 — From your PC (replace IP; simulates Host header until DNS moves)
+curl -sI -H &quot;Host: www.bowlhockey.com&quot; http://YOUR.DROPLET.IP/bowl-fantasy/ | head -5
+</code></pre>
+<p>Test in a browser via <strong><code>/etc/hosts</code></strong> (§11.4): map <code>YOUR.DROPLET.IP</code> → <code>www.bowlhockey.com</code>. When happy, follow <strong>§13</strong> for Namecheap DNS, then <strong>§11.5–11.7</strong> (cutover, Discord bot, deploy-db to VPS).</p>
+<hr />
+<h2 id="13-namecheap-domain-dns-and-cutover-from-pythonanywhere">13. Namecheap — domain, DNS, and cutover from PythonAnywhere</h2>
+<p>You usually <strong>keep the domain registered at Namecheap</strong> and only <strong>change DNS</strong> so <code>bowlhockey.com</code> / <code>www</code> point to the DigitalOcean Droplet. You do <strong>not</strong> need to transfer the domain to DigitalOcean unless you want Namecheap purely as registrar and DO to host DNS (optional, §13.3).</p>
+<h3 id="131-what-stays-where">13.1 What stays where</h3>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Where it lives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Domain registration</td>
+<td><strong>Namecheap</strong> (renewal, WHOIS, domain lock)</td>
+</tr>
+<tr>
+<td>Website + app</td>
+<td><strong>DigitalOcean Droplet</strong> (nginx + gunicorn)</td>
+</tr>
+<tr>
+<td>Old host (during migration)</td>
+<td><strong>PythonAnywhere</strong> until you disable it after cutover</td>
+</tr>
+<tr>
+<td>Discord Developer Portal</td>
+<td><strong>No change</strong> if the public URL stays <code>https://www.bowlhockey.com/...</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="132-find-your-droplet-ip">13.2 Find your Droplet IP</h3>
+<p>DigitalOcean → <strong>Droplets</strong> → your server → copy <strong>Public IPv4</strong> (e.g. <code>157.x.x.x</code>). You will create DNS records pointing to this address.</p>
+<h3 id="133-two-ways-to-manage-dns-pick-one">13.3 Two ways to manage DNS (pick one)</h3>
+<p><strong>Option A — Keep DNS at Namecheap (simplest for most)</strong></p>
+<ol>
+<li>Namecheap → <strong>Domain List</strong> → <strong>Manage</strong> next to <code>bowlhockey.com</code>.</li>
+<li><strong>Advanced DNS</strong> tab.</li>
+<li>Remove or edit old records that pointed to <strong>PythonAnywhere</strong> (often an <strong>A</strong> record for <code>@</code> and/or <strong>CNAME</strong> for <code>www</code> to PA or parking).</li>
+<li>Add/update:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Host</th>
+<th>Value</th>
+<th>TTL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong></td>
+<td><code>@</code></td>
+<td><code>YOUR.DROPLET.IP</code></td>
+<td>300 (before cutover) → 3600 after stable</td>
+</tr>
+<tr>
+<td><strong>A</strong></td>
+<td><code>www</code></td>
+<td><code>YOUR.DROPLET.IP</code></td>
+<td>same</td>
+</tr>
+</tbody>
+</table>
+<p>Some setups use <strong>CNAME</strong> <code>www</code> → <code>@</code>; Namecheap supports that if <code>@</code> is an A record to the Droplet IP.</p>
+<p><strong>Option B — Use DigitalOcean nameservers</strong></p>
+<ol>
+<li>DO → <strong>Networking</strong> → <strong>Domains</strong> → <strong>Add Domain</strong> → <code>bowlhockey.com</code>.</li>
+<li>Create the same <strong>A</strong> records (<code>@</code> and <code>www</code> → Droplet IP) in DO.</li>
+<li>Namecheap → <strong>Domain</strong> → <strong>Nameservers</strong> → <strong>Custom DNS</strong> → set to DO’s nameservers (e.g. <code>ns1.digitalocean.com</code>, <code>ns2.digitalocean.com</code>, <code>ns3.digitalocean.com</code>).</li>
+<li>Propagation can take up to 24–48 hours; until then, either nameserver set is “live.”</li>
+</ol>
+<p>For a single site, <strong>Option A</strong> is enough.</p>
+<h3 id="134-before-you-change-dns-reduce-downtime">13.4 Before you change DNS (reduce downtime)</h3>
+<ol>
+<li><strong>Lower TTL</strong> on existing <code>@</code> / <code>www</code> records to <strong>300 seconds</strong> (5 min) at Namecheap <strong>24–48 hours before</strong> cutover.</li>
+<li>Finish <strong>§12</strong> and <strong>§11.4</strong> parallel testing (hosts file or staging).</li>
+<li>On the VPS, ensure nginx <code>server_name</code> includes <strong><code>www.bowlhockey.com</code></strong> and <strong><code>bowlhockey.com</code></strong> (section 6).</li>
+<li>Obtain TLS <strong>after</strong> DNS points to the Droplet (or use hosts-file testing only on HTTP until cutover):</li>
+</ol>
+<pre><code class="language-bash">sudo certbot --nginx -d www.bowlhockey.com -d bowlhockey.com
+</code></pre>
+<p>Certbot needs the world to resolve the name to your Droplet for the HTTP challenge (unless you use DNS challenge — not covered here).</p>
+<h3 id="135-cutover-day-namecheap-do">13.5 Cutover day (Namecheap + DO)</h3>
+<ol>
+<li>Update <strong>A</strong> records (<code>@</code> and <code>www</code>) to the <strong>Droplet IP</strong> (§13.3).</li>
+<li>Wait for TTL (often 5–30 minutes if you lowered TTL).</li>
+<li>Verify:</li>
+</ol>
+<pre><code class="language-bash">nslookup www.bowlhockey.com
+curl -sI https://www.bowlhockey.com/bowl-fantasy/
+</code></pre>
+<ol>
+<li>Run <strong>cache warm</strong> (section 7).</li>
+<li>Start <strong>Discord bot</strong> on VPS (§11.6); disable PA Always-on.</li>
+<li><strong><code>SITE_PUBLIC_BASE_URL</code></strong> in <code>.env</code> must stay <strong><code>https://www.bowlhockey.com</code></strong> (no trailing slash).</li>
+</ol>
+<h3 id="136-do-not-break-email-if-you-use-namecheap-mail">13.6 Do not break email (if you use Namecheap mail)</h3>
+<p>If <code>@</code> uses Namecheap <strong>Email Forwarding</strong> or <strong>Private Email</strong>, <strong>do not delete MX records</strong> when editing Advanced DNS. Typical pattern:</p>
+<ul>
+<li>Leave <strong>MX</strong> (and any <strong>TXT</strong> for SPF/DKIM) untouched.</li>
+<li>Only change <strong>A</strong> / <strong>CNAME</strong> for the <strong>website</strong> hostnames (<code>@</code>, <code>www</code>).</li>
+</ul>
+<p>If you are unsure, screenshot Advanced DNS before editing.</p>
+<h3 id="137-apex-vs-www-redirect">13.7 Apex vs www (redirect)</h3>
+<p>Browsers and Discord links may use either <code>bowlhockey.com</code> or <code>www.bowlhockey.com</code>. Best practice:</p>
+<ul>
+<li><strong>A</strong> records for <strong>both</strong> <code>@</code> and <code>www</code> to the Droplet, <strong>or</strong> <code>@</code> A + <code>www</code> CNAME to <code>@</code>.</li>
+<li>In nginx, one <code>server</code> block with both names (section 6) and certbot for both <code>-d</code> flags.</li>
+</ul>
+<p>Your Flask app expects the same paths on both; hub is at <code>/</code>.</p>
+<h3 id="138-pythonanywhere-after-dns-moves">13.8 PythonAnywhere after DNS moves</h3>
+<p>Traffic goes to DO; PA is idle unless someone uses the old IP directly.</p>
+<ol>
+<li>Keep PA <strong>read-only</strong> for a few days (rollback §11.9).</li>
+<li>Repoint <strong><code>deploy-db</code></strong> to the VPS (§11.7).</li>
+<li>Disable PA web + Always-on when stable (§11.8).</li>
+</ol>
+<p>You do <strong>not</strong> need to “transfer the domain” away from Namecheap for this migration.</p>
+<h3 id="139-optional-move-only-dns-hosting-to-digitalocean">13.9 Optional: move only DNS hosting to DigitalOcean</h3>
+<p>Registrar stays Namecheap; nameservers switch to DO (§13.3 Option B). Useful if you later add DO <strong>Load Balancers</strong> or multiple Droplets. Not required for one Droplet.</p>
+<h3 id="1310-troubleshooting">13.10 Troubleshooting</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site still opens on PA</td>
+<td>DNS cache / old TTL; <code>nslookup</code> from phone off Wi‑Fi; flush local DNS</td>
+</tr>
+<tr>
+<td>Certificate fails</td>
+<td>A record not pointing to Droplet yet; wait propagation</td>
+</tr>
+<tr>
+<td><code>www</code> works, apex does not</td>
+<td>Missing <strong>A</strong> for <code>@</code> or wrong IP</td>
+</tr>
+<tr>
+<td>Mixed content / wrong league paths</td>
+<td>nginx must proxy full path; see section 6</td>
+</tr>
+<tr>
+<td>Email stopped</td>
+<td>MX records changed by mistake — restore from screenshot</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="quick-reference">Quick reference</h2>
 <table>

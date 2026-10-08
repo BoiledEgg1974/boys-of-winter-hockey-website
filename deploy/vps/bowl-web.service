@@ -1,0 +1,24 @@
+[Unit]
+Description=BOWL combined WSGI (hub + leagues)
+After=network.target
+
+[Service]
+User=bowl
+Group=bowl
+WorkingDirectory=/srv/bowl/app
+EnvironmentFile=/srv/bowl/app/.env
+Environment=PYTHONPATH=/srv/bowl/app
+ExecStart=/srv/bowl/app/.venv/bin/gunicorn \
+  --bind 127.0.0.1:8000 \
+  --workers 2 \
+  --threads 2 \
+  --timeout 120 \
+  --worker-class gthread \
+  --access-logfile - \
+  --error-logfile - \
+  wsgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

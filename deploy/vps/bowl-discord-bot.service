@@ -1,0 +1,16 @@
+[Unit]
+Description=BOWL league Discord delivery bot
+After=network.target bowl-web.service
+
+[Service]
+User=bowl
+Group=bowl
+WorkingDirectory=/srv/bowl/app
+EnvironmentFile=/srv/bowl/app/.env
+Environment=PYTHONPATH=/srv/bowl/app
+ExecStart=/srv/bowl/app/.venv/bin/python -m scripts.league_discord_bot
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

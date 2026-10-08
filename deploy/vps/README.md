@@ -38,8 +38,12 @@ bash /root/post-sync-setup.sh
 Upload latest scripts from your PC if needed:
 
 ```powershell
-scp -i $env:USERPROFILE\.ssh\id_ed25519_pa deploy/vps/*.sh deploy/vps/*.service deploy/vps/nginx-bowl.conf root@159.203.6.136:/root/
+scp -i $env:USERPROFILE\.ssh\id_ed25519_pa deploy/vps/*.sh deploy/vps/*.service deploy/vps/nginx-bowl*.conf root@159.203.6.136:/root/
 ```
+
+Production HTTPS uses `nginx-bowl-live-443.conf` plus `nginx-bowl-snippets-{gzip,static}.conf` under `/etc/nginx/snippets/` (static assets bypass gunicorn).
+
+After each `systemctl restart bowl-web`, **`bowl-cache-warm.service`** runs `deploy/vps/warm-league-json-cache.sh` (three homepage summary APIs). Logs: `journalctl -u bowl-cache-warm -n 20`.
 
 ## Site MySQL (502 fix)
 

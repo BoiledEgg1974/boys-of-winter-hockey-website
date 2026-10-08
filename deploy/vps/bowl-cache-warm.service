@@ -1,0 +1,16 @@
+[Unit]
+Description=Warm BOWL league JSON caches (homepage summary)
+After=bowl-web.service
+Requires=bowl-web.service
+
+[Service]
+Type=oneshot
+User=bowl
+Group=bowl
+WorkingDirectory=/srv/bowl/app
+EnvironmentFile=-/srv/bowl/app/.env
+Environment=PYTHONPATH=/srv/bowl/app
+ExecStart=/srv/bowl/app/deploy/vps/warm-league-json-cache.sh
+
+[Install]
+WantedBy=multi-user.target

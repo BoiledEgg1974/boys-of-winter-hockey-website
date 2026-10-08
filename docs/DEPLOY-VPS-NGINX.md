@@ -187,17 +187,17 @@ Discord interactions and hub routes use **`SITE_PUBLIC_BASE_URL`** at the domain
 
 ## 7. Post-deploy cache warm (recommended)
 
-After `systemctl restart bowl-web` or a DB upload:
+On the VPS, **`bowl-cache-warm.service`** runs automatically after each `bowl-web` restart (`ExecStartPost` → `deploy/vps/warm-league-json-cache.sh` hits all three homepage summary APIs). Logs: `journalctl -u bowl-cache-warm -n 30`.
+
+Manual warm (optional):
 
 ```bash
-curl -s -o /dev/null -w "%{http_code} summary\n" \
-  "https://www.bowlhockey.com/bowl-fantasy/api/homepage/summary?segment=rs"
-curl -s -o /dev/null -w "%{http_code} odds\n" \
-  "https://www.bowlhockey.com/bowl-fantasy/api/homepage/postseason-odds"
-# Repeat for bowl-historical and bowl-cap
+sudo systemctl start bowl-cache-warm.service
+# or from the app tree:
+sudo -u bowl /srv/bowl/app/deploy/vps/warm-league-json-cache.sh
 ```
 
-Or rely on `LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1` plus import-time warm in `rebuild.py`.
+Also set `LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1` and `HOMEPAGE_SSR_LEADERS_STANDINGS=1` in `.env` (see section 4).
 
 ---
 

@@ -151,6 +151,9 @@ def warm_homepage_summary_cache(app: Flask | None = None) -> None:
                         "rs", canonical, dashboard
                     ),
                 )
+                if dashboard is None:
+                    return
+                from app.routes.api import _build_homepage_postseason_odds_payload
                 from app.services.cached_api_responses import jsonify_cached
                 from app.services.homepage_leaders import build_homepage_leaders_payload
                 from app.services.league_json_cache import DEFAULT_FRESH_TTL_SECONDS
@@ -164,6 +167,18 @@ def warm_homepage_summary_cache(app: Flask | None = None) -> None:
                         DEFAULT_FRESH_TTL_SECONDS["homepage_leaders"],
                         lambda seg=leaders_seg: build_homepage_leaders_payload(
                             db.session, dashboard, seg
+                        ),
+                    )
+                odds_scopes: tuple[str, ...] = ("combined",)
+                if slug == "bowl-fantasy":
+                    odds_scopes = ("combined", "upper", "lower")
+                for scope in odds_scopes:
+                    jsonify_cached(
+                        "postseason_odds",
+                        (season_id, scope),
+                        DEFAULT_FRESH_TTL_SECONDS["postseason_odds"],
+                        lambda sc=scope: _build_homepage_postseason_odds_payload(
+                            relegation_scope=sc
                         ),
                     )
         except Exception:

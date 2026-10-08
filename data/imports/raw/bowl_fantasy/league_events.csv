@@ -1,7 +1,7 @@
 LeagueId;Date;Event
 0;2025-10-1;Assign Scouts
-0;2025-10-1;Set Monthly Budget
 0;2025-10-4;Opening Night
+0;2025-11-1;Set Monthly Budget
 0;2025-12-22;All-Star Announcement
 0;2025-12-23;All-Star Game
 0;2026-3-1;Trading Deadline
@@ -161,7 +161,6 @@ LeagueId;Date;Event
 9;2026-8-1;HOF Induction
 9;2026-8-26;Preseason Start
 9;2026-9-9;Opening Night
-10;2025-9-25;Preseason Start
 10;2025-10-1;Assign Scouts
 10;2025-10-1;Set Monthly Budget
 10;2025-10-3;Opening Night
@@ -179,6 +178,7 @@ LeagueId;Date;Event
 10;2026-7-7;NCAA Entry Draft
 10;2026-7-7;Player Training Programs
 10;2026-8-1;HOF Induction
+10;2026-9-25;Preseason Start
 11;2025-10-1;Assign Scouts
 11;2025-10-1;Set Monthly Budget
 11;2026-2-1;Trading Deadline

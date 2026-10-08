@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Home — Boys of Winter Hockey League{% endblock %}
+{% from "partials/home_ssr_leaders_standings.html" import leader_table, standings_divisions %}
 {% block content %}
 {% set _home_league_label = {
   'bowl-historical': 'Historical',
@@ -169,7 +170,11 @@
           <button type="button" data-tab="goalie_shutouts" role="tab" aria-selected="false">G Sho</button>
         </div>
         <div id="home-leaders" class="table-wrap">
+          {% if home_ssr and home_ssr.leaders %}
+          {{ leader_table(home_ssr.leaders.get('goals', []), 'Goals') }}
+          {% else %}
           <p class="empty-state loading-with-puck">Loading…</p>
+          {% endif %}
         </div>
         <a class="link-more" href="{{ url_for('main.statistics') }}">View full statistics</a>
       </section>
@@ -221,7 +226,11 @@
       <section id="dash-standings" class="card home-dashboard__card home-dash-standings-card" aria-labelledby="std-h" data-module-key="divisional_standings">
         <h2 id="std-h" class="home-dashboard__h">STANDINGS</h2>
         <a class="link-more" href="{{ url_for('main.standings') }}">Full standings</a>
-        <div id="home-standings-conf" class="home-dashboard__slot"></div>
+        <div id="home-standings-conf" class="home-dashboard__slot">
+          {% if home_ssr and home_ssr.standings_by_division %}
+          {{ standings_divisions(home_ssr.standings_by_division) }}
+          {% endif %}
+        </div>
       </section>
       <section class="card home-dashboard__card" aria-labelledby="power-h" data-module-key="power_rankings">
         <h2 id="power-h" class="home-dashboard__h">Power Rankings</h2>
@@ -2363,7 +2372,22 @@
   });
 
   syncHomeScopeTabs();
+  (function applyHomeSsrBootstrap() {
+    var bootEl = document.getElementById('home-ssr-bootstrap');
+    if (!bootEl) return;
+    try {
+      var boot = JSON.parse(bootEl.textContent || '{}');
+      if (boot.leaders && typeof boot.leaders === 'object') {
+        leaderData = boot.leaders;
+        leaderTab = 'goals';
+        paintLeaders();
+      }
+    } catch (e) { /* ignore */ }
+  })();
   loadSummary();
 })();
 </script>
+{% if home_ssr %}
+<script type="application/json" id="home-ssr-bootstrap">{{ home_ssr | tojson }}</script>
+{% endif %}
 {% endblock %}

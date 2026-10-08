@@ -30,3 +30,5 @@ Entry draft pages are off on **`/bowl-fantasy`** only. Signing pools and transfe
 ## Production
 
 WSGI entry: **`wsgi.application`**. Configure your host’s Python path and process manager to load this module from the project root.
+
+**nginx + gunicorn on a VPS:** [docs/DEPLOY-VPS-NGINX.md](docs/DEPLOY-VPS-NGINX.md). **Nested / PythonAnywhere updates:** [docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md).

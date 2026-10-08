@@ -367,7 +367,17 @@ def home():
         key=lambda x: (int(x["remaining"]), str(getattr(x["player"], "full_name", "")).lower()),
     )[:5]
     relegation_ctx = _relegation_template_context("main.home")
-    return render_template("home.html", milestone_teasers=milestone_teasers, **relegation_ctx)
+    home_ssr = None
+    if current_app.config.get("HOMEPAGE_SSR_LEADERS_STANDINGS"):
+        from app.services.homepage_ssr import homepage_ssr_bootstrap_from_cache
+
+        home_ssr = homepage_ssr_bootstrap_from_cache()
+    return render_template(
+        "home.html",
+        milestone_teasers=milestone_teasers,
+        home_ssr=home_ssr,
+        **relegation_ctx,
+    )
 
 
 def _headline_byline_team(

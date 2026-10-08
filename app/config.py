@@ -450,9 +450,12 @@ class Config:
     ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
     ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
     ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
-    # Off by default in production: warming 3 leagues per worker competes for SQLite and blocks reloads.
+    # Off by default on PythonAnywhere (many workers × 3 leagues hammer SQLite on reload).
+    # On a VPS with gunicorn, set LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1 — see docs/DEPLOY-VPS-NGINX.md.
     _CACHE_WARM_RAW = os.environ.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", "0").strip().lower()
     LEAGUE_JSON_CACHE_WARM_ON_STARTUP = _CACHE_WARM_RAW in ("1", "true", "yes", "on")
+    _HOMEPAGE_SSR_RAW = os.environ.get("HOMEPAGE_SSR_LEADERS_STANDINGS", "0").strip().lower()
+    HOMEPAGE_SSR_LEADERS_STANDINGS = _HOMEPAGE_SSR_RAW in ("1", "true", "yes", "on")
     BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS = float(
         os.environ.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", "60") or 60
     )

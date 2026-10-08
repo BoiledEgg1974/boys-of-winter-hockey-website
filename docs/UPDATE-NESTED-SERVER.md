@@ -150,3 +150,5 @@ For a **single ordered flow** (local copy + imports + git + deploy) from your de
 
 
 For a **from-scratch** server install, start with [DATA-UPDATE.md](DATA-UPDATE.md) “What you need on the server”, then use this checklist for every **update** cycle.
+
+For **nginx + gunicorn on a VPS** (instead of PythonAnywhere), see [DEPLOY-VPS-NGINX.md](DEPLOY-VPS-NGINX.md).

@@ -19,6 +19,24 @@ _SQ_NAMESPACE = "team_shot_quality"
 _MC_NONE_SENTINEL = "__team_page_mc_none__"
 
 
+def _json_safe_sq_value(value: Any) -> Any:
+    """Replace ORM Team objects so the disk cache can json.dumps the payload.
+
+    ``build_team_shot_quality_payload`` embeds Team on the top-level payload and on
+    each player row. The cache wrapper reattaches the live team after load; nested
+    rows keep the JSON team dict (id/name/abbreviation/slug).
+    """
+    if isinstance(value, Team):
+        from app.services.advanced_stats import _team_json
+
+        return _team_json(value)
+    if isinstance(value, dict):
+        return {k: _json_safe_sq_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_sq_value(item) for item in value]
+    return value
+
+
 def _fresh_stale(namespace: str) -> tuple[float, float]:
     app = current_app
     fresh = fresh_ttl_from_config(
@@ -99,7 +117,7 @@ def get_team_shot_quality_payload_cached(
             segment=seg,
             min_shots=min_s,
         )
-        return {k: v for k, v in payload.items() if k != "team"}
+        return _json_safe_sq_value({k: v for k, v in payload.items() if k != "team"})
 
     fresh, stale = _fresh_stale(_SQ_NAMESPACE)
     body, _status = get_or_build_cached_json_swr(

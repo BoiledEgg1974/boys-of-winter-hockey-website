@@ -1,0 +1,98 @@
+{# Mirrors home.html client tables for first paint; data from homepage_summary cache (RS). #}
+{% macro leader_table(rows, stat_label) %}
+{% if not rows %}
+<p class="empty-state">No stats yet.</p>
+{% else %}
+<table class="data home-leaders-table">
+  <thead>
+    <tr><th>#</th><th>Player</th><th>Tm</th><th>{{ stat_label }}</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>
+        <span class="home-leader-player">
+          <span class="home-leader-player__photo">
+            {% if r.player_photo_url %}
+            <img src="{{ r.player_photo_url }}" alt="" loading="lazy" decoding="async">
+            {% else %}
+            <span class="home-leader-player__photo-ph" aria-hidden="true"></span>
+            {% endif %}
+          </span>
+          {% if r.player_id %}
+          <a class="home-leader-player__name" href="{{ url_for('main.player_page', player_id=r.player_id) }}">{{ r.player }}</a>
+          {% else %}
+          <span class="home-leader-player__name">{{ r.player }}</span>
+          {% endif %}
+        </span>
+      </td>
+      <td>
+        {% if r.team_logo_url %}
+          {% if r.team_slug %}
+          <a class="team-name-lockup team-name-lockup--icon" href="{{ url_for('main.team_page', slug=r.team_slug) }}" title="{{ r.team or '' }}">
+            <img src="{{ r.team_logo_url }}" alt="" class="team-name-lockup__logo">
+          </a>
+          {% else %}
+          <span class="team-name-lockup team-name-lockup--icon">
+            <img src="{{ r.team_logo_url }}" alt="" class="team-name-lockup__logo">
+          </span>
+          {% endif %}
+        {% elif r.team %}
+        {{ r.team }}
+        {% else %}
+        —
+        {% endif %}
+      </td>
+      <td>{{ r.value }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endmacro %}
+
+{% macro standings_divisions(groups) %}
+{% if not groups %}
+<p class="empty-state">No standings data.</p>
+{% else %}
+{% for grp in groups %}
+<h3 class="home-conf-h">{{ grp.division or grp.conference or 'Division' }}</h3>
+<table class="data home-conf-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th scope="col" title="Team"><span class="visually-hidden">Team</span></th>
+      <th>GP</th><th>W</th><th>L</th><th title="Ties">T</th><th>Pts</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in grp.teams or [] %}
+    <tr>
+      <td>{{ r.rank if r.rank is not none else loop.index }}</td>
+      <td>
+        {% set lab = (r.name or r.abbr or 'Team')|string|trim %}
+        {% if r.slug and r.logo_url %}
+        <a class="team-name-lockup team-name-lockup--icon home-conf-tm" href="{{ url_for('main.team_page', slug=r.slug) }}" title="{{ lab }}">
+          <img src="{{ r.logo_url }}" alt="{{ lab }}" class="team-name-lockup__logo home-conf-team-logo">
+        </a>
+        {% elif r.slug %}
+        <a class="home-conf-tm-abbr" href="{{ url_for('main.team_page', slug=r.slug) }}">{{ r.abbr or r.name or '—' }}</a>
+        {% elif r.logo_url %}
+        <img src="{{ r.logo_url }}" alt="{{ lab }}" class="team-name-lockup__logo home-conf-team-logo">
+        {% else %}
+        {{ r.abbr or lab or '—' }}
+        {% endif %}
+      </td>
+      <td>{{ r.gp }}</td>
+      <td>{{ r.w }}</td>
+      <td>{{ r.l }}</td>
+      <td>{{ r.ties if r.ties is not none else 0 }}</td>
+      <td>{{ r.pts }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+{% endif %}
+{% endmacro %}

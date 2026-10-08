@@ -34,8 +34,8 @@ class DepthChartOrgGuardTests(unittest.TestCase):
     def test_cross_team_line_players_do_not_render_on_depth_page(self) -> None:
         for league in _depth_guard_leagues():
             app = create_app(make_league_config(league.slug))
-            try:
-                with app.app_context():
+            with app.app_context():
+                try:
                     csv_path = Path(app.config["RAW_IMPORT_DIR"]) / "team_lines.csv"
                     rows = _read_semicolon_rows(csv_path)
                     if not rows:
@@ -92,10 +92,10 @@ class DepthChartOrgGuardTests(unittest.TestCase):
                                 f"{league.slug}: out-of-org player {player_name} leaked into "
                                 f"{team_slug} depth page",
                             )
-            finally:
-                db.session.remove()
-                for engine in db.engines.values():
-                    engine.dispose()
+                finally:
+                    db.session.remove()
+                    for engine in db.engines.values():
+                        engine.dispose()
 
         # Clean imports often have no line/roster mismatches; that is success. When mismatches
         # exist, the loop above still asserts they do not appear on the depth panel HTML.

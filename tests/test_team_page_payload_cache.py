@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from app import create_app
 from app.config import make_league_config
+from app.models import Team
 from app.services.league_json_cache import invalidate_league_json_cache
 from app.services.team_page_payload_cache import (
     _MC_NONE_SENTINEL,
@@ -62,15 +63,29 @@ class TeamPagePayloadCacheTests(unittest.TestCase):
         self.assertEqual(build.call_count, 1)
 
     def test_shot_quality_cache_json_serializable(self) -> None:
-        team = MagicMock()
+        team = MagicMock(spec=Team)
         team.id = 35
+        team.name = "Boston"
+        team.abbreviation = "BOS"
+        team.slug = "boston"
         raw_payload = {
             "team": team,
             "season_id": 9,
             "segment": "rs",
             "gp": 10,
             "sq": {"total": 100, "counts": {}, "shares": {}, "sq_avg": 2.1},
-            "players": [],
+            "players": [
+                {
+                    "player_id": 7,
+                    "player_name": "Test Skater",
+                    "team": team,
+                    "gp": 10,
+                    "shots": 40,
+                    "sq_avg": 2.1,
+                    "sq_profile": {"total": 40, "counts": {}, "shares": {}},
+                    "percentile": 80,
+                }
+            ],
             "categories": [],
             "league_n": 5,
             "min_shots": 5,
@@ -90,6 +105,7 @@ class TeamPagePayloadCacheTests(unittest.TestCase):
                     MagicMock(), team, 9, segment="rs"
                 )
         self.assertIs(out.get("team"), team)
+        self.assertEqual(out["players"][0]["team"]["slug"], "boston")
         json.dumps({k: v for k, v in out.items() if k != "team"})
         self.assertEqual(build.call_count, 1)
         self.assertEqual(again["season_id"], 9)

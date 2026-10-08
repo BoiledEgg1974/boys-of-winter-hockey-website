@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DEPLOY VPS NGINX</title>
+<style>
+  @page { margin: 18mm 16mm; }
+  body { font-family: Segoe UI, Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #111; margin: 0; padding: 12mm 14mm; }
+  h1 { font-size: 22pt; border-bottom: 2px solid #333; padding-bottom: 0.25em; }
+  h2 { font-size: 15pt; margin-top: 1.4em; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin-top: 1.1em; }
+  pre, code { font-family: Consolas, monospace; font-size: 9pt; }
+  pre { background: #f4f4f4; border: 1px solid #ddd; padding: 0.75em 1em; white-space: pre-wrap; word-break: break-word; page-break-inside: avoid; }
+  code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; }
+  pre code { background: transparent; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 10pt; }
+  th, td { border: 1px solid #ccc; padding: 0.4em 0.6em; text-align: left; }
+  th { background: #eee; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
+  a { color: #0645ad; }
+</style>
+</head>
+<body>
+<h1 id="deploy-bowl-on-a-vps-nginx-gunicorn">Deploy BOWL on a VPS (nginx + gunicorn)</h1>
+<p>This guide moves the combined hub + three league sites off shared hosting (e.g. PythonAnywhere) onto a small Linux VPS with <strong>nginx</strong> in front and <strong>gunicorn</strong> running <code>wsgi.application</code>. The app layout is unchanged: <code>/</code>, <code>/bowl-historical/</code>, <code>/bowl-fantasy/</code>, <code>/bowl-cap/</code>.</p>
+<p>For CSV import and update cycles after the server exists, keep using <a href="DATA-UPDATE.md">DATA-UPDATE.md</a> and <a href="UPDATE-NESTED-SERVER.md">UPDATE-NESTED-SERVER.md</a> (steps 6–9).</p>
+<hr />
+<h2 id="1-vps-sizing-starting-point">1. VPS sizing (starting point)</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RAM</td>
+<td><strong>2 GB</strong> minimum (3 league SQLite DBs + site DB + gunicorn workers)</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>1–2 vCPU</td>
+</tr>
+<tr>
+<td>Disk</td>
+<td>20 GB+ (CSV imports, <code>instance/*.db</code>, <code>instance/league_json_cache/</code>, static assets)</td>
+</tr>
+<tr>
+<td>OS</td>
+<td>Ubuntu 22.04 or 24.04 LTS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-server-packages">2. Server packages</h2>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nginx git
+</code></pre>
+<p>Optional: <code>certbot python3-certbot-nginx</code> for Let’s Encrypt.</p>
+<hr />
+<h2 id="3-app-user-and-checkout">3. App user and checkout</h2>
+<pre><code class="language-bash">sudo adduser --disabled-password bowl
+sudo mkdir -p /srv/bowl
+sudo chown bowl:bowl /srv/bowl
+sudo -u bowl git clone https://github.com/YOUR_ORG/Boys-Of-Winter-League.git /srv/bowl/app
+cd /srv/bowl/app
+sudo -u bowl python3 -m venv .venv
+sudo -u bowl .venv/bin/pip install -r requirements.txt
+sudo -u bowl .venv/bin/pip install gunicorn
+</code></pre>
+<p>Copy production env (never commit secrets):</p>
+<pre><code class="language-bash">sudo -u bowl cp .env.example .env
+# edit /srv/bowl/app/.env — see section 5
+</code></pre>
+<p>Ensure live databases and CSVs exist under <code>instance/</code> and <code>data/imports/raw/</code> (rsync or your existing deploy scripts).</p>
+<hr />
+<h2 id="4-environment-variables-vps">4. Environment variables (VPS)</h2>
+<p>In <code>/srv/bowl/app/.env</code> (loaded by the app via <code>python-dotenv</code> where configured, or export from systemd):</p>
+<pre><code class="language-bash">FLASK_DEBUG=0
+SECRET_KEY=&lt;long-random-string&gt;
+SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
+
+# Recommended on a dedicated VPS (pre-build homepage JSON after worker start / import)
+LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1
+
+# Optional: paint leaders + standings in HTML from cache (no cold build on home HTML)
+HOMEPAGE_SSR_LEADERS_STANDINGS=1
+
+# Site DB — keep MySQL if you already use PA MySQL, or SQLite on VPS:
+# SITE_DATABASE_URL=mysql+pymysql://...
+</code></pre>
+<p>Leave <strong><code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=0</code></strong> on PythonAnywhere if you stay on PA (many workers × three leagues can spike SQLite I/O on reload).</p>
+<hr />
+<h2 id="5-systemd-unit-gunicorn">5. systemd unit (gunicorn)</h2>
+<p>Create <code>/etc/systemd/system/bowl-web.service</code>:</p>
+<pre><code class="language-ini">[Unit]
+Description=BOWL combined WSGI (hub + leagues)
+After=network.target
+
+[Service]
+User=bowl
+Group=bowl
+WorkingDirectory=/srv/bowl/app
+EnvironmentFile=/srv/bowl/app/.env
+Environment=PYTHONPATH=/srv/bowl/app
+ExecStart=/srv/bowl/app/.venv/bin/gunicorn \
+  --bind 127.0.0.1:8000 \
+  --workers 3 \
+  --threads 2 \
+  --timeout 120 \
+  --worker-class gthread \
+  --access-logfile - \
+  --error-logfile - \
+  wsgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li><strong><code>wsgi:application</code></strong> is the combined DispatcherMiddleware app (same as PythonAnywhere).</li>
+<li><strong><code>--workers 3</code></strong>: one process can lazy-load each league; 3–4 workers is a reasonable start on 2 GB RAM. Increase only if CPU is idle and RAM allows.</li>
+<li><strong><code>--timeout 120</code></strong>: cold homepage cache builds can be slow; warm cache keeps requests fast.</li>
+<li>First request to a league after a worker fork still pays lazy <code>create_app</code> (see <code>wsgi.py</code>); warming mitigates JSON endpoints, not that one-time init.</li>
+</ul>
+<p>Enable:</p>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl enable bowl-web
+sudo systemctl start bowl-web
+sudo systemctl status bowl-web
+</code></pre>
+<hr />
+<h2 id="6-nginx-site">6. nginx site</h2>
+<p>Create <code>/etc/nginx/sites-available/bowl</code>:</p>
+<pre><code class="language-nginx">upstream bowl_app {
+    server 127.0.0.1:8000;
+    keepalive 8;
+}
+
+server {
+    listen 80;
+    server_name www.bowlhockey.com bowlhockey.com;
+
+    client_max_body_size 20M;
+
+    # Long-cache static assets (combined static middleware + app/static)
+    location ~* ^/(bowl-historical|bowl-fantasy|bowl-cap|bowl-formula|bowl-demolition)?/static/ {
+        alias /srv/bowl/app/app/static/;
+        try_files $uri @app;
+        expires 7d;
+        add_header Cache-Control &quot;public, max-age=604800&quot;;
+    }
+
+    location / {
+        proxy_pass http://bowl_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location @app {
+        proxy_pass http://bowl_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+</code></pre>
+<p>Enable and test:</p>
+<pre><code class="language-bash">sudo ln -sf /etc/nginx/sites-available/bowl /etc/nginx/sites-enabled/bowl
+sudo nginx -t
+sudo systemctl reload nginx
+</code></pre>
+<p>TLS: <code>sudo certbot --nginx -d www.bowlhockey.com -d bowlhockey.com</code></p>
+<p><strong>Path layout:</strong> nginx must forward the <strong>full</strong> path (<code>/bowl-fantasy/...</code>) to gunicorn without stripping the league prefix. Do <strong>not</strong> set <code>SCRIPT_NAME</code> unless you use an extra URL prefix above the league slugs (see <a href="UPDATE-NESTED-SERVER.md">UPDATE-NESTED-SERVER.md</a>).</p>
+<p>Discord interactions and hub routes use <strong><code>SITE_PUBLIC_BASE_URL</code></strong> at the domain root (e.g. <code>https://www.bowlhockey.com/api/discord/interactions</code>), not under a league prefix.</p>
+<hr />
+<h2 id="7-post-deploy-cache-warm-recommended">7. Post-deploy cache warm (recommended)</h2>
+<p>After <code>systemctl restart bowl-web</code> or a DB upload:</p>
+<pre><code class="language-bash">curl -s -o /dev/null -w &quot;%{http_code} summary\n&quot; \
+  &quot;https://www.bowlhockey.com/bowl-fantasy/api/homepage/summary?segment=rs&quot;
+curl -s -o /dev/null -w &quot;%{http_code} odds\n&quot; \
+  &quot;https://www.bowlhockey.com/bowl-fantasy/api/homepage/postseason-odds&quot;
+# Repeat for bowl-historical and bowl-cap
+</code></pre>
+<p>Or rely on <code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1</code> plus import-time warm in <code>rebuild.py</code>.</p>
+<hr />
+<h2 id="8-uwsgi-instead-of-gunicorn-optional">8. uWSGI instead of gunicorn (optional)</h2>
+<p>If you prefer uWSGI:</p>
+<pre><code class="language-bash">pip install uwsgi
+</code></pre>
+<p>Example ini:</p>
+<pre><code class="language-ini">[uwsgi]
+module = wsgi:application
+chdir = /srv/bowl/app
+virtualenv = /srv/bowl/app/.venv
+master = true
+processes = 3
+threads = 2
+socket = 127.0.0.1:8000
+chmod-socket = 660
+vacuum = true
+die-on-term = true
+harakiri = 120
+env = PYTHONPATH=/srv/bowl/app
+</code></pre>
+<p>Point nginx <code>proxy_pass</code> at the socket or HTTP listener. Gunicorn is usually simpler for Flask; both work with the same <code>wsgi:application</code>.</p>
+<hr />
+<h2 id="9-discord-bot-and-cron-on-the-vps">9. Discord bot and cron on the VPS</h2>
+<p>Run the league Discord bot as a <strong>separate</strong> systemd service (same repo, same <code>.env</code>), pointing <code>DISCORD_BOT_LEAGUE_BASE_URLS</code> at your public URLs.</p>
+<p>Keep using <code>scripts/run_site_update.py</code> from your dev machine or a CI runner; on the VPS you only need git pull / rsync DBs, imports, and <code>systemctl restart bowl-web</code>.</p>
+<hr />
+<h2 id="10-migration-checklist-from-pythonanywhere">10. Migration checklist from PythonAnywhere</h2>
+<ol>
+<li>Copy <code>instance/*.db</code>, <code>instance/site_membership.db</code>, and <code>instance/league_json_cache/</code> if present.</li>
+<li>Copy <code>data/imports/raw/**</code> and <code>app/static/**</code> (logos, headshots).</li>
+<li>Set <code>SITE_DATABASE_URL</code> if using remote MySQL; otherwise migrate site DB to VPS SQLite/MySQL.</li>
+<li>Deploy code, install deps, configure systemd + nginx.</li>
+<li>Set <code>LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1</code>, optionally <code>HOMEPAGE_SSR_LEADERS_STANDINGS=1</code>.</li>
+<li>Restart web, run curl warm (section 7), smoke-test hub + each league + search.</li>
+<li>Update DNS A/AAAA to the VPS; keep PA up until TTL expires if doing a cutover.</li>
+</ol>
+<hr />
+<h2 id="quick-reference">Quick reference</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WSGI entry</td>
+<td><code>wsgi:application</code></td>
+</tr>
+<tr>
+<td>Working directory</td>
+<td>project root (contains <code>wsgi.py</code>)</td>
+</tr>
+<tr>
+<td>JSON cache dir</td>
+<td><code>instance/league_json_cache/</code></td>
+</tr>
+<tr>
+<td>League DBs</td>
+<td><code>instance/bowl-historical.db</code>, <code>bowl-fantasy.db</code>, <code>bowl-cap.db</code></td>
+</tr>
+<tr>
+<td>Site DB</td>
+<td><code>instance/site_membership.db</code> or <code>SITE_DATABASE_URL</code></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

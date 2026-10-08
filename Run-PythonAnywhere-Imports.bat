@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions
 REM ============================================================================
+REM  LEGACY PythonAnywhere only — production is on DigitalOcean (use BOWL-Site-Update.ps1).
 REM  Run database imports on PythonAnywhere + reload the web app (via WSGI touch).
 REM
 REM  This does NOT upload files. Upload CSVs first:

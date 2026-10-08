@@ -24,11 +24,16 @@ def _default_local_ps_root() -> Path:
 
 def main() -> None:
     local_ps = _default_local_ps_root()
-    host = os.environ.get("PA_HOST", "ssh.pythonanywhere.com")
-    user = os.environ.get("PA_USER", "BoiledEgg1974")
+    from scripts.deploy_connection import ssh_host, ssh_user
+
+    host = ssh_host()
+    user = ssh_user()
     key_raw = os.environ.get("PA_SSH_KEY", "").strip()
     key_path = Path(key_raw) if key_raw else None
-    ps = f"/home/{user}/bowl-perfect-squad"
+    from scripts.deploy_connection import remote_perfect_squad_root, remote_venv_bin
+
+    ps = remote_perfect_squad_root()
+    py = f"{remote_venv_bin()}/python"
 
     client, sftp = connect_sftp(host, user, key_path)
     try:
@@ -47,18 +52,24 @@ def main() -> None:
     finally:
         sftp.close()
 
-    py = f"/home/{user}/venv/bin/python"
+    from scripts.deploy_live_host import uses_vps_deploy
+    from STEP2_pythonanywhere import web_reload_bash_fragments
+
+    reload_parts = web_reload_bash_fragments(
+        "reload",
+        ssh_user=user,
+    ) if uses_vps_deploy() else ["touch /var/www/www_bowlhockey_com_wsgi.py 2>/dev/null || true"]
     body = "; ".join(
         [
             f"cd {shlex.quote(ps)}",
             f"{py} scripts/sync_catalog_from_source_db.py --repair-mission-rewards "
             "--source instance/perfect-squad.golden.db --target instance/perfect-squad.db "
             "--league bowl-historical --league bowl-cap",
-            "touch /var/www/www_bowlhockey_com_wsgi.py",
-            "echo wsgi_touched",
+            *reload_parts,
+            "echo reload_done",
         ]
     )
-    print("Running sync on PA...")
+    print("Running sync on live server...")
     run_remote_bash(client, body)
     client.close()
 

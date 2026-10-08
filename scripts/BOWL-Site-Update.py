@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BOWL-Site-Update: one-command local + PythonAnywhere update pipeline.
+"""BOWL-Site-Update: one-command local import + live deploy (DigitalOcean VPS).
 
 You can run the same flow via ``python scripts/run_site_update.py bowl`` so it sits next to
 ``to-live`` / ``local`` / ``deploy`` in one entry point.
@@ -11,7 +11,7 @@ Default flow:
 4) Copy Formula/Demolition export CSVs when present, then import those racing sites.
 5) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
 6) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
-   league editorial data on PythonAnywhere, merge them into the local SQLite files,
+   league editorial data on the live server, merge them into the local SQLite files,
    upload league databases (+ ``app/static``), integrity-check, enqueue Discord
    boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
    (or live-board diffs / recent undelivered finals), then reload.
@@ -113,37 +113,11 @@ RACING_RAW_DIRS: dict[str, str] = {
 
 # Default deploy SSH key (override with PA_SSH_KEY in the environment).
 _DEFAULT_PA_SSH_KEY = Path.home() / ".ssh" / "id_ed25519_pa"
-_DEPLOY_ENV_FILES = (
-    REPO_ROOT / "scripts" / "deploy-live-vps.env",
-    REPO_ROOT / "scripts" / "deploy-live-vps.env.example",
-)
-
-
-def _parse_deploy_env_file(path: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        out[key.strip()] = value.strip().strip('"')
-    return out
-
-
 def _pa_deploy_env() -> dict[str, str]:
-    """Environment for STEP2 deploy/deploy-db (VPS or PythonAnywhere)."""
-    env = dict(os.environ)
-    if not (env.get("BOWL_DEPLOY_TARGET") or env.get("PA_HOST") or "").strip():
-        for path in _DEPLOY_ENV_FILES:
-            if path.is_file():
-                env.update(_parse_deploy_env_file(path))
-                print(f"Loaded deploy host settings from {path.name}")
-                break
-    from scripts.deploy_live_host import apply_live_deploy_env, live_deploy_label
+    """Environment for STEP2 deploy/deploy-db (VPS by default; PA when overridden)."""
+    from scripts.deploy_live_host import bootstrap_deploy_env, live_deploy_label
 
-    env = apply_live_deploy_env(env)
+    env = bootstrap_deploy_env()
     if not (env.get("PA_SSH_KEY") or "").strip():
         if _DEFAULT_PA_SSH_KEY.is_file():
             env["PA_SSH_KEY"] = str(_DEFAULT_PA_SSH_KEY)
@@ -184,7 +158,7 @@ def _no_deploy_warning() -> None:
         "\n"
         + "=" * 72
         + "\n"
-        "  SKIPPED PythonAnywhere deploy-db (--no-deploy).\n"
+        "  SKIPPED live deploy-db (--no-deploy).\n"
         "  Live site scores/standings will NOT change, and Discord will NOT queue,\n"
         "  until you run one of:\n"
         "    python scripts/BOWL-Site-Update.py --deploy-db-only\n"

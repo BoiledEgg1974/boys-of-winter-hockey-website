@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single entry point for league CSV refresh and PythonAnywhere deploy.
+"""Single entry point for league CSV refresh and live deploy (VPS by default).
 
 Child scripts always run in a safe order so you do not have to remember STEP1, STEP3 (inside STEP1), then STEP2.
 
@@ -20,7 +20,7 @@ Workflows
 ``bowl`` (preferred for normal nightly updates)
     Runs ``BOWL-Site-Update.py`` (local imports + Historical awards pass + ``deploy-db``
     SQLite upload). ``deploy-db`` also queues Discord on the server. Do **not** replace
-    this with a PythonAnywhere ``git pull`` alone — league DBs are gitignored.
+    this with a server ``git pull`` alone — league DBs are gitignored.
     Pass ``--remote-import`` to use server-side CSV imports instead. All following
     arguments are passed through unchanged.
 
@@ -34,7 +34,7 @@ Workflows
         python scripts/run_site_update.py to-live --yes-push -- --remote-pip
 
 ``local``
-    STEP1 only, always with ``--no-pa-deploy`` (no PythonAnywhere in this run).
+    STEP1 only, always with ``--no-pa-deploy`` (no live deploy in this run).
 
 ``deploy``
     STEP2 deploy only: ``STEP2_pythonanywhere.py deploy --repo-csv`` + any flags you pass
@@ -60,8 +60,10 @@ BOWL = REPO_ROOT / "scripts" / "BOWL-Site-Update.py"
 
 
 def _run(cmd: list[str]) -> int:
+    from scripts.deploy_live_host import bootstrap_deploy_env
+
     print(f"\n>>> {' '.join(cmd)}", flush=True)
-    return subprocess.call(cmd, cwd=REPO_ROOT)
+    return subprocess.call(cmd, cwd=REPO_ROOT, env=bootstrap_deploy_env())
 
 
 def _split_step1_step2(tail: list[str]) -> tuple[list[str], list[str]]:
@@ -104,7 +106,7 @@ def main() -> int:
             return 1
         if "--pa-deploy" in tail:
             print(
-                "run_site_update: do not pass --pa-deploy for to-live/local — PythonAnywhere "
+                "run_site_update: do not pass --pa-deploy for to-live/local — live deploy "
                 "runs after STEP1 in to-live, and is omitted for local.",
                 file=sys.stderr,
             )

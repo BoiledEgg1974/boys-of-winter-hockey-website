@@ -21,6 +21,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from pa_ssh import connect_sftp, ensure_remote_dir, sftp_put  # noqa: E402
 from STEP2_pythonanywhere import iter_local_files, run_remote_bash, wsgi_files_to_reload  # noqa: E402
@@ -284,8 +286,11 @@ def main() -> int:
         action="store_true",
         help="Do not hard-reset the BOWL repo on the server (use when STEP2 already deployed code).",
     )
-    parser.add_argument("--host", default=os.environ.get("PA_HOST", "ssh.pythonanywhere.com"))
-    parser.add_argument("--user", default=os.environ.get("PA_USER", "BoiledEgg1974"))
+    from scripts.deploy_live_host import bootstrap_deploy_env
+
+    _deploy = bootstrap_deploy_env()
+    parser.add_argument("--host", default=_deploy["PA_HOST"])
+    parser.add_argument("--user", default=_deploy["PA_USER"])
     ns = parser.parse_args()
 
     if not ns.code:

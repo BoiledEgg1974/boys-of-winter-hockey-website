@@ -271,7 +271,7 @@ Typical production layout (defaults in `scripts/STEP2_pythonanywhere.py` and [sc
 | Secrets / env | `boys-of-winter-hockey-website/.env` (Web tab vars should match this file) |
 | Discord bot | **Always-on task:** `python -m scripts.league_discord_bot` (see [DISCORD_BOT_SETUP.md](DISCORD_BOT_SETUP.md)) |
 
-Nightly updates from your PC use **`python scripts/BOWL-Site-Update.py`**, which runs local imports then **`STEP2_pythonanywhere.py deploy-db`**: SSH to PA, **capture live OVR / trade log / editorial state**, merge into local DBs, upload SQLite + static, run **`notify_discord_after_db_deploy.py`**, touch WSGI to reload.
+Nightly updates from your PC use **`python scripts/BOWL-Site-Update.py`**, which runs local imports then **`STEP2_pythonanywhere.py deploy-db`**: SSH to the **VPS** (defaults in **`scripts/deploy-live-vps.env.example`**), **capture live OVR / trade log / editorial state**, merge into local DBs, upload SQLite + static, run **`notify_discord_after_db_deploy.py`**, **`systemctl restart bowl-web`**.
 
 The VPS target keeps the **same repo** and **`wsgi:application`**; only the process manager and deploy reload step change (systemd instead of `touch …wsgi.py`).
 
@@ -398,38 +398,15 @@ WantedBy=multi-user.target
 
 Ensure `.env` on the VPS includes `DISCORD_BOT_TOKEN`, `DISCORD_EVENTS_SHARED_SECRET`, and `SITE_PUBLIC_BASE_URL` (same as web).
 
-### 11.7 Phase D — Repoint nightly deploy (after DNS points to VPS)
+### 11.7 Phase D — Nightly deploy (VPS is the default)
 
-Your local pipeline can **keep using STEP2**; point SSH env vars at the **VPS** instead of PythonAnywhere. The remote promote + Discord notify scripts are the same; only the reload step differs.
-
-**On your Windows PC** (PowerShell — persist in your profile or a `deploy-vps.env` you source):
+**`scripts/deploy-live-vps.env.example`** (copy to **`deploy-live-vps.env`**, gitignored) is loaded automatically by **`BOWL-Site-Update.py`**, **`run_site_update.py`**, **`STEP2_pythonanywhere.py`**, and **`BOWL-Site-Update.ps1`**. No extra flags for a normal night:
 
 ```powershell
-$env:PA_HOST = "YOUR.VPS.IP"          # or vps.bowlhockey.com
-$env:PA_USER = "bowl"
-$env:PA_REMOTE_PATH = "/srv/bowl/app"
-$env:PA_REMOTE_VENV_BIN = "/srv/bowl/app/.venv/bin"
-$env:PA_SSH_KEY = "$HOME\.ssh\id_ed25519_vps"   # your VPS key
+python scripts/BOWL-Site-Update.py
 ```
 
-Then run the usual update, but **skip WSGI touch** and restart gunicorn over SSH:
-
-```powershell
-python scripts/BOWL-Site-Update.py --deploy-db-only
-# STEP2 post-upload script touches PA WSGI; on VPS use --skip-reload:
-python scripts/STEP2_pythonanywhere.py deploy-db --skip-reload
-ssh -i $env:PA_SSH_KEY bowl@YOUR.VPS.IP "sudo systemctl restart bowl-web"
-```
-
-Recommended habit after **`BOWL-Site-Update.py`** (full nightly): wrap STEP2 with `--skip-reload` and restart, e.g. adjust your wrapper or run:
-
-```powershell
-python scripts/BOWL-Site-Update.py --no-deploy
-python scripts/STEP2_pythonanywhere.py deploy-db --skip-reload
-ssh bowl@YOUR.VPS.IP "sudo systemctl restart bowl-web"
-```
-
-(`--no-deploy` skips the built-in PA deploy at the end of BOWL-Site-Update; you run STEP2 yourself with VPS env + `--skip-reload`.)
+STEP2 runs **`deploy-db`** against **`159.203.6.136`** / **`/srv/bowl/app`**, then **`systemctl restart bowl-web`**. Override for legacy PythonAnywhere: **`BOWL_DEPLOY_TARGET=pa`** and **`PA_HOST=ssh.pythonanywhere.com`** in the shell.
 
 **sudo:** allow passwordless restart for `bowl`:
 

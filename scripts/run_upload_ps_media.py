@@ -38,8 +38,10 @@ def main() -> None:
     parser.add_argument("--logos-only", action="store_true", help="Upload logos/teams only (exclusive cards)")
     ns = parser.parse_args()
 
-    user = os.environ.get("PA_USER", "BoiledEgg1974")
-    host = os.environ.get("PA_HOST", "ssh.pythonanywhere.com")
+    from scripts.deploy_connection import ssh_host, ssh_user
+
+    user = ssh_user()
+    host = ssh_host()
     key_raw = os.environ.get("PA_SSH_KEY", "").strip()
     key_path = Path(key_raw) if key_raw else None
 

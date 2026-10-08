@@ -26,12 +26,12 @@ Other workflows: **`python scripts/run_site_update.py --help`**
 These steps only refresh **code/CSVs** (or a backup). They do **not** replace `deploy-db`:
 
 ```bash
-# NOT enough after BOWL-Site-Update / local import:
-cd /home/BoiledEgg1974/boys-of-winter-hockey-website
+# NOT enough after BOWL-Site-Update / local import (VPS example):
+cd /srv/bowl/app
 git fetch origin && git checkout master && git reset --hard origin/master
 pip install --upgrade -r requirements.txt
 python scripts/backup_all_live_data.py
-touch /var/www/www_bowlhockey_com_wsgi.py
+sudo systemctl restart bowl-web
 ```
 
 After that checklist, the site still serves the **old** `instance/*.db` files, and Discord posts are **not** queued.

@@ -709,7 +709,9 @@ def wsgi_files_to_reload(primary: str | None, *, pa_user: str | None = None) -> 
     """
     if not primary:
         return []
-    user = (pa_user or os.environ.get("PA_USER") or "BoiledEgg1974").strip() or "BoiledEgg1974"
+    from scripts.deploy_live_host import default_ssh_user
+
+    user = (pa_user or os.environ.get("PA_USER") or default_ssh_user()).strip() or default_ssh_user()
     out: list[str] = []
     for path in (
         primary,
@@ -782,7 +784,9 @@ def web_reload_bash_fragments(
     extra = (os.environ.get("BOWL_SYSTEMD_RESTART_EXTRA") or "").strip()
     if extra:
         services.extend(part.strip() for part in extra.split(",") if part.strip())
-    user = (ssh_user or os.environ.get("PA_USER") or "BoiledEgg1974").strip()
+    from scripts.deploy_live_host import default_ssh_user
+
+    user = (ssh_user or os.environ.get("PA_USER") or default_ssh_user()).strip()
     prefix = "sudo " if user and user != "root" else ""
     return [f"{prefix}systemctl restart {shlex.quote(svc)}" for svc in services]
 
@@ -1222,31 +1226,15 @@ def sync_local_ap_catalog_from_remote(
     )
 
 
-def _bootstrap_deploy_env_files() -> None:
-    """Load scripts/deploy-live-vps.env when the shell did not set a deploy target."""
-    if (os.environ.get("BOWL_DEPLOY_TARGET") or os.environ.get("PA_HOST") or "").strip():
-        return
-    for name in ("deploy-live-vps.env", "deploy-live-vps.env.example"):
-        path = _SCRIPT_DIR / name
-        if not path.is_file():
-            continue
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"'))
-        return
-
-
 def _resolve_ns_connection(ns: argparse.Namespace) -> None:
-    from scripts.deploy_live_host import resolve_step2_connection
+    from scripts.deploy_live_host import bootstrap_deploy_env, resolve_step2_connection
 
     host, user, remote_path, venv_bin = resolve_step2_connection(
         host=ns.host,
         user=ns.user,
         remote_path=ns.remote_path,
         venv_bin=ns.venv_bin,
+        environ=bootstrap_deploy_env(),
     )
     ns.host = host
     ns.user = user
@@ -1254,9 +1242,15 @@ def _resolve_ns_connection(ns: argparse.Namespace) -> None:
     ns.venv_bin = venv_bin
 
 
-def add_connection_args(p: argparse.ArgumentParser, default_remote: str, default_user: str) -> None:
+def add_connection_args(
+    p: argparse.ArgumentParser,
+    *,
+    default_host: str,
+    default_remote: str,
+    default_user: str,
+) -> None:
     p.add_argument("--local-root", type=Path, default=_REPO_ROOT, help="Repo root")
-    p.add_argument("--host", default=os.environ.get("PA_HOST", "ssh.pythonanywhere.com"))
+    p.add_argument("--host", default=default_host)
     p.add_argument("--user", default=default_user)
     p.add_argument("--remote-path", default=default_remote)
     p.add_argument(
@@ -1901,16 +1895,14 @@ def main() -> int:
     if len(sys.argv) == 1:
         sys.argv.append("deploy")
 
-    _bootstrap_deploy_env_files()
-    default_remote = os.environ.get(
-        "PA_REMOTE_PATH",
-        "/home/BoiledEgg1974/boys-of-winter-hockey-website",
-    )
-    default_user = os.environ.get("PA_USER", "BoiledEgg1974")
-    default_venv_bin = os.environ.get("PA_REMOTE_VENV_BIN", f"/home/{default_user}/venv/bin")
-    # Live custom domain uses www_bowlhockey_com_wsgi.py; reload helpers also touch
-    # /var/www/<user>_wsgi.py so either Web-tab mapping keeps working.
-    default_wsgi = os.environ.get(
+    from scripts.deploy_live_host import bootstrap_deploy_env
+
+    deploy_env = bootstrap_deploy_env()
+    default_host = deploy_env["PA_HOST"]
+    default_remote = deploy_env["PA_REMOTE_PATH"]
+    default_user = deploy_env["PA_USER"]
+    default_venv_bin = deploy_env["PA_REMOTE_VENV_BIN"]
+    default_wsgi = deploy_env.get(
         "PA_WSGI_FILE",
         "/var/www/www_bowlhockey_com_wsgi.py",
     )
@@ -1927,7 +1919,12 @@ def main() -> int:
         "sync",
         help="Upload whole project (newer files only); does not run imports.",
     )
-    add_connection_args(p_sync, default_remote, default_user)
+    add_connection_args(
+        p_sync,
+        default_host=default_host,
+        default_remote=default_remote,
+        default_user=default_user,
+    )
     p_sync.add_argument("--dry-run", action="store_true")
     p_sync.add_argument("--force", action="store_true")
     p_sync.add_argument("--include-instance", action="store_true")
@@ -1938,7 +1935,12 @@ def main() -> int:
         "deploy",
         help="Upload CSVs + app/static, run imports on server, reload web app.",
     )
-    add_connection_args(p_deploy, default_remote, default_user)
+    add_connection_args(
+        p_deploy,
+        default_host=default_host,
+        default_remote=default_remote,
+        default_user=default_user,
+    )
     p_deploy.add_argument(
         "--venv-bin",
         default=default_venv_bin,
@@ -1991,7 +1993,12 @@ def main() -> int:
         "deploy-db",
         help="Upload locally built league SQLite files (+ optional static); preserve live OVR, trade logs, game records, and editorial data.",
     )
-    add_connection_args(p_deploy_db, default_remote, default_user)
+    add_connection_args(
+        p_deploy_db,
+        default_host=default_host,
+        default_remote=default_remote,
+        default_user=default_user,
+    )
     p_deploy_db.add_argument(
         "--venv-bin",
         default=default_venv_bin,
@@ -2033,7 +2040,12 @@ def main() -> int:
         "notify-discord",
         help="Upload boxscore/record sidecars and enqueue Discord events on PythonAnywhere (no DB upload).",
     )
-    add_connection_args(p_notify, default_remote, default_user)
+    add_connection_args(
+        p_notify,
+        default_host=default_host,
+        default_remote=default_remote,
+        default_user=default_user,
+    )
     p_notify.add_argument(
         "--venv-bin",
         default=default_venv_bin,
@@ -2052,7 +2064,12 @@ def main() -> int:
         "reconcile-ap-catalog",
         help="Upload AP catalog code, run reconcile on server site DB, reload web app.",
     )
-    add_connection_args(p_ap_reconcile, default_remote, default_user)
+    add_connection_args(
+        p_ap_reconcile,
+        default_host=default_host,
+        default_remote=default_remote,
+        default_user=default_user,
+    )
     p_ap_reconcile.add_argument(
         "--venv-bin",
         default=default_venv_bin,

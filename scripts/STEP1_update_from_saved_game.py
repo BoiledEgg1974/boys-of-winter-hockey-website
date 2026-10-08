@@ -292,7 +292,8 @@ def _git_commit_and_push() -> None:
 
 
 def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool, sync_ap_catalog_local: bool) -> None:
-    """Upload from repo raw folders; STEP2_pythonanywhere skips remote files that are same/newer."""
+    """Upload from repo raw folders to the live server (VPS by default)."""
+    from scripts.deploy_live_host import bootstrap_deploy_env
     if not PA_DEPLOY_SCRIPT.is_file():
         raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
     cmd = [
@@ -307,7 +308,7 @@ def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool, sync_ap_cata
         cmd.append("--remote-pip")
     if sync_ap_catalog_local:
         cmd.append("--sync-ap-catalog-local")
-    subprocess.run(cmd, cwd=REPO_ROOT, check=True)
+    subprocess.run(cmd, cwd=REPO_ROOT, check=True, env=bootstrap_deploy_env())
 
 
 def main() -> int:
@@ -530,11 +531,11 @@ def main() -> int:
         do_pa = False
     else:
         do_pa = _ask_yes_no(
-            "\nUpload to PythonAnywhere (CSV files newer than server only), "
+            "\nUpload to live server (CSV files newer than server only), "
             "run server imports, reload app? [y/N]: "
         )
     if do_pa:
-        print("\n--- PythonAnywhere deploy (repo CSV → server, mtime-aware) ---")
+        print("\n--- Live deploy (repo CSV → VPS, mtime-aware) ---")
         try:
             _run_pythonanywhere_deploy(
                 csv_only=bool(args.pa_csv_only),
@@ -545,12 +546,12 @@ def main() -> int:
             print(f"ERROR: {exc}")
             return 1
         except subprocess.CalledProcessError as exc:
-            print(f"PythonAnywhere deploy failed (exit {exc.returncode}).")
+            print(f"Live deploy failed (exit {exc.returncode}).")
             print("Install deploy deps: py -3 -m pip install -r requirements-deploy.txt")
-            print("Set PA_SSH_KEY, PA_USER, PA_REMOTE_PATH, PA_REMOTE_VENV_BIN, PA_WSGI_FILE as needed.")
+            print("Check scripts/deploy-live-vps.env (or .example) and PA_SSH_KEY.")
             return int(exc.returncode or 1)
     elif args.no_pa_deploy:
-        print("Skipped PythonAnywhere deploy.")
+        print("Skipped live deploy.")
 
     print("Done.")
     return 0

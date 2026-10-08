@@ -23,10 +23,9 @@
       <span class="headlines-article__byline-text">
         {% set author = authors_by_id.get(a.author_user_id) %}
         {{ gm_display_name(author) }}
-        {% if a.team_id and teams_by_id.get(a.team_id) %}
-        · {{ teams_by_id[a.team_id].full_display_name() }}
-        {% elif not a.team_id %}
-        · League
+        {% set franchise_tag = news_franchise_tag_label(a, league_slug=config.LEAGUE_SLUG, league_session=none, teams_by_id=teams_by_id) %}
+        {% if franchise_tag %}
+        · {{ franchise_tag }}
         {% endif %}
         {% if a.published_at %}
         · {{ a.published_at.strftime('%Y-%m-%d %H:%M') }}

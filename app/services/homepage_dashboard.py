@@ -1196,6 +1196,7 @@ def build_around_the_league(
     from flask import current_app, has_request_context, url_for
 
     from app.league_db import db
+    from app.services.news_broadcast import news_franchise_tag_label
     from app.services.news_categories import news_category_label
     from app.services.news_engagement import engagement_bundle_for_articles, viewer_can_react_on_news
     from app.site_models import NewsArticle, User
@@ -1273,10 +1274,8 @@ def build_around_the_league(
             "id": a.id,
             "title": a.title,
             "category_label": news_category_label(getattr(a, "category", None)),
-            "team_name": (
-                tm.full_display_name()
-                if tm
-                else ("League" if not a.team_id else None)
+            "team_name": news_franchise_tag_label(
+                a, league_slug=slug, league_session=league_session
             ),
             "team_slug": tm.slug if tm else None,
             "team_logo_url": dashboard_team_logo_url(tm, logo_season_year) if tm else "",

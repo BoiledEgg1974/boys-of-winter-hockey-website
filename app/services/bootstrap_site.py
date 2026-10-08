@@ -117,6 +117,9 @@ def ensure_commish_admin(app) -> None:
     ensure_site_users_username_column(app)
     ensure_news_articles_category_column(app)
     ensure_news_articles_image_rel_path_column(app)
+    from app.services.news_broadcast import ensure_news_articles_broadcast_scope_column
+
+    ensure_news_articles_broadcast_scope_column(app)
     ensure_gm_league_memberships_fhm_team_id_column(app)
     ensure_draft_pick_ownership_manual_status_override_column(app)
     try:

@@ -55,6 +55,7 @@ from app.models import (
 from app.services.franchise_identities import identity_logo_url
 from app.services.ap_service import team_ap_balance as compute_team_ap_balance
 from app.services.gm_messaging import gm_display_name
+from app.services.news_broadcast import news_franchise_tag_label
 from app.services.news_categories import news_category_label
 from app.services.all_time_records import (
     bowl_nhl_league_ids,
@@ -483,6 +484,7 @@ def league_headlines():
         engagement_by_article=engagement_by_article,
         news_viewer_can_react=news_viewer_can_react,
         news_category_label=news_category_label,
+        news_franchise_tag_label=news_franchise_tag_label,
         gm_display_name=gm_display_name,
         headlines_page=page,
         headlines_total_pages=total_pages,

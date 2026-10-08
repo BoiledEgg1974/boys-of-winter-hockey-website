@@ -65,14 +65,23 @@ def list_notifications(league_slug: str, user_id: int, *, limit: int = 40) -> li
     )
 
 
-def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
+def notify_all_gms_admin_article(
+    league_slug: str,
+    art: NewsArticle,
+    *,
+    restrict_team_ids: frozenset[int] | None = None,
+    office_label: str | None = None,
+) -> None:
     """In-app notification to every active GM (league office broadcast)."""
-    user_ids = db.session.scalars(
-        select(GmLeagueMembership.user_id).where(
-            GmLeagueMembership.league_slug == league_slug,
-            GmLeagueMembership.status == "active",
-        )
-    ).all()
+    filters = [
+        GmLeagueMembership.league_slug == league_slug,
+        GmLeagueMembership.status == "active",
+    ]
+    if restrict_team_ids is not None:
+        if not restrict_team_ids:
+            return
+        filters.append(GmLeagueMembership.team_id.in_(restrict_team_ids))
+    user_ids = db.session.scalars(select(GmLeagueMembership.user_id).where(*filters)).all()
     seen: set[int] = set()
     body = (art.body or "").strip().replace("\r\n", "\n")
     if len(body) > 900:
@@ -86,7 +95,7 @@ def notify_all_gms_admin_article(league_slug: str, art: NewsArticle) -> None:
                 league_slug=league_slug,
                 user_id=int(uid),
                 kind="admin_league_article",
-                title=f"League office: {art.title[:380]}",
+                title=f"{office_label or 'League office'}: {art.title[:380]}",
                 body=body or "New league article — open to read the full story.",
                 article_id=art.id,
             )

@@ -1151,6 +1151,19 @@ def _ensure_team_gm_mention_for_payload(
         out.pop("gm_mentions", None)
         return out
     if out.get("league_wide"):
+        scope = str(out.get("news_broadcast_scope") or "").strip().lower()
+        if scope in ("upper", "lower"):
+            from app.services.news_broadcast import discord_extra_fields_for_admin_broadcast
+
+            return {
+                **out,
+                **discord_extra_fields_for_admin_broadcast(
+                    session,
+                    session,
+                    league_slug=league_slug,
+                    broadcast_scope=scope,  # type: ignore[arg-type]
+                ),
+            }
         return _apply_league_wide_discord_fields(
             session, league_slug=league_slug, payload=out
         )
@@ -1190,9 +1203,25 @@ def enrich_discord_payload_for_bot(
         merged.pop("gm_mentions", None)
         # Explicit null team_id = league-wide admin post (do not inherit author franchise).
         if getattr(art, "team_id", None) is None:
-            merged = _apply_league_wide_discord_fields(
-                session, league_slug=league_slug, payload=merged
+            from app.services.news_broadcast import (
+                article_broadcast_scope,
+                discord_extra_fields_for_admin_broadcast,
             )
+
+            bscope = article_broadcast_scope(art)
+            if bscope in ("upper", "lower"):
+                merged.update(
+                    discord_extra_fields_for_admin_broadcast(
+                        session,
+                        session,
+                        league_slug=league_slug,
+                        broadcast_scope=bscope,
+                    )
+                )
+            else:
+                merged = _apply_league_wide_discord_fields(
+                    session, league_slug=league_slug, payload=merged
+                )
         else:
             team = _resolve_team_for_news_discord(
                 session, league_slug=league_slug, payload=merged

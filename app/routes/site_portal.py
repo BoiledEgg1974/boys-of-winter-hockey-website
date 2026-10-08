@@ -8302,11 +8302,26 @@ def admin_news_compose():
     teams = db.session.scalars(select(Team).order_by(Team.name)).all()
     news_team_sections = ap_ledger_team_select_sections(db.session, slug, list(teams))
 
+    from app.services.news_broadcast import (
+        ADMIN_NEWS_SELECT_LEAGUE,
+        ADMIN_NEWS_SELECT_TIER_LOWER,
+        ADMIN_NEWS_SELECT_TIER_UPPER,
+        admin_news_broadcast_choices,
+        discord_extra_fields_for_admin_broadcast,
+        notification_office_label,
+        parse_admin_news_team_selection,
+        team_ids_for_broadcast_scope,
+    )
+
     def _compose_ctx(**kw: object) -> dict[str, object]:
         base: dict[str, object] = {
             "teams": teams,
             "news_team_sections": news_team_sections,
             "category_choices": NEWS_CATEGORY_CHOICES_ADMIN,
+            "news_tier_broadcast_choices": admin_news_broadcast_choices(slug),
+            "admin_news_select_league": ADMIN_NEWS_SELECT_LEAGUE,
+            "admin_news_select_tier_upper": ADMIN_NEWS_SELECT_TIER_UPPER,
+            "admin_news_select_tier_lower": ADMIN_NEWS_SELECT_TIER_LOWER,
         }
         base.update(kw)
         return base
@@ -8338,22 +8353,21 @@ def admin_news_compose():
                     form_category=(request.form.get("category") or "").strip(),
                 ),
             )
-        league_wide = raw_tid.lower() == "league"
+        team_id, broadcast_scope, team_err = parse_admin_news_team_selection(raw_tid, league_slug=slug)
+        if team_err:
+            flash(team_err, "err")
+            return render_template(
+                "admin_news_compose.html",
+                **_compose_ctx(
+                    form_title=title,
+                    form_body=body,
+                    form_team_id=raw_tid,
+                    form_category=cat,
+                ),
+            )
+        league_wide = broadcast_scope is not None
         team = None
-        team_id: int | None = None
-        if not league_wide:
-            if not raw_tid.isdigit():
-                flash("Select a team this article is about, or League.", "err")
-                return render_template(
-                    "admin_news_compose.html",
-                    **_compose_ctx(
-                        form_title=title,
-                        form_body=body,
-                        form_team_id=raw_tid,
-                        form_category=cat,
-                    ),
-                )
-            team_id = int(raw_tid)
+        if not league_wide and team_id is not None:
             team = db.session.get(Team, team_id)
             if not team:
                 flash("Invalid team.", "err")
@@ -8402,6 +8416,7 @@ def admin_news_compose():
             art = NewsArticle(
                 league_slug=slug,
                 team_id=team_id,
+                broadcast_scope=broadcast_scope if league_wide else None,
                 title=title[:300],
                 body=body,
                 category=cat,
@@ -8446,15 +8461,12 @@ def admin_news_compose():
                 )
             raise
         if league_wide:
-            discord_team_fields: dict = {
-                "league_wide": True,
-                "team_name": str(
-                    current_app.config.get("LEAGUE_DISPLAY_NAME") or "League"
-                ),
-            }
-            role_mention = gm_role_mention_for_league(db.session, slug)
-            if role_mention.startswith("<@"):
-                discord_team_fields["team_gm_mention"] = role_mention
+            discord_team_fields = discord_extra_fields_for_admin_broadcast(
+                db.session,
+                db.session,
+                league_slug=slug,
+                broadcast_scope=broadcast_scope,
+            )
         else:
             discord_team_fields = team_fields_for_discord(team)
         _enqueue_discord_event(
@@ -8473,11 +8485,25 @@ def admin_news_compose():
         )
         commit_with_sqlite_retry(db.session)
         if cat == NEWS_CATEGORY_ADMIN_SUBMISSION:
-            notify_all_gms_admin_article(slug, art)
-            flash(
-                "Article published and sent to every active GM in GM Messages (notifications).",
-                "ok",
+            restrict: frozenset[int] | None = None
+            if broadcast_scope in ("upper", "lower"):
+                restrict = team_ids_for_broadcast_scope(db.session, slug, broadcast_scope)
+            notify_all_gms_admin_article(
+                slug,
+                art,
+                restrict_team_ids=restrict,
+                office_label=notification_office_label(art, slug),
             )
+            if broadcast_scope in ("upper", "lower"):
+                flash(
+                    f"Article published and sent to active {notification_office_label(art, slug)} GMs in GM Messages.",
+                    "ok",
+                )
+            else:
+                flash(
+                    "Article published and sent to every active GM in GM Messages (notifications).",
+                    "ok",
+                )
         else:
             flash("Article published. It appears on the home page under Around the League.", "ok")
         return redirect(url_for("site_admin.admin_news_queue"))

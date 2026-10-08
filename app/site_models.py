@@ -136,6 +136,7 @@ class NewsArticle(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     league_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     team_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    broadcast_scope: Mapped[str | None] = mapped_column(String(16), nullable=True)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     body: Mapped[str] = mapped_column(Text, default="", nullable=False)
     category: Mapped[str] = mapped_column(String(32), default="general_messages", nullable=False)

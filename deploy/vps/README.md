@@ -64,6 +64,18 @@ systemctl start bowl-backup.service   # optional test (~1 min site pause for SQL
 
 Artifacts: `/srv/bowl/backups/mysql/`, `instance/`, retained **14 days** (timer **07:00 UTC** daily).
 
+## Offsite copies
+
+**PC (now):** `python scripts/pull_vps_backups.py` → `backup-from-do/vps-backups/`
+
+**DigitalOcean Spaces (recommended):** create a Space in **tor1**, copy `deploy/vps/offsite-backup.env.example` to **`scripts/offsite-backup.env`** (gitignored), fill access key + secret, then:
+
+```powershell
+python scripts/push_offsite_backup_env.py --test-sync
+```
+
+VPS timer **`bowl-backup-offsite.timer`** runs daily **08:45 UTC** (after local backup).
+
 ## Site MySQL (502 fix)
 
 PythonAnywhere MySQL **does not accept connections from the droplet** (timeout). League SQLite + Perfect Squad on disk are fine; **gunicorn exits** until `SITE_DATABASE_URL` points at a DB the VPS can reach.

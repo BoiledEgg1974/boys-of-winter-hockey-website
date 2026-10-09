@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily offsite backup sync (after local backup)
+
+[Timer]
+OnCalendar=*-*-* 08:45:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

@@ -85,6 +85,8 @@ python scripts/sync_vps_app_code.py --pip --restart
 
 Nightly **MariaDB + SQLite** backups on the VPS: `deploy/vps/bowl-backup.timer` (install with `bash /srv/bowl/app/deploy/vps/install-backup-timer.sh` as root).
 
+**Off-droplet copies:** `python scripts/pull_vps_backups.py` (PC), or DO Spaces via `scripts/offsite-backup.env` + `python scripts/push_offsite_backup_env.py --test-sync`.
+
 ---
 
 ## PythonAnywhere bash (manual recovery only)

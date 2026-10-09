@@ -1,0 +1,12 @@
+[Unit]
+Description=Sync BOWL backups to DigitalOcean Spaces
+After=network-online.target bowl-backup.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/srv/bowl/app/deploy/vps/sync-backups-offsite.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

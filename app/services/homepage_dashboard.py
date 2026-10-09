@@ -1186,6 +1186,7 @@ def build_around_the_league(
     logo_season_year: int | None = None,
     *,
     for_home: bool = False,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> dict[str, Any]:
     """Published news from site DB; ``league_session`` resolves team slugs/names."""
     from app.services.news_text import (
@@ -1204,16 +1205,28 @@ def build_around_the_league(
     from app.services.news_retention import published_news_age_filter
 
     slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    rows = db.session.scalars(
-        select(NewsArticle)
-        .where(
-            NewsArticle.league_slug == slug,
-            NewsArticle.status == "published",
-            published_news_age_filter(NewsArticle),
-        )
-        .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
-        .limit(HOMEPAGE_AROUND_COUNT)
-    ).all()
+    fetch_cap = max(HOMEPAGE_AROUND_COUNT, 120) if allowed_team_ids is not None else HOMEPAGE_AROUND_COUNT
+    rows = list(
+        db.session.scalars(
+            select(NewsArticle)
+            .where(
+                NewsArticle.league_slug == slug,
+                NewsArticle.status == "published",
+                published_news_age_filter(NewsArticle),
+            )
+            .order_by(NewsArticle.published_at.desc(), NewsArticle.id.desc())
+            .limit(fetch_cap)
+        ).all()
+    )
+    if allowed_team_ids is not None:
+        from app.services.homepage_relegation_filter import filter_news_articles_by_team_scope
+
+        rows = filter_news_articles_by_team_scope(
+            rows,
+            allowed_team_ids,
+            league_slug=slug,
+            site_session=db.session,
+        )[:HOMEPAGE_AROUND_COUNT]
     viewer_can = viewer_can_react_on_news(viewer, slug) if slug else False
 
     def _headlines_path() -> str:

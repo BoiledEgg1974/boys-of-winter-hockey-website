@@ -303,14 +303,30 @@ def champion_banner_urls() -> list[str]:
     return [url_for("static", filename=f"{out_rel}/{name}") for _, (out_rel, name) in ordered]
 
 
-def _home_milestone_teaser_player_eligible(session, player: Player) -> bool:
-    """Home Milestones Watch: only active players on a BOWL/NHL club (omit minors assignments)."""
+def _home_milestone_teaser_player_eligible(
+    session,
+    player: Player,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
+) -> bool:
+    """Home Milestones Watch: active players on in-scope clubs (BLUP/BLOW on Relegation)."""
+    from app.services.homepage_relegation_filter import player_on_homepage_relegation_scope
+    from app.services.relegation import is_relegation_league
+
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    except RuntimeError:
+        slug = ""
+    if is_relegation_league(slug) and allowed_team_ids is not None:
+        return player_on_homepage_relegation_scope(session, player, allowed_team_ids)
     team = player.current_team
     if team is None:
         return False
     lid = team.fhm_league_id
     if lid is None:
-        return True
+        return False
     try:
         ilid = int(lid)
     except (TypeError, ValueError):
@@ -322,11 +338,32 @@ def _home_milestone_teaser_player_eligible(session, player: Player) -> bool:
 def home():
     from app.services.milestones import build_milestone_sections
 
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    milestone_scope_team_ids: frozenset[int] | None = None
+    if league_slug == "bowl-fantasy":
+        from app.services.homepage_relegation_filter import (
+            homepage_panel_uses_relegation_scope,
+            resolve_homepage_relegation_scope,
+        )
+
+        if homepage_panel_uses_relegation_scope("milestones_watch"):
+            raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+            _, milestone_scope_team_ids = resolve_homepage_relegation_scope(
+                db.session,
+                league_slug=league_slug,
+                raw_scope=request.args.get("scope"),
+                raw_import_dir=raw_dir,
+            )
+
     skater_sections, goalie_sections = build_milestone_sections(db.session, split="rs")
     raw_teasers: list[dict[str, object]] = []
     for section in skater_sections:
         for row in section.rows:
-            if not _home_milestone_teaser_player_eligible(db.session, row.player):
+            if not _home_milestone_teaser_player_eligible(
+                db.session,
+                row.player,
+                allowed_team_ids=milestone_scope_team_ids,
+            ):
                 continue
             raw_teasers.append(
                 {
@@ -340,7 +377,11 @@ def home():
             )
     for section in goalie_sections:
         for row in section.rows:
-            if not _home_milestone_teaser_player_eligible(db.session, row.player):
+            if not _home_milestone_teaser_player_eligible(
+                db.session,
+                row.player,
+                allowed_team_ids=milestone_scope_team_ids,
+            ):
                 continue
             raw_teasers.append(
                 {

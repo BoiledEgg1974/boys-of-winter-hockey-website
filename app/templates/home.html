@@ -1302,7 +1302,11 @@
     var el = document.getElementById('home-news');
     if (!el) return;
     el.innerHTML = '<p class="empty-state loading-with-puck">Loading headlines…</p>';
-    fetch(withRoot('/api/homepage/around-the-league'), {
+    var newsUrl = withRoot('/api/homepage/around-the-league');
+    if (homeScope && homeScope !== 'combined' && homeScope !== 'movement' && homeScope !== 'injuries') {
+      newsUrl += (newsUrl.indexOf('?') >= 0 ? '&' : '?') + 'scope=' + encodeURIComponent(homeScope);
+    }
+    fetch(newsUrl, {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     })

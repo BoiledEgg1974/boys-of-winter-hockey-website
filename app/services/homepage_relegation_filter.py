@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.models import Team
+from app.services.all_time_records import bowl_relegation_tier_league_ids
 from app.services.relegation import (
     RelegationScope,
     filter_teams_to_main_tiers,
@@ -17,6 +18,49 @@ from app.services.relegation import (
     relegation_features_enabled,
     team_ids_for_scope,
 )
+
+# Relegation homepage panels limited to BLUP/BLOW (or upper/lower tab).
+HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS = frozenset(
+    {
+        "league_transactions",
+        "schedule",
+        "around_the_league",
+        "postseason_odds",
+        "game_of_the_night",
+        "next_game_to_watch",
+        "three_stars",
+        "milestones_watch",
+        "special_teams_snapshot",
+        "process_momentum",
+        "team_momentum",
+        "war_leaders",
+        "star_selection_leaders",
+        "power_rankings",
+        "top_rookies",
+    }
+)
+
+
+def homepage_panel_uses_relegation_scope(panel_key: str) -> bool:
+    return (panel_key or "").strip() in HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS
+
+
+def player_on_homepage_relegation_scope(
+    session: Session,
+    player: Any,
+    allowed_team_ids: frozenset[int] | None,
+) -> bool:
+    """True when the player's current club is in the active homepage scope."""
+    if allowed_team_ids is None:
+        return True
+    team = getattr(player, "current_team", None)
+    if team is None:
+        return False
+    try:
+        tid = int(team.id)
+    except (TypeError, ValueError):
+        return False
+    return tid in allowed_team_ids
 
 
 def resolve_homepage_relegation_scope(
@@ -31,12 +75,18 @@ def resolve_homepage_relegation_scope(
     if not is_relegation_league(league_slug):
         return "combined", None
     cfg = get_tier_config(session, raw_import_dir=raw_import_dir)
-    main = filter_teams_to_main_tiers(
-        list(session.scalars(select(Team)).all()),
-        cfg,
-    )
+    all_teams = list(session.scalars(select(Team)).all())
+    main = filter_teams_to_main_tiers(all_teams, cfg)
     if not main:
-        return scope, None
+        tier_lids = frozenset(bowl_relegation_tier_league_ids(session))
+        if tier_lids:
+            main = [
+                t
+                for t in all_teams
+                if t.fhm_league_id is not None and int(t.fhm_league_id) in tier_lids
+            ]
+    if not main:
+        return scope, frozenset() if is_relegation_league(league_slug) else None
     if scope == "combined":
         return scope, frozenset(int(t.id) for t in main)
     if not relegation_features_enabled(league_slug):
@@ -210,6 +260,43 @@ def filter_team_momentum_payload(
             for key in streaks
         },
     }
+
+
+def filter_news_articles_by_team_scope(
+    articles: list[Any],
+    allowed_team_ids: frozenset[int] | None,
+    *,
+    league_slug: str,
+    site_session: Session,
+) -> list[Any]:
+    """Keep headlines tagged to an in-scope franchise (or authored by that GM)."""
+    if allowed_team_ids is None:
+        return articles
+    if not allowed_team_ids:
+        return []
+    from app.site_models import GmLeagueMembership
+
+    author_ids = {int(a.author_user_id) for a in articles if getattr(a, "author_user_id", None)}
+    gm_team_by_user: dict[int, int] = {}
+    if author_ids:
+        for mem in site_session.scalars(
+            select(GmLeagueMembership).where(
+                GmLeagueMembership.league_slug == league_slug,
+                GmLeagueMembership.user_id.in_(author_ids),
+                GmLeagueMembership.status == "active",
+            )
+        ).all():
+            gm_team_by_user[int(mem.user_id)] = int(mem.team_id)
+    kept: list[Any] = []
+    for art in articles:
+        tid = getattr(art, "team_id", None)
+        if tid is not None and int(tid) in allowed_team_ids:
+            kept.append(art)
+            continue
+        au_tid = gm_team_by_user.get(int(getattr(art, "author_user_id", 0) or 0))
+        if au_tid is not None and au_tid in allowed_team_ids:
+            kept.append(art)
+    return kept
 
 
 def game_spotlight_in_scope(

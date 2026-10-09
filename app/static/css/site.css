@@ -3968,22 +3968,18 @@ table.data.home-special-teams-table td:nth-child(2) {
   text-align: center;
 }
 .home-dashboard__toc-sticky {
+  position: sticky;
+  top: var(--scroll-padding-top);
+  z-index: 60;
   margin-bottom: 1.15rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(15 23 42 / 0.07);
 }
-@media (min-width: 1101px) {
-  .home-dashboard__toc-sticky {
-    position: sticky;
-    top: var(--scroll-padding-top);
-    z-index: 60;
-    padding: 0.45rem 0.65rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    box-shadow: 0 6px 20px rgb(15 23 42 / 0.07);
-  }
-  [data-theme="dark"] .home-dashboard__toc-sticky {
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
-  }
+[data-theme="dark"] .home-dashboard__toc-sticky {
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
 }
 .home-dashboard__toc {
   display: flex;

@@ -1437,17 +1437,36 @@ def _misc_statistics_panel(special_teams: list[dict[str, object]]) -> dict[str, 
 @api_bp.get("/homepage/around-the-league")
 def homepage_around_the_league():
     """Light Around the League block for the homepage (loaded after the main summary)."""
+    from app.services.homepage_relegation_filter import (
+        homepage_panel_uses_relegation_scope,
+        resolve_homepage_relegation_scope,
+    )
+    from app.services.relegation import is_relegation_league, normalize_relegation_scope
     from app.services.seasons import get_current_season
 
     logo_sy: int | None = None
     season = get_current_season()
     if season is not None and getattr(season, "start_year", None) is not None:
         logo_sy = int(season.start_year)
+    league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
+    rel_scope = normalize_relegation_scope(request.args.get("scope"))
+    allowed_team_ids: frozenset[int] | None = None
+    if is_relegation_league(league_slug) and homepage_panel_uses_relegation_scope(
+        "around_the_league"
+    ):
+        _, allowed_team_ids = resolve_homepage_relegation_scope(
+            db.session,
+            league_slug=league_slug,
+            raw_scope=rel_scope,
+            raw_import_dir=raw_dir,
+        )
     payload = build_around_the_league(
         db.session,
         _news_dashboard_viewer(),
         logo_season_year=logo_sy,
         for_home=True,
+        allowed_team_ids=allowed_team_ids,
     )
     resp = jsonify(payload)
     resp.headers["Cache-Control"] = "private, max-age=30"
@@ -1545,43 +1564,19 @@ def homepage_leaders():
     season_id = int(dashboard_season.id)
     canonical_id = int(canonical_season.id) if canonical_season else 0
 
-    from app.services.homepage_relegation_filter import (
-        filter_leaders_payload,
-        leaders_fhm_league_ids_for_scope,
-        resolve_homepage_relegation_scope,
-        team_slugs_for_scope,
-    )
     from app.services.relegation import normalize_relegation_scope
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
-    raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     rel_scope = normalize_relegation_scope(request.args.get("scope"))
 
-    _, scope_team_ids = resolve_homepage_relegation_scope(
-        db.session,
-        league_slug=league_slug,
-        raw_scope=rel_scope,
-        raw_import_dir=raw_dir,
-    )
-    leaders_fhm_override = leaders_fhm_league_ids_for_scope(
-        db.session,
-        rel_scope,
-        league_slug=league_slug,
-        raw_import_dir=raw_dir,
-    )
-    scope_slugs = team_slugs_for_scope(db.session, scope_team_ids)
-
     def _build() -> dict[str, object]:
-        payload = build_homepage_leaders_payload(
+        return build_homepage_leaders_payload(
             db.session,
             dashboard_season,
             segment,
             league_slug=league_slug,
-            main_fhm_league_ids_override=leaders_fhm_override,
             player_photo_url=_player_photo_url,
         )
-        payload["leaders"] = filter_leaders_payload(payload.get("leaders") or {}, scope_slugs)
-        return payload
 
     return jsonify_cached(
         "homepage_leaders",
@@ -1730,18 +1725,17 @@ def _build_homepage_summary_payload(
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")
     raw_dir = Path(str(current_app.config.get("RAW_IMPORT_DIR", Config.RAW_IMPORT_DIR)))
     from app.services.homepage_relegation_filter import (
-        filter_leaders_payload,
         filter_power_rankings_payload,
         filter_rows_by_team_slug,
         filter_standings_by_division_payload,
         filter_team_momentum_payload,
-        filter_trending_players_payload,
         game_both_teams_in_scope,
         game_spotlight_in_scope,
-        leaders_fhm_league_ids_for_scope,
+        homepage_panel_uses_relegation_scope,
         resolve_homepage_relegation_scope,
         team_slugs_for_scope,
     )
+    from app.services.relegation import is_relegation_league
 
     rel_scope, scope_team_ids = resolve_homepage_relegation_scope(
         db.session,
@@ -1749,22 +1743,27 @@ def _build_homepage_summary_payload(
         raw_scope=relegation_scope,
         raw_import_dir=raw_dir,
     )
-    leaders_fhm_override = leaders_fhm_league_ids_for_scope(
-        db.session,
-        rel_scope,
-        league_slug=league_slug,
-        raw_import_dir=raw_dir,
-    )
+
+    def _panel_scope_team_ids(panel_key: str) -> frozenset[int] | None:
+        if not is_relegation_league(league_slug) or not homepage_panel_uses_relegation_scope(
+            panel_key
+        ):
+            return None
+        return scope_team_ids
+
+    def _panel_scope_slugs(panel_key: str) -> frozenset[str] | None:
+        ids = _panel_scope_team_ids(panel_key)
+        if ids is None:
+            return None
+        return team_slugs_for_scope(db.session, ids)
+
     leaders = build_homepage_leaders_payload(
         db.session,
         season,
         segment,
         league_slug=league_slug,
-        main_fhm_league_ids_override=leaders_fhm_override,
         player_photo_url=_player_photo_url,
     )["leaders"]
-    scope_slugs = team_slugs_for_scope(db.session, scope_team_ids)
-    leaders = filter_leaders_payload(leaders, scope_slugs)
 
     standings_by_team = {
         st.team_id: st
@@ -1775,11 +1774,12 @@ def _build_homepage_summary_payload(
     special_teams = special_teams_rows_for_power_rankings(
         db.session, season.id, segment, standings_by_team, logo_sy
     )
-    if scope_team_ids is not None:
+    st_scope_ids = _panel_scope_team_ids("special_teams_snapshot")
+    if st_scope_ids is not None:
         special_teams = [
             row
             for row in special_teams
-            if int(row.get("team_id") or 0) in scope_team_ids
+            if int(row.get("team_id") or 0) in st_scope_ids
         ]
     div_pair, div_by_id = load_division_display_maps(raw_dir / "divisions.csv")
     standings_by_division = build_standings_by_division(
@@ -1792,7 +1792,7 @@ def _build_homepage_summary_payload(
     )
     standings_by_division = filter_standings_by_division_payload(
         standings_by_division,
-        scope_team_ids,
+        _panel_scope_team_ids("divisional_standings"),
         relegation_scope=rel_scope,
     )
     tm_map = {
@@ -1821,16 +1821,20 @@ def _build_homepage_summary_payload(
         league_cal,
         logo_season_year=logo_sy,
     )
-    if not game_spotlight_in_scope(game_of_the_night, scope_slugs):
+    if not game_spotlight_in_scope(
+        game_of_the_night, _panel_scope_slugs("game_of_the_night")
+    ):
         game_of_the_night = None
-    if not game_spotlight_in_scope(next_game_to_watch, scope_slugs):
+    if not game_spotlight_in_scope(
+        next_game_to_watch, _panel_scope_slugs("next_game_to_watch")
+    ):
         next_game_to_watch = None
     stars_bundle = build_stars_windows(
         db.session,
         season.id,
         league_cal,
         logo_season_year=logo_sy,
-        allowed_team_ids=scope_team_ids,
+        allowed_team_ids=_panel_scope_team_ids("three_stars"),
     )
     star_selection_leaders = build_star_selection_leaders(
         db.session, season.id, logo_season_year=logo_sy
@@ -1838,7 +1842,6 @@ def _build_homepage_summary_payload(
     trending_players = build_trending_players(
         db.session, season.id, segment, league_cal, logo_season_year=logo_sy
     )
-    trending_players = filter_trending_players_payload(trending_players, scope_slugs)
     process_momentum = build_process_momentum_payload(
         db.session,
         season.id,
@@ -1846,11 +1849,12 @@ def _build_homepage_summary_payload(
         logo_season_year=logo_sy,
         player_photo_url=_player_photo_url,
     )
-    if scope_slugs is not None:
+    pm_slugs = _panel_scope_slugs("process_momentum")
+    if pm_slugs is not None:
         process_momentum = {
             **process_momentum,
-            "skaters": filter_rows_by_team_slug(process_momentum.get("skaters") or [], scope_slugs),
-            "goalies": filter_rows_by_team_slug(process_momentum.get("goalies") or [], scope_slugs),
+            "skaters": filter_rows_by_team_slug(process_momentum.get("skaters") or [], pm_slugs),
+            "goalies": filter_rows_by_team_slug(process_momentum.get("goalies") or [], pm_slugs),
         }
     from app.services.season_war import build_war_leaders_payload
 
@@ -1860,32 +1864,36 @@ def _build_homepage_summary_payload(
         segment,
         league_slug=league_slug,
     )
-    if scope_slugs is not None:
+    war_slugs = _panel_scope_slugs("war_leaders")
+    if war_slugs is not None:
         war_leaders = {
             **war_leaders,
-            "skaters": filter_rows_by_team_slug(war_leaders.get("skaters") or [], scope_slugs),
-            "goalies": filter_rows_by_team_slug(war_leaders.get("goalies") or [], scope_slugs),
+            "skaters": filter_rows_by_team_slug(war_leaders.get("skaters") or [], war_slugs),
+            "goalies": filter_rows_by_team_slug(war_leaders.get("goalies") or [], war_slugs),
         }
     trending_teams = build_trending_teams(db.session, season.id, league_cal, logo_season_year=logo_sy)
     team_momentum_streaks = build_team_momentum_streaks(db.session, season.id, logo_season_year=logo_sy)
     team_momentum = {"trending": trending_teams, "streaks": team_momentum_streaks}
-    team_momentum = filter_team_momentum_payload(team_momentum, scope_slugs)
+    team_momentum = filter_team_momentum_payload(
+        team_momentum, _panel_scope_slugs("team_momentum")
+    )
     active_streaks = build_active_streaks(db.session, season.id, logo_season_year=logo_sy)
-    if scope_slugs is not None:
-        active_streaks = {
-            key: filter_rows_by_team_slug(active_streaks.get(key) or [], scope_slugs)
-            for key in active_streaks
-        }
+    star_slugs = _panel_scope_slugs("star_selection_leaders")
+    stars_slugs = _panel_scope_slugs("three_stars")
+    if stars_slugs is not None:
         for key in ("stars_last_7d", "stars_last_14d", "stars_last_30d"):
-            stars_bundle[key] = filter_rows_by_team_slug(stars_bundle.get(key) or [], scope_slugs)
-        star_selection_leaders = filter_rows_by_team_slug(star_selection_leaders, scope_slugs)
+            stars_bundle[key] = filter_rows_by_team_slug(stars_bundle.get(key) or [], stars_slugs)
+    if star_slugs is not None:
+        star_selection_leaders = filter_rows_by_team_slug(star_selection_leaders, star_slugs)
     power_rankings = compute_power_rankings_payload(
         db.session,
         season_id=season.id,
         segment=segment,
         logo_season_year=logo_sy,
     )
-    power_rankings = filter_power_rankings_payload(power_rankings, scope_team_ids)
+    power_rankings = filter_power_rankings_payload(
+        power_rankings, _panel_scope_team_ids("power_rankings")
+    )
     baseline = select_power_rank_baseline_map(league_slug, power_rankings["teams"])
     apply_power_rank_trends(power_rankings["teams"], baseline)
     module_settings = {
@@ -1913,8 +1921,9 @@ def _build_homepage_summary_payload(
             .limit(12)
         ).all()
     upcoming_out: list[dict[str, object]] = []
+    sched_scope_ids = _panel_scope_team_ids("schedule")
     for g in upcoming_games:
-        if not game_both_teams_in_scope(g.home_team_id, g.away_team_id, scope_team_ids):
+        if not game_both_teams_in_scope(g.home_team_id, g.away_team_id, sched_scope_ids):
             continue
         ht = db.session.get(Team, g.home_team_id)
         at = db.session.get(Team, g.away_team_id)
@@ -2103,9 +2112,10 @@ def _build_homepage_summary_payload(
         reverse=True,
     )
     rookies["goalies"] = rookies["goalies"][:50]
-    if scope_slugs is not None:
-        rookies["skaters"] = filter_rows_by_team_slug(rookies["skaters"], scope_slugs)
-        rookies["goalies"] = filter_rows_by_team_slug(rookies["goalies"], scope_slugs)
+    rk_slugs = _panel_scope_slugs("top_rookies")
+    if rk_slugs is not None:
+        rookies["skaters"] = filter_rows_by_team_slug(rookies["skaters"], rk_slugs)
+        rookies["goalies"] = filter_rows_by_team_slug(rookies["goalies"], rk_slugs)
 
     identity_panel = _misc_statistics_panel(special_teams)
     league_spotlight: dict[str, object] = {"title": "League spotlight", "items": []}
@@ -2123,7 +2133,7 @@ def _build_homepage_summary_payload(
     )
     games_out = []
     for g in games:
-        if not game_both_teams_in_scope(g.home_team_id, g.away_team_id, scope_team_ids):
+        if not game_both_teams_in_scope(g.home_team_id, g.away_team_id, sched_scope_ids):
             continue
         ht = db.session.get(Team, g.home_team_id)
         at = db.session.get(Team, g.away_team_id)
@@ -2156,12 +2166,12 @@ def _build_homepage_summary_payload(
             league_slug=league_slug,
             limit=15,
         )
-        if scope_team_ids is not None:
+        tx_scope_ids = _panel_scope_team_ids("league_transactions")
+        if tx_scope_ids is not None:
             league_transactions = [
                 row
                 for row in league_transactions
-                if int(row.get("team_id") or 0) in scope_team_ids
-                or int(row.get("other_team_id") or 0) in scope_team_ids
+                if int(row.get("team_id") or 0) in tx_scope_ids
             ]
 
     summary_body: dict[str, object] = {

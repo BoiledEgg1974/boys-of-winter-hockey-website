@@ -1,6 +1,5 @@
 LeagueId;Date;Event
-0;2025-10-1;Assign Scouts
-0;2025-10-4;Opening Night
+0;2025-11-1;Assign Scouts
 0;2025-11-1;Set Monthly Budget
 0;2025-12-22;All-Star Announcement
 0;2025-12-23;All-Star Game
@@ -15,9 +14,9 @@ LeagueId;Date;Event
 0;2026-7-7;Player Training Programs
 0;2026-8-1;HOF Induction
 0;2026-9-20;Preseason Start
-1;2025-10-1;Assign Scouts
-1;2025-10-1;Set Monthly Budget
-1;2025-10-4;Opening Night
+0;2026-10-4;Opening Night
+1;2025-11-1;Assign Scouts
+1;2025-11-1;Set Monthly Budget
 1;2025-12-23;All-Star Announcement
 1;2025-12-24;All-Star Game
 1;2026-3-1;Trading Deadline
@@ -31,9 +30,9 @@ LeagueId;Date;Event
 1;2026-7-7;Player Training Programs
 1;2026-8-1;HOF Induction
 1;2026-9-20;Preseason Start
-2;2025-10-1;Assign Scouts
-2;2025-10-1;Set Monthly Budget
-2;2025-10-4;Opening Night
+1;2026-10-4;Opening Night
+2;2025-11-1;Assign Scouts
+2;2025-11-1;Set Monthly Budget
 2;2026-1-24;All-Star Announcement
 2;2026-1-25;All-Star Game
 2;2026-4-3;Award Nominees
@@ -48,9 +47,9 @@ LeagueId;Date;Event
 2;2026-7-7;Player Training Programs
 2;2026-8-1;HOF Induction
 2;2026-9-20;Preseason Start
-3;2025-10-1;Assign Scouts
-3;2025-10-1;Set Monthly Budget
-3;2025-10-4;Opening Night
+2;2026-10-4;Opening Night
+3;2025-11-1;Assign Scouts
+3;2025-11-1;Set Monthly Budget
 3;2026-4-3;Award Nominees
 3;2026-4-4;IHL Playoffs
 3;2026-5-2;HOF Player Nomination
@@ -63,9 +62,9 @@ LeagueId;Date;Event
 3;2026-7-7;Player Training Programs
 3;2026-8-1;HOF Induction
 3;2026-9-20;Preseason Start
-4;2025-10-1;Assign Scouts
-4;2025-10-1;Set Monthly Budget
-4;2025-10-4;Opening Night
+3;2026-10-4;Opening Night
+4;2025-11-1;Assign Scouts
+4;2025-11-1;Set Monthly Budget
 4;2026-1-20;All-Star Announcement
 4;2026-1-21;All-Star Game
 4;2026-2-1;Trading Deadline
@@ -79,8 +78,9 @@ LeagueId;Date;Event
 4;2026-7-7;Player Training Programs
 4;2026-8-1;HOF Induction
 4;2026-9-20;Preseason Start
-5;2025-10-1;Assign Scouts
-5;2025-10-1;Set Monthly Budget
+4;2026-10-4;Opening Night
+5;2025-11-1;Assign Scouts
+5;2025-11-1;Set Monthly Budget
 5;2026-2-1;Trading Deadline
 5;2026-3-16;Award Nominees
 5;2026-3-17;SHL Playoffs
@@ -95,8 +95,8 @@ LeagueId;Date;Event
 5;2026-8-1;HOF Induction
 5;2026-8-30;Preseason Start
 5;2026-9-13;Opening Night
-6;2025-10-1;Assign Scouts
-6;2025-10-1;Set Monthly Budget
+6;2025-11-1;Assign Scouts
+6;2025-11-1;Set Monthly Budget
 6;2026-2-1;Trading Deadline
 6;2026-2-6;All-Star Announcement
 6;2026-2-7;All-Star Game
@@ -113,8 +113,8 @@ LeagueId;Date;Event
 6;2026-8-1;HOF Induction
 6;2026-8-22;Preseason Start
 6;2026-9-5;Opening Night
-7;2025-10-1;Assign Scouts
-7;2025-10-1;Set Monthly Budget
+7;2025-11-1;Assign Scouts
+7;2025-11-1;Set Monthly Budget
 7;2026-2-1;Trading Deadline
 7;2026-3-17;Award Nominees
 7;2026-3-18;DEL Playoffs
@@ -129,8 +129,8 @@ LeagueId;Date;Event
 7;2026-8-1;HOF Induction
 7;2026-8-26;Preseason Start
 7;2026-9-9;Opening Night
-8;2025-10-1;Assign Scouts
-8;2025-10-1;Set Monthly Budget
+8;2025-11-1;Assign Scouts
+8;2025-11-1;Set Monthly Budget
 8;2026-2-1;Trading Deadline
 8;2026-3-19;Award Nominees
 8;2026-3-20;LIIGA Playoffs
@@ -145,8 +145,8 @@ LeagueId;Date;Event
 8;2026-8-1;HOF Induction
 8;2026-8-26;Preseason Start
 8;2026-9-9;Opening Night
-9;2025-10-1;Assign Scouts
-9;2025-10-1;Set Monthly Budget
+9;2025-11-1;Assign Scouts
+9;2025-11-1;Set Monthly Budget
 9;2026-2-1;Trading Deadline
 9;2026-3-11;Award Nominees
 9;2026-3-12;NL Playoffs
@@ -161,9 +161,8 @@ LeagueId;Date;Event
 9;2026-8-1;HOF Induction
 9;2026-8-26;Preseason Start
 9;2026-9-9;Opening Night
-10;2025-10-1;Assign Scouts
-10;2025-10-1;Set Monthly Budget
-10;2025-10-3;Opening Night
+10;2025-11-1;Assign Scouts
+10;2025-11-1;Set Monthly Budget
 10;2025-12-22;All-Star Announcement
 10;2025-12-23;All-Star Game
 10;2026-2-1;Trading Deadline
@@ -179,8 +178,9 @@ LeagueId;Date;Event
 10;2026-7-7;Player Training Programs
 10;2026-8-1;HOF Induction
 10;2026-9-25;Preseason Start
-11;2025-10-1;Assign Scouts
-11;2025-10-1;Set Monthly Budget
+10;2026-10-3;Opening Night
+11;2025-11-1;Assign Scouts
+11;2025-11-1;Set Monthly Budget
 11;2026-2-1;Trading Deadline
 11;2026-2-16;All-Star Announcement
 11;2026-2-17;All-Star Game
@@ -197,8 +197,8 @@ LeagueId;Date;Event
 11;2026-8-1;HOF Induction
 11;2026-9-4;Preseason Start
 11;2026-9-18;Opening Night
-12;2025-10-1;Assign Scouts
-12;2025-10-1;Set Monthly Budget
+12;2025-11-1;Assign Scouts
+12;2025-11-1;Set Monthly Budget
 12;2026-2-1;Trading Deadline
 12;2026-2-16;All-Star Announcement
 12;2026-2-17;All-Star Game
@@ -215,8 +215,8 @@ LeagueId;Date;Event
 12;2026-8-1;HOF Induction
 12;2026-9-5;Preseason Start
 12;2026-9-19;Opening Night
-13;2025-10-1;Assign Scouts
-13;2025-10-1;Set Monthly Budget
+13;2025-11-1;Assign Scouts
+13;2025-11-1;Set Monthly Budget
 13;2026-1-18;All-Star Announcement
 13;2026-1-19;All-Star Game
 13;2026-2-1;Trading Deadline
@@ -233,10 +233,10 @@ LeagueId;Date;Event
 13;2026-8-1;HOF Induction
 13;2026-9-4;Preseason Start
 13;2026-9-18;Opening Night
-14;2025-10-1;Assign Scouts
-14;2025-10-1;Set Monthly Budget
 14;2025-10-14;Preseason Start
 14;2025-10-17;Opening Night
+14;2025-11-1;Assign Scouts
+14;2025-11-1;Set Monthly Budget
 14;2026-2-1;Trading Deadline
 14;2026-2-8;All-Star Announcement
 14;2026-2-9;All-Star Game
@@ -251,9 +251,8 @@ LeagueId;Date;Event
 14;2026-7-7;ECHL Entry Draft
 14;2026-7-7;Player Training Programs
 14;2026-8-1;HOF Induction
-15;2025-10-1;Assign Scouts
-15;2025-10-1;Set Monthly Budget
-15;2025-10-4;Opening Night
+15;2025-11-1;Assign Scouts
+15;2025-11-1;Set Monthly Budget
 15;2026-1-10;All-Star Announcement
 15;2026-1-11;All-Star Game
 15;2026-2-1;Trading Deadline
@@ -269,8 +268,9 @@ LeagueId;Date;Event
 15;2026-7-7;USHL Entry Draft
 15;2026-8-1;HOF Induction
 15;2026-9-20;Preseason Start
-16;2025-10-1;Assign Scouts
-16;2025-10-1;Set Monthly Budget
+15;2026-10-4;Opening Night
+16;2025-11-1;Assign Scouts
+16;2025-11-1;Set Monthly Budget
 16;2026-2-1;Trading Deadline
 16;2026-3-8;Award Nominees
 16;2026-3-9;TIPS Playoffs
@@ -285,8 +285,8 @@ LeagueId;Date;Event
 16;2026-8-1;HOF Induction
 16;2026-8-26;Preseason Start
 16;2026-9-9;Opening Night
-17;2025-10-1;Assign Scouts
-17;2025-10-1;Set Monthly Budget
+17;2025-11-1;Assign Scouts
+17;2025-11-1;Set Monthly Budget
 17;2025-12-19;All-Star Announcement
 17;2025-12-20;All-Star Game
 17;2026-2-1;Trading Deadline

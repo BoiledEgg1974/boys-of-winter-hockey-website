@@ -181,6 +181,21 @@ def build_playoff_bracket_discord_payload(
         return {"error": "No playoff series found to post."}
 
     all_teams = list(league_session.scalars(select(Team)).all())
+    teams_by_abbrev_pre = {
+        str(t.abbreviation or "").strip().upper(): t
+        for t in all_teams
+        if t.abbreviation
+    }
+    from app.services.relegation_discord import filter_playoff_bracket_series_for_relegation
+
+    series_rows = filter_playoff_bracket_series_for_relegation(
+        league_session,
+        league_slug=league_slug,
+        series_rows=series_rows,
+        teams_by_abbrev=teams_by_abbrev_pre,
+    )
+    if not series_rows:
+        return {"error": "No BLUP / BLOW playoff series found to post."}
     teams_by_id = {int(t.id): t for t in all_teams}
     teams_by_abbrev = {
         str(t.abbreviation or "").strip().upper(): t

@@ -1801,9 +1801,23 @@ def list_discord_routes(session, league_slug: str) -> list[DiscordChannelRoute]:
     ).all()
 
 
-def _active_team_ids_for_boxscore_channels(league_session) -> list[int]:
+def _active_team_ids_for_boxscore_channels(
+    league_session,
+    *,
+    league_slug: str | None = None,
+) -> list[int]:
     """Teams with current-season standings, else all franchise rows."""
     from app.models import Season, Team, TeamStanding
+    from app.services.relegation import is_relegation_league, relegation_main_tier_team_ids
+
+    slug = str(league_slug or "").strip()
+    if not slug:
+        try:
+            from flask import current_app
+
+            slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+        except RuntimeError:
+            slug = ""
 
     current = league_session.scalar(
         select(Season).where(Season.is_current.is_(True)).limit(1)
@@ -1817,14 +1831,24 @@ def _active_team_ids_for_boxscore_channels(league_session) -> list[int]:
             ).all()
         )
         if standing_ids:
-            return sorted({int(tid) for tid in standing_ids if tid is not None})
-    return sorted(
-        {
-            int(tid)
-            for tid in league_session.scalars(select(Team.id)).all()
-            if tid is not None
-        }
-    )
+            ids = sorted({int(tid) for tid in standing_ids if tid is not None})
+        else:
+            ids = []
+    else:
+        ids = []
+    if not ids:
+        ids = sorted(
+            {
+                int(tid)
+                for tid in league_session.scalars(select(Team.id)).all()
+                if tid is not None
+            }
+        )
+    if is_relegation_league(slug):
+        main = relegation_main_tier_team_ids(league_session)
+        if main:
+            ids = [tid for tid in ids if tid in main]
+    return ids
 
 
 def ensure_game_boxscore_team_channels(
@@ -1843,7 +1867,9 @@ def ensure_game_boxscore_team_channels(
     if not slug:
         return 0
     ensure_discord_routes(site_session, slug)
-    team_ids = _active_team_ids_for_boxscore_channels(league_session)
+    team_ids = _active_team_ids_for_boxscore_channels(
+        league_session, league_slug=slug
+    )
     if not team_ids:
         return 0
     existing = {
@@ -2490,6 +2516,15 @@ def enqueue_discord_event(
     bot_cfg = get_league_bot_config(session, league_slug)
     if not bool(bot_cfg.is_enabled):
         return None
+    from app.services.relegation_discord import relegation_discord_enqueue_allowed
+
+    if not relegation_discord_enqueue_allowed(
+        session,
+        league_slug=str(league_slug or "").strip(),
+        event_key=key,
+        payload=dict(payload or {}),
+    ):
+        return None
     payload_clean = _payload_with_source(payload, source_type=source_type, source_id=source_id)
     st = str(payload_clean.get("source_type") or "").strip()
     sid = str(payload_clean.get("source_id") or "").strip()
@@ -2593,6 +2628,15 @@ def enqueue_repeatable_discord_event(
     if key not in REPEATABLE_DISCORD_EVENT_KEYS or not is_valid_event_key(key):
         return None
     if not is_discord_event_route_active(session, league_slug=league_slug, event_key=key):
+        return None
+    from app.services.relegation_discord import relegation_discord_enqueue_allowed
+
+    if not relegation_discord_enqueue_allowed(
+        session,
+        league_slug=str(league_slug or "").strip(),
+        event_key=key,
+        payload=dict(payload or {}),
+    ):
         return None
     route = _route_map(session, league_slug).get(key)
     if route is None:

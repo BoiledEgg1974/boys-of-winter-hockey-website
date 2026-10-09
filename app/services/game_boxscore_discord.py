@@ -764,12 +764,23 @@ def enqueue_game_boxscore_events_for_game(
     game = league_session.get(Game, int(game_id))
     if game is None or str(game.status or "").lower() != "final":
         return 0
+    from app.services.relegation_discord import (
+        relegation_discord_game_eligible,
+        relegation_discord_team_id_ok,
+    )
+
+    if not relegation_discord_game_eligible(league_session, league_slug=slug, game=game):
+        return 0
     team_ids = [tid for tid in (game.away_team_id, game.home_team_id) if tid is not None]
     queued = 0
     for tid in team_ids:
         try:
             team_id = int(tid)
         except (TypeError, ValueError):
+            continue
+        if not relegation_discord_team_id_ok(
+            league_session, league_slug=slug, team_id=team_id
+        ):
             continue
         channel_id = resolve_game_boxscore_team_channel_id(
             site_session, league_slug=slug, team_id=team_id
@@ -869,6 +880,15 @@ def notify_game_boxscores_after_import(
     cleared: set[int] = set()
     for gid in _ordered_game_ids(league_session, pending):
         stats["games"] += 1
+        game = league_session.get(Game, int(gid))
+        from app.services.relegation_discord import relegation_discord_game_eligible
+
+        if game is not None and not relegation_discord_game_eligible(
+            league_session, league_slug=slug, game=game
+        ):
+            cleared.add(gid)
+            stats["skipped"] += 1
+            continue
         n = enqueue_game_boxscore_events_for_game(
             site_session,
             league_session,
@@ -880,7 +900,6 @@ def notify_game_boxscores_after_import(
             cleared.add(gid)
             continue
         # Missing/non-final, or already posted for every configured GM channel.
-        game = league_session.get(Game, int(gid))
         if game is None or str(game.status or "").lower() != "final":
             cleared.add(gid)
         elif _unqueued_final_is_already_posted(

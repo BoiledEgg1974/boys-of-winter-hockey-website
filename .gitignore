@@ -29,6 +29,8 @@ app/static/img/news/
 
 # Flask/local runtime files
 instance/*.db
+instance/*.db-shm
+instance/*.db-wal
 instance/*.sqlite
 instance/*.sqlite3
 instance/*.bak

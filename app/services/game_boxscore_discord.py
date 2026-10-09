@@ -224,18 +224,6 @@ def record_game_boxscore_team_watermark(
     site_session.flush()
 
 
-def _looks_like_matchup_source_id(source_id: str) -> bool:
-    sid = str(source_id or "").strip()
-    if ":t" not in sid:
-        return False
-    head = sid.split(":", 1)[0]
-    try:
-        date.fromisoformat(head)
-    except ValueError:
-        return False
-    return True
-
-
 def is_game_boxscore_duplicate_for_team(
     site_session: Session,
     *,
@@ -263,10 +251,20 @@ def is_game_boxscore_duplicate_for_team(
         if game_date < last_date:
             return True
         if game_date == last_date:
-            # Same in-game day: skip unless the stored mark is a different matchup.
-            if last_sid and last_sid not in ids and _looks_like_matchup_source_id(last_sid):
-                return False
-            return True
+            if last_sid and last_sid in ids:
+                return True
+            legacy_sid = game_boxscore_legacy_source_id(game, team_id=int(team_id))
+            if last_sid and last_sid == legacy_sid:
+                return True
+            # Legacy ``{game_id}:{team_id}`` watermark from an older post format.
+            if last_sid and ":t" not in last_sid and ":" in last_sid:
+                try:
+                    marked_gid = int(str(last_sid).split(":", 1)[0])
+                    if marked_gid == int(game.id):
+                        return True
+                except (TypeError, ValueError):
+                    pass
+            return False
     return False
 
 
@@ -918,31 +916,40 @@ def recent_final_game_ids_for_boxscores(
     league_session: Session,
     *,
     days: int = 7,
+    from_date: date | None = None,
+    to_date: date | None = None,
 ) -> tuple[list[int], date | None, date | None]:
     """Final current-season game ids in the last ``days`` in-game calendar days.
 
     Window ends at the latest final ``game_date`` and includes ``days`` calendar
     days inclusive (e.g. days=7 → latest through latest-6).
+
+    When ``from_date`` and ``to_date`` are both set, returns finals in that inclusive
+    in-game calendar range (``days`` is ignored).
     """
     from app.services.seasons import get_current_season
 
-    try:
-        window_days = max(1, int(days))
-    except (TypeError, ValueError):
-        window_days = 7
     season = get_current_season()
     if season is None:
         return [], None, None
-    latest = league_session.scalar(
-        select(func.max(Game.game_date)).where(
-            Game.season_id == int(season.id),
-            Game.status == "final",
-            Game.game_date.is_not(None),
+    if from_date is not None and to_date is not None:
+        start = min(from_date, to_date)
+        latest = max(from_date, to_date)
+    else:
+        try:
+            window_days = max(1, int(days))
+        except (TypeError, ValueError):
+            window_days = 7
+        latest = league_session.scalar(
+            select(func.max(Game.game_date)).where(
+                Game.season_id == int(season.id),
+                Game.status == "final",
+                Game.game_date.is_not(None),
+            )
         )
-    )
-    if latest is None:
-        return [], None, None
-    start = latest - timedelta(days=window_days - 1)
+        if latest is None:
+            return [], None, None
+        start = latest - timedelta(days=window_days - 1)
     ids = list(
         league_session.scalars(
             select(Game.id)
@@ -964,13 +971,20 @@ def final_game_ids_for_boxscore_queue(
     *,
     days: int = 7,
     game_type: str | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
 ) -> tuple[list[int], date | None, date | None]:
     """Current-season final game ids for manual boxscore queue (by window or game type)."""
     from app.services.seasons import get_current_season
 
     gt = str(game_type or "").strip()
     if not gt:
-        return recent_final_game_ids_for_boxscores(league_session, days=days)
+        return recent_final_game_ids_for_boxscores(
+            league_session,
+            days=days,
+            from_date=from_date,
+            to_date=to_date,
+        )
     season = get_current_season()
     if season is None:
         return [], None, None
@@ -1005,6 +1019,8 @@ def queue_recent_game_boxscores(
     league_slug: str,
     days: int = 7,
     game_type: str | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
     created_by_user_id: int | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
@@ -1024,7 +1040,11 @@ def queue_recent_game_boxscores(
         window_days = 7
     gt = str(game_type or "").strip() or None
     game_ids, start, latest = final_game_ids_for_boxscore_queue(
-        league_session, days=window_days, game_type=gt
+        league_session,
+        days=window_days,
+        game_type=gt,
+        from_date=from_date,
+        to_date=to_date,
     )
     stats: dict[str, Any] = {
         "games": 0,
@@ -1032,6 +1052,8 @@ def queue_recent_game_boxscores(
         "skipped": 0,
         "days": window_days,
         "game_type": gt,
+        "from_date": from_date.isoformat() if from_date is not None else None,
+        "to_date": to_date.isoformat() if to_date is not None else None,
         "window_start": start.isoformat() if start is not None else None,
         "window_end": latest.isoformat() if latest is not None else None,
         "force": bool(force),

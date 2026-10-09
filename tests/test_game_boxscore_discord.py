@@ -636,8 +636,8 @@ class BoxscoreUniquenessTest(unittest.TestCase):
                 )
             )
 
-    def test_same_day_legacy_watermark_is_duplicate(self) -> None:
-        game = self._game(game_id=1087, game_date=date(2025, 10, 12))
+    def test_same_day_legacy_watermark_same_game_is_duplicate(self) -> None:
+        game = self._game(game_id=42, game_date=date(2025, 10, 12))
         site = MagicMock()
         with patch(
             "app.services.game_boxscore_discord.is_source_delivered",
@@ -647,6 +647,22 @@ class BoxscoreUniquenessTest(unittest.TestCase):
             return_value=("42:10", date(2025, 10, 12)),
         ):
             self.assertTrue(
+                is_game_boxscore_duplicate_for_team(
+                    site, league_slug="bowl-cap", game=game, team_id=10
+                )
+            )
+
+    def test_same_day_legacy_watermark_different_game_is_not_duplicate(self) -> None:
+        game = self._game(game_id=1087, game_date=date(2025, 10, 12))
+        site = MagicMock()
+        with patch(
+            "app.services.game_boxscore_discord.is_source_delivered",
+            return_value=False,
+        ), patch(
+            "app.services.game_boxscore_discord.last_posted_game_boxscore_for_team",
+            return_value=("42:10", date(2025, 10, 12)),
+        ):
+            self.assertFalse(
                 is_game_boxscore_duplicate_for_team(
                     site, league_slug="bowl-cap", game=game, team_id=10
                 )

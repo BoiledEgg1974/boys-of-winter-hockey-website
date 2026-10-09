@@ -18,8 +18,23 @@ _RELEGATION_DISCORD_UNSCOPED_EVENT_KEYS = frozenset(
 )
 
 
-def _main_tier_team_ids(session: Session) -> frozenset[int]:
-    return relegation_main_tier_team_ids(session)
+def _league_session_for_filter(session: Session, league_slug: str) -> Session:
+    """Resolve the session that can load league tables (Game, Team) for ``league_slug``."""
+    slug = str(league_slug or "").strip()
+    try:
+        from flask import current_app
+
+        from app.league_db import db
+
+        if slug and slug == str(current_app.config.get("LEAGUE_SLUG") or "").strip():
+            return db.session
+    except RuntimeError:
+        pass
+    return session
+
+
+def _main_tier_team_ids(session: Session, *, league_slug: str) -> frozenset[int]:
+    return relegation_main_tier_team_ids(_league_session_for_filter(session, league_slug))
 
 
 def relegation_discord_team_id_ok(
@@ -33,7 +48,7 @@ def relegation_discord_team_id_ok(
         return True
     if team_id is None:
         return True
-    main = _main_tier_team_ids(session)
+    main = _main_tier_team_ids(session, league_slug=league_slug)
     if not main:
         return True
     try:
@@ -54,7 +69,7 @@ def relegation_discord_game_eligible(
         return True
     if game is None:
         return False
-    main = _main_tier_team_ids(session)
+    main = _main_tier_team_ids(session, league_slug=league_slug)
     if not main:
         return True
     for raw_tid in (game.home_team_id, game.away_team_id):
@@ -86,8 +101,9 @@ def relegation_discord_enqueue_allowed(
     if key == "record_broken":
         from app.services.record_broken_discord import record_broken_eligible_for_discord
 
+        league_sess = _league_session_for_filter(session, slug)
         return record_broken_eligible_for_discord(
-            session, league_slug=slug, payload=p
+            league_sess, league_slug=slug, payload=p
         )
 
     if key in _RELEGATION_DISCORD_UNSCOPED_EVENT_KEYS:
@@ -101,13 +117,16 @@ def relegation_discord_enqueue_allowed(
             game_id = int(gid)
         except (TypeError, ValueError):
             return False
-        game = session.get(Game, game_id)
-        if not relegation_discord_game_eligible(session, league_slug=slug, game=game):
+        league_sess = _league_session_for_filter(session, slug)
+        game = league_sess.get(Game, game_id)
+        if not relegation_discord_game_eligible(
+            league_sess, league_slug=slug, game=game
+        ):
             return False
         target = p.get("team_id")
         if target is not None:
             return relegation_discord_team_id_ok(
-                session, league_slug=slug, team_id=int(target)
+                league_sess, league_slug=slug, team_id=int(target)
             )
         return True
 
@@ -115,7 +134,8 @@ def relegation_discord_enqueue_allowed(
         series = p.get("series")
         if not isinstance(series, list) or not series:
             return False
-        main = _main_tier_team_ids(session)
+        league_sess = _league_session_for_filter(session, slug)
+        main = _main_tier_team_ids(league_sess, league_slug=slug)
         if not main:
             return True
         for item in series:
@@ -155,7 +175,8 @@ def filter_playoff_bracket_series_for_relegation(
         return series_rows
     from app.services.playoff_discord_predictions import _team_side_id_from_json
 
-    main = _main_tier_team_ids(session)
+    league_sess = _league_session_for_filter(session, league_slug)
+    main = _main_tier_team_ids(league_sess, league_slug=league_slug)
     if not main:
         return series_rows
 

@@ -714,6 +714,9 @@ def record_broken_eligible_for_discord(
     # League boards on the site already aggregate BLUP+BLOW only.
     if category in ("season", "all_time") and scope == "league":
         return True
+    # Single-game baselines (and deploy live-diff payloads) are BLUP/BLOW-only on this mount.
+    if category == "game" and scope == "league":
+        return True
     return False
 
 
@@ -893,7 +896,7 @@ def collect_live_record_state(league_session: Session) -> dict[str, Any]:
             player_kind=metric.player_kind,
             metric_key=metric.key,
         )
-        _, _, team_abbrev, _ = _team_bits(row.team)
+        tid, fhm, team_abbrev, _tname = _team_bits(row.team)
         _, _, opp_abbrev, _ = _team_bits(row.opponent_team)
         display_value = format_game_record_value(value, metric)
         game_baselines[key] = {
@@ -906,6 +909,8 @@ def collect_live_record_state(league_session: Session) -> dict[str, Any]:
             "value": value,
             "display_value": display_value,
             "player_name": _player_display_name(row.player),
+            "team_id": tid,
+            "fhm_team_id": fhm,
             "team_abbrev": team_abbrev,
             "opponent_abbrev": opp_abbrev,
             "season_label": str(row.season_label or "").strip(),
@@ -981,19 +986,29 @@ def events_from_live_record_state_diff(
                 season_label=str(new_raw.get("season_label") or ""),
                 opponent_abbrev=str(new_raw.get("opponent_abbrev") or ""),
             )
+            payload: dict[str, Any] = {
+                "title": title,
+                "record_category": "game",
+                "record_scope": "league",
+                "record_title": title,
+                "old_record_line": old_line,
+                "new_record_line": new_line,
+                "player_name": str(new_raw.get("player_name") or ""),
+                "record_path": record_path,
+            }
+            tid = _as_int_or_none(new_raw.get("team_id"))
+            if tid is not None:
+                payload["team_id"] = int(tid)
+            fhm = new_raw.get("fhm_team_id")
+            if fhm is not None and str(fhm).strip():
+                payload["fhm_team_id"] = fhm
+            team_abbrev = str(new_raw.get("team_abbrev") or "").strip()
+            if team_abbrev:
+                payload["team_abbrev"] = team_abbrev
             events.append(
                 {
                     "source_id": f"{key}:player:0:{new_val}",
-                    "payload": {
-                        "title": title,
-                        "record_category": "game",
-                        "record_scope": "league",
-                        "record_title": title,
-                        "old_record_line": old_line,
-                        "new_record_line": new_line,
-                        "player_name": str(new_raw.get("player_name") or ""),
-                        "record_path": record_path,
-                    },
+                    "payload": payload,
                 }
             )
     return events

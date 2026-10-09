@@ -385,6 +385,25 @@ class RecordBrokenRelegationTierTest(unittest.TestCase):
                 )
             )
 
+    def test_game_record_without_team_id_allowed_on_relegation(self) -> None:
+        from app.services.record_broken_discord import record_broken_eligible_for_discord
+
+        session = MagicMock()
+        payload = {
+            "record_category": "game",
+            "record_scope": "league",
+            "new_record_line": "Player (MTL) — 6",
+        }
+        with patch(
+            "app.services.relegation.relegation_main_tier_team_ids",
+            return_value=frozenset({10, 11}),
+        ):
+            self.assertTrue(
+                record_broken_eligible_for_discord(
+                    session, league_slug="bowl-fantasy", payload=payload
+                )
+            )
+
 
 class RecordBrokenHumanGmLeagueTest(unittest.TestCase):
     def test_enqueue_skips_when_league_has_no_active_gms(self) -> None:

@@ -1130,15 +1130,10 @@ def gm_achievements_page():
     if not _can_view_action_points_page(mem):
         flash("Achievements are available to active GMs and league admins.", "err")
         return redirect(url_for("main.home"))
-    from app.services.gm_achievements import (
-        build_achievements_page_payload,
-        evaluate_gm_achievements_after_import,
-    )
+    from app.services.gm_achievements import build_achievements_page_payload
 
-    try:
-        evaluate_gm_achievements_after_import(current_app)
-    except Exception:
-        current_app.logger.exception("GM achievements catch-up on Achievements page failed")
+    # Full evaluation runs after FHM import (rebuild); do not run it on every page
+    # view — discover_true_achievements can exceed gunicorn timeout and yield empty 200s.
     _sync_achievement_ap_ledger(slug)
     payload = build_achievements_page_payload(db.session, league_slug=slug, membership=mem)
     return render_template("gm_achievements.html", membership=mem, **payload)

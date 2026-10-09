@@ -60,6 +60,17 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 
+def _print_console(text: str) -> None:
+    """Print on Windows consoles that cannot encode player/asset filenames (cp1252)."""
+    line = f"{text}\n"
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        sys.stdout.buffer.write(line.encode(enc, errors="replace"))
+        sys.stdout.flush()
+
+
 def _ensure_deploy_dependencies() -> None:
     """If paramiko is missing, print install instructions and optionally run pip after prompt."""
     try:
@@ -1293,7 +1304,7 @@ def cmd_sync(ns: argparse.Namespace) -> int:
             ensure_remote_dir(sftp, remote_parent)
             sftp.put(str(local_path), remote_file)
             uploaded += 1
-            print(f"upload {rel.as_posix()}")
+            _print_console(f"upload {rel.as_posix()}")
     finally:
         if client is not None:
             client.close()

@@ -1229,12 +1229,14 @@ def sync_local_ap_catalog_from_remote(
 def _resolve_ns_connection(ns: argparse.Namespace) -> None:
     from scripts.deploy_live_host import bootstrap_deploy_env, resolve_step2_connection
 
+    deploy_env = bootstrap_deploy_env()
+    venv_bin = getattr(ns, "venv_bin", None) or deploy_env.get("PA_REMOTE_VENV_BIN") or ""
     host, user, remote_path, venv_bin = resolve_step2_connection(
         host=ns.host,
         user=ns.user,
         remote_path=ns.remote_path,
-        venv_bin=ns.venv_bin,
-        environ=bootstrap_deploy_env(),
+        venv_bin=venv_bin,
+        environ=deploy_env,
     )
     ns.host = host
     ns.user = user

@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/srv/bowl/app/deploy/vps/sync-backups-offsite.sh
+ExecStartPost=-/bin/systemctl start bowl-backup-offsite-secondary.service
 Nice=10
 
 [Install]

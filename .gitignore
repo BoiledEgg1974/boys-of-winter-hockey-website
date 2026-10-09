@@ -23,6 +23,7 @@ htmlcov/
 backup-from-pa/
 backup-from-do/
 scripts/offsite-backup.env
+scripts/cloudflare.env
 
 # GM / admin headline image uploads (per league under static)
 app/static/img/news/

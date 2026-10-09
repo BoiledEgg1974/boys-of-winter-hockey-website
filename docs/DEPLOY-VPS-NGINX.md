@@ -266,7 +266,7 @@ Detailed cutover steps: **section 11**.
 1. Copy live data and secrets from PA → VPS (§11.2–11.3).
 2. Build VPS stack (sections 2–6), test in parallel (§11.4).
 3. Cut DNS (§11.5), move Discord bot (§11.6), repoint deploy (§11.7).
-4. Decommission PA when stable (§11.8).
+4. Decommission PA when stable (§11.9).
 
 ---
 
@@ -381,7 +381,7 @@ Namecheap step-by-step: **§13**.
 3. Run **certbot** on the VPS for the real `server_name` (section 6).
 4. **Restart web** and run cache warm (section 7).
 5. Smoke-test from a network **without** `/etc/hosts` overrides.
-6. Leave the PA web app **enabled but unused** for 24–48h (rollback, §11.9).
+6. Leave the PA web app **enabled but unused** for 24–48h (rollback, §11.10).
 
 **Discord interactions URL** stays `https://www.bowlhockey.com/api/discord/interactions` — no Developer Portal change if the domain is unchanged.
 
@@ -434,9 +434,62 @@ STEP2 runs **`deploy-db`** against **`159.203.6.136`** / **`/srv/bowl/app`**, th
 
 **What still runs on the server during `deploy-db`:** capture live OVR/trade/editorial → merge locally → upload SQLite → `notify_discord_after_db_deploy.py`. That logic is unchanged; it now runs against the VPS tree under `/srv/bowl/app`.
 
-**Code-only changes** (no DB upload): `git pull` on the VPS + `systemctl restart bowl-web`, or extend your workflow with `STEP2 sync` targeting the VPS (same `PA_*` overrides, no import).
+**Code-only changes** (no DB upload): from your PC, `python scripts/sync_vps_app_code.py --pip --restart` (recommended when the droplet is not a git checkout). If `/srv/bowl/app` is a clone: `git pull` + `systemctl restart bowl-web`.
 
-### 11.8 Decommission PythonAnywhere
+### 11.8 Manual recovery bash (DO console / SSH)
+
+DigitalOcean does **not** offer a PythonAnywhere-style “run this bash on the server” button. Use:
+
+- **Droplet → Access → Launch Droplet Console** (browser shell, usually **root**), or  
+- **SSH** from your PC, e.g. `ssh -i ~/.ssh/id_ed25519_pa root@159.203.6.136`
+
+Production paths: app **`/srv/bowl/app`**, venv **`/srv/bowl/app/.venv`**, reload **`systemctl restart bowl-web`** (not `/var/www/…_wsgi.py`). Discord: **`bowl-discord-bot.service`**.
+
+The old PythonAnywhere block (`/home/BoiledEgg1974/…`, `touch www_bowlhockey_com_wsgi.py`) is **not** valid on the VPS.
+
+**Normal night (your PC — includes live DBs + Discord):**
+
+```powershell
+python scripts/BOWL-Site-Update.py
+```
+
+**Rare full remote rebuild (your PC — equivalent to old PA hard reset + new venv):**
+
+```powershell
+python scripts/STEP2_pythonanywhere.py deploy --full-remote-rebuild
+```
+
+**Code sync from your PC** (rsync snapshot; skips `.env` / `instance/*.db`):
+
+```powershell
+python scripts/sync_vps_app_code.py --pip --restart
+```
+
+**One-time:** turn a rsync tree into a clone (keeps `.env`, DBs, `.venv`):
+
+```bash
+bash /srv/bowl/app/deploy/vps/init-app-git-checkout.sh
+```
+
+**On the droplet** (git checkout at `/srv/bowl/app`, branch `master`):
+
+```bash
+cd /srv/bowl/app
+git fetch origin
+git checkout master
+git reset --hard origin/master
+source /srv/bowl/app/.venv/bin/activate
+pip install --upgrade -r requirements.txt
+python -c "import flask, flask_login, flask_sqlalchemy, flask_wtf, pymysql; print('imports ok')"
+# Guild id is in /srv/bowl/app/.env — do not blank DISCORD_GUILD_ID unless intentional:
+python -m scripts.league_discord_bot.register_slash_commands
+python scripts/backup_all_live_data.py
+sudo systemctl restart bowl-web bowl-discord-bot
+```
+
+That checklist updates **code and dependencies** only. It does **not** import FHM CSVs or upload league SQLite; use **`BOWL-Site-Update`** / **`deploy-db`** for live scores and Discord boxscore queues. See also **`scripts/README.md`** (DigitalOcean VPS bash).
+
+### 11.9 Decommission PythonAnywhere
 
 When the VPS has been stable through at least one full **BOWL-Site-Update** cycle:
 
@@ -446,7 +499,7 @@ When the VPS has been stable through at least one full **BOWL-Site-Update** cycl
 
 Do **not** delete PA until league SQLite and site DB backups are verified on the VPS.
 
-### 11.9 Rollback
+### 11.10 Rollback
 
 If something fails right after DNS change:
 
@@ -454,7 +507,7 @@ If something fails right after DNS change:
 2. Re-enable PA Web + Always-on bot; disable VPS bot/web if they might conflict.
 3. If you uploaded DBs to the VPS during a bad deploy, restore PA from your last good `instance/` backup — PA was unchanged during parallel testing if you did not run deploy-db against it after cutover.
 
-### 11.10 Cutover timeline (example)
+### 11.11 Cutover timeline (example)
 
 | Day | Action |
 | --- | ------ |
@@ -463,7 +516,7 @@ If something fails right after DNS change:
 | D−1 | Lower DNS TTL; dry-run `deploy-db --skip-reload` to VPS |
 | D0 | DNS to VPS (§11.5); start VPS Discord bot; disable PA bot |
 | D+1 | Full `BOWL-Site-Update` with VPS STEP2 (§11.7) |
-| D+7 | Decommission PA (§11.8) |
+| D+7 | Decommission PA (§11.9) |
 
 ---
 
@@ -619,9 +672,9 @@ Your Flask app expects the same paths on both; hub is at `/`.
 
 Traffic goes to DO; PA is idle unless someone uses the old IP directly.
 
-1. Keep PA **read-only** for a few days (rollback §11.9).
+1. Keep PA **read-only** for a few days (rollback §11.10).
 2. Repoint **`deploy-db`** to the VPS (§11.7).
-3. Disable PA web + Always-on when stable (§11.8).
+3. Disable PA web + Always-on when stable (§11.9).
 
 You do **not** need to “transfer the domain” away from Namecheap for this migration.
 

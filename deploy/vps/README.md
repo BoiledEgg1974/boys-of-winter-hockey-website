@@ -47,11 +47,19 @@ After each `systemctl restart bowl-web`, **`bowl-cache-warm.service`** runs `dep
 
 ## Code sync (PC → VPS)
 
-The droplet app tree may not be a git clone. After you pull on your PC:
+After you pull on your PC, either rsync code:
 
 ```powershell
 python scripts/sync_vps_app_code.py --pip --restart
 ```
+
+or on the VPS (git clone at `/srv/bowl/app`):
+
+```bash
+cd /srv/bowl/app && git fetch origin && git reset --hard origin/master
+```
+
+First-time git on a rsync-only tree: `bash deploy/vps/init-app-git-checkout.sh` (as root on the droplet).
 
 ## Nightly backups
 
@@ -75,6 +83,10 @@ python scripts/push_offsite_backup_env.py --test-sync
 ```
 
 VPS timer **`bowl-backup-offsite.timer`** runs daily **08:45 UTC** (after local backup).
+
+**DR (no NYC3 required):** `bowl-hockey-backups` in **tor1** holds live offsite copies; set `BOWL_SPACES_COPY_PREFIX=bowl-production-dr` for a second prefix in the same Space; **`bowl-backup-offsite-secondary.service`** runs after each primary sync. **PC copy:** `python scripts/mirror_spaces_backups_local.py` → `backup-from-do/spaces-mirror/primary/`. Optional NYC3: set `BOWL_SPACES_SECONDARY_*` only if you create a Space there.
+
+**Checks:** `python scripts/verify_spaces_backups.py` · **intra copy:** `python scripts/sync_spaces_intra_copy.py`
 
 ## Site MySQL (502 fix)
 

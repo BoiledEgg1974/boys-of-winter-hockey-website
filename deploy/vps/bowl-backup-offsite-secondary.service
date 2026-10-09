@@ -1,0 +1,12 @@
+[Unit]
+Description=Mirror BOWL Spaces backups to secondary region bucket
+After=bowl-backup-offsite.service
+Requires=bowl-backup-offsite.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/bowl/app/deploy/vps/sync-backups-offsite-secondary.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

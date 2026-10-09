@@ -126,6 +126,53 @@ touch /var/www/www_bowlhockey_com_wsgi.py
 
 ---
 
+## DigitalOcean VPS bash (manual recovery)
+
+DigitalOcean has **no** PythonAnywhere-style “run this bash on the server” button. Use:
+
+- **Droplet → Access → Launch Droplet Console** (browser shell as root), or  
+- **SSH** from your PC: `ssh -i ~/.ssh/id_ed25519_pa root@159.203.6.136`
+
+Production app paths: **`/srv/bowl/app`**, venv **`/srv/bowl/app/.venv`**, web reload **`systemctl restart bowl-web`** (not WSGI touch). Discord bot: **`bowl-discord-bot.service`**.
+
+The droplet **may not be a git clone**. If `git status` fails under `/srv/bowl/app`, sync code from your PC instead:
+
+```powershell
+python scripts/sync_vps_app_code.py --pip --restart
+```
+
+**Hard reset + venv (rare)** — prefer from your PC (same idea as old PA block):
+
+```powershell
+python scripts/STEP2_pythonanywhere.py deploy --full-remote-rebuild
+```
+
+If you must run on the **droplet** (only when `/srv/bowl/app` is a git checkout):
+
+```bash
+cd /srv/bowl/app
+git fetch origin
+git checkout master
+git reset --hard origin/master
+source /srv/bowl/app/.venv/bin/activate
+pip install --upgrade -r requirements.txt
+python -c "import flask, flask_login, flask_sqlalchemy, flask_wtf, pymysql; print('imports ok')"
+# Guild id comes from /srv/bowl/app/.env — do not blank DISCORD_GUILD_ID unless you mean to:
+python -m scripts.league_discord_bot.register_slash_commands
+python scripts/backup_all_live_data.py
+sudo systemctl restart bowl-web bowl-discord-bot
+```
+
+That checklist updates **code + deps** only. It does **not** refresh league SQLite from FHM or queue Discord boxscores. For a normal night, run on your PC:
+
+```powershell
+python scripts/BOWL-Site-Update.py
+```
+
+(`deploy-db` uploads DBs and runs Discord notify; STEP2 restarts `bowl-web` on the VPS.)
+
+---
+
 ## Still useful (not part of the default pipeline)
 
 | Script | Purpose |

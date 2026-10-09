@@ -50,6 +50,7 @@ def main() -> int:
     subprocess.run(scp, check=True)
 
     remote = (
+        f"sed -i 's/\\r$//' /etc/bowl/offsite-backup.env && "
         f"chmod 600 /etc/bowl/offsite-backup.env && "
         f"bash {app}/deploy/vps/install-offsite-backup.sh"
     )

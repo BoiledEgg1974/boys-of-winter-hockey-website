@@ -24,6 +24,7 @@ class HomepageRelegationScopeTests(unittest.TestCase):
         self.assertTrue(homepage_panel_uses_relegation_scope("schedule"))
         self.assertTrue(homepage_panel_uses_relegation_scope("around_the_league"))
         self.assertTrue(homepage_panel_uses_relegation_scope("power_rankings"))
+        self.assertTrue(homepage_panel_uses_relegation_scope("divisional_standings"))
         self.assertIn("league_transactions", HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS)
 
     def test_combined_scope_limits_to_main_tiers_without_split_flag(self) -> None:

@@ -37,6 +37,7 @@ HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS = frozenset(
         "star_selection_leaders",
         "power_rankings",
         "top_rookies",
+        "divisional_standings",
     }
 )
 

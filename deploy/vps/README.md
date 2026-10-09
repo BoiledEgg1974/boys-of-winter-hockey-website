@@ -45,6 +45,25 @@ Production HTTPS uses `nginx-bowl-live-443.conf` plus `nginx-bowl-snippets-{gzip
 
 After each `systemctl restart bowl-web`, **`bowl-cache-warm.service`** runs `deploy/vps/warm-league-json-cache.sh` (three homepage summary APIs). Logs: `journalctl -u bowl-cache-warm -n 20`.
 
+## Code sync (PC → VPS)
+
+The droplet app tree may not be a git clone. After you pull on your PC:
+
+```powershell
+python scripts/sync_vps_app_code.py --pip --restart
+```
+
+## Nightly backups
+
+On the droplet as **root** (after code sync):
+
+```bash
+bash /srv/bowl/app/deploy/vps/install-backup-timer.sh
+systemctl start bowl-backup.service   # optional test (~1 min site pause for SQLite)
+```
+
+Artifacts: `/srv/bowl/backups/mysql/`, `instance/`, retained **14 days** (timer **07:00 UTC** daily).
+
 ## Site MySQL (502 fix)
 
 PythonAnywhere MySQL **does not accept connections from the droplet** (timeout). League SQLite + Perfect Squad on disk are fine; **gunicorn exits** until `SITE_DATABASE_URL` points at a DB the VPS can reach.

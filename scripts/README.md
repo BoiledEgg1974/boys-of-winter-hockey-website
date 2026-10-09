@@ -76,6 +76,15 @@ python scripts/BOWL-Site-Update.py
 
 `BOWL-Site-Update.py` loads `deploy-live-vps.env` when present and STEP2 uses **`BOWL_WEB_RELOAD=systemd`** instead of touching PythonAnywhere WSGI. Override with `BOWL_DEPLOY_TARGET=pa` and `PA_HOST=ssh.pythonanywhere.com` if you ever push to PA again.
 
+**Sync Python (GitHub → VPS)** when the droplet is not a git checkout (rsync snapshot). Does **not** upload `instance/*.db` or `.env`:
+
+```bash
+python scripts/sync_vps_app_code.py --dry-run
+python scripts/sync_vps_app_code.py --pip --restart
+```
+
+Nightly **MariaDB + SQLite** backups on the VPS: `deploy/vps/bowl-backup.timer` (install with `bash /srv/bowl/app/deploy/vps/install-backup-timer.sh` as root).
+
 ---
 
 ## PythonAnywhere bash (manual recovery only)

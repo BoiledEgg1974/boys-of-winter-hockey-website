@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BOWL nightly backup (07:00 UTC ≈ 03:00 US Eastern standard)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

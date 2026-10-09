@@ -48,6 +48,10 @@ systemctl enable bowl-web
 systemctl restart bowl-web
 systemctl reload nginx
 
+if [[ -x "$APP/deploy/vps/install-backup-timer.sh" ]]; then
+  bash "$APP/deploy/vps/install-backup-timer.sh"
+fi
+
 echo "Web stack up. Test: curl -sI -H 'Host: www.bowlhockey.com' http://127.0.0.1/bowl-fantasy/"
 echo "MySQL site DB check (must succeed for GM/news/Discord queue):"
 sudo -u bowl bash -c "cd $APP && set -a && source .env && set +a && $APP/.venv/bin/python scripts/verify_site_mysql_connection.py" || true

@@ -1,0 +1,11 @@
+[Unit]
+Description=BOWL nightly MariaDB + league SQLite backup
+After=network.target mariadb.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/bowl/app/deploy/vps/bowl-nightly-backup.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

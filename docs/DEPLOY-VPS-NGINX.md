@@ -237,6 +237,26 @@ Run the league Discord bot as a **separate** systemd service (same repo, same `.
 
 Keep using `scripts/run_site_update.py` from your dev machine or a CI runner; on the VPS you only need git pull / rsync DBs, imports, and `systemctl restart bowl-web`.
 
+### Code sync (when `/srv/bowl/app` is not a git checkout)
+
+```bash
+python scripts/sync_vps_app_code.py --dry-run
+python scripts/sync_vps_app_code.py --pip --restart
+```
+
+Excludes `instance/*.db`, `.env`, and `instance/league_json_cache/`. Use **`deploy-db`** for live league data.
+
+### Nightly backups (MariaDB + SQLite)
+
+On the droplet as root, after the backup scripts exist under `deploy/vps/`:
+
+```bash
+bash /srv/bowl/app/deploy/vps/install-backup-timer.sh
+systemctl start bowl-backup.service   # optional test
+```
+
+Files land in `/srv/bowl/backups/` (14-day retention). The backup stops `bowl-web` briefly while tarring SQLite files.
+
 ---
 
 ## 10. Migration checklist from PythonAnywhere (summary)

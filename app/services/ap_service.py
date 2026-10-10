@@ -368,6 +368,11 @@ def _normalize_catalog_title(title: str) -> str:
     return " ".join(str(title or "").strip().lower().split())
 
 
+def _catalog_match_key(title: str) -> str:
+    """Stable perk key for dedupe (ignores trailing punctuation and spacing)."""
+    return _normalize_catalog_title(title).rstrip(".,;:!?")
+
+
 _PERSUASION_CATALOG_TITLE = "Persuasion"
 _PERSUASION_CATALOG_DESCRIPTION = (
     "Convince a player who wants to leave the team and test the market by paying him "
@@ -407,6 +412,11 @@ _FANTASY_CATALOG_DEFAULTS: tuple[tuple[int, str, str, int], ...] = (
     ),
 )
 
+_FANTASY_DEFAULT_BY_MATCH_KEY: dict[str, tuple[int, str, str, int]] = {
+    _catalog_match_key(title): (order, title, desc, cost)
+    for order, title, desc, cost in _FANTASY_CATALOG_DEFAULTS
+}
+
 # Legacy Relegation seed titles superseded by canonical catalog rows (kept inactive on reconcile).
 _FANTASY_LEGACY_CATALOG_TITLES: frozenset[str] = frozenset(
     {
@@ -415,6 +425,53 @@ _FANTASY_LEGACY_CATALOG_TITLES: frozenset[str] = frozenset(
         "Major Customization",
     }
 )
+
+
+def _pick_fantasy_catalog_duplicate_keeper(
+    rows: list[ApRedemptionCatalog],
+) -> ApRedemptionCatalog:
+    """When several active rows describe the same perk, keep the canonical / cheapest one."""
+    if len(rows) == 1:
+        return rows[0]
+    key = _catalog_match_key(rows[0].title)
+    default = _FANTASY_DEFAULT_BY_MATCH_KEY.get(key)
+    if default:
+        _, canon_title, _, _ = default
+        canon_norm = _normalize_catalog_title(canon_title)
+        for row in rows:
+            if _normalize_catalog_title(row.title) == canon_norm:
+                return row
+    return min(rows, key=lambda r: (int(r.cost_ap or 0), int(r.id or 0)))
+
+
+def _dedupe_fantasy_catalog_duplicates() -> bool:
+    """Deactivate duplicate Relegation catalog rows (e.g. trailing '.' on the same perk title)."""
+    rows = list(
+        db.session.scalars(
+            select(ApRedemptionCatalog).where(ApRedemptionCatalog.league_group == "fantasy")
+        ).all()
+    )
+    groups: dict[str, list[ApRedemptionCatalog]] = {}
+    for row in rows:
+        groups.setdefault(_catalog_match_key(row.title), []).append(row)
+    changed = False
+    for key, group in groups.items():
+        active = [r for r in group if r.is_active]
+        if len(active) <= 1:
+            continue
+        keeper = _pick_fantasy_catalog_duplicate_keeper(active)
+        default = _FANTASY_DEFAULT_BY_MATCH_KEY.get(key)
+        if default:
+            _, canon_title, _, _ = default
+            if (keeper.title or "").strip() != canon_title:
+                keeper.title = canon_title
+                changed = True
+        keeper_id = int(keeper.id)
+        for row in active:
+            if int(row.id) != keeper_id:
+                row.is_active = False
+                changed = True
+    return changed
 
 
 def _retire_legacy_fantasy_catalog_entries(by_title: dict[str, ApRedemptionCatalog]) -> bool:
@@ -474,9 +531,10 @@ def _reconcile_fantasy_ap_catalog() -> None:
     if row is not None and row.description != "Relegation league — adjust rival.":
         row.description = "Relegation league — adjust rival."
         changed = True
+    by_match = {_catalog_match_key(r.title): r for r in existing}
     for order, title, desc, cost in _FANTASY_CATALOG_DEFAULTS:
-        key = _normalize_catalog_title(title)
-        row = by_title.get(key)
+        key = _catalog_match_key(title)
+        row = by_match.get(key) or by_title.get(_normalize_catalog_title(title))
         if row is None:
             db.session.add(
                 ApRedemptionCatalog(
@@ -489,6 +547,8 @@ def _reconcile_fantasy_ap_catalog() -> None:
                 )
             )
             changed = True
+    if _dedupe_fantasy_catalog_duplicates():
+        changed = True
     if changed:
         commit_with_sqlite_retry(db.session)
 

@@ -96,6 +96,7 @@ def special_teams_rows_for_power_rankings(
         st = standings_by_team.get(row.team_id)
         special_teams.append(
             {
+                "team_id": int(tm.id),
                 "team": tm.abbreviation,
                 "team_name": tm.full_display_name(),
                 "team_city": (tm.city or tm.name or "").strip(),
@@ -333,6 +334,17 @@ def _game_card_json(session, g: Game, logo_season_year: int | None = None) -> di
     }
 
 
+def _game_both_teams_in_ids(
+    g: Game,
+    allowed_team_ids: frozenset[int] | None,
+) -> bool:
+    if allowed_team_ids is None:
+        return True
+    if g.home_team_id is None or g.away_team_id is None:
+        return False
+    return int(g.home_team_id) in allowed_team_ids and int(g.away_team_id) in allowed_team_ids
+
+
 def pick_game_of_the_night(
     session,
     season_id: int,
@@ -341,6 +353,8 @@ def pick_game_of_the_night(
     conf_cutoff: dict[str, int],
     since: date | None = None,
     logo_season_year: int | None = None,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> dict[str, Any] | None:
     """Pick highest-stakes final in season. Optional ``since`` lower-bounds game_date (sim seasons may be historical dates)."""
     q = select(Game).where(
@@ -351,6 +365,8 @@ def pick_game_of_the_night(
     if since is not None:
         q = q.where(Game.game_date >= since)
     games = session.scalars(q.order_by(Game.game_date.desc(), Game.id.desc()).limit(120)).all()
+    if allowed_team_ids is not None:
+        games = [g for g in games if _game_both_teams_in_ids(g, allowed_team_ids)]
     if not games:
         return None
     scored: list[tuple[float, Game]] = []
@@ -383,6 +399,8 @@ def pick_next_game_to_watch(
     conf_cutoff: dict[str, int],
     from_date: date,
     logo_season_year: int | None = None,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> dict[str, Any] | None:
     games = session.scalars(
         select(Game)
@@ -402,6 +420,8 @@ def pick_next_game_to_watch(
             .order_by(Game.game_date.asc().nulls_last(), Game.id.asc())
             .limit(80)
         ).all()
+    if allowed_team_ids is not None:
+        games = [g for g in games if _game_both_teams_in_ids(g, allowed_team_ids)]
     if not games:
         return None
     best: tuple[float, Game] | None = None
@@ -674,6 +694,8 @@ def build_trending_players(
     window_days: int = 14,
     limit: int = 5,
     logo_season_year: int | None = None,
+    *,
+    allowed_team_slugs: frozenset[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Recent form vs season baseline using the last ``window_days`` **league** days ending ``as_of``."""
     start = as_of - timedelta(days=window_days)
@@ -707,6 +729,12 @@ def build_trending_players(
     ).all()
     deltas: list[tuple[float, Player, int, float, float]] = []
     for pid, pts, gp, pl in season_rows:
+        if allowed_team_slugs is not None:
+            tm_chk = session.get(Team, pl.current_team_id) if pl.current_team_id else None
+            from app.services.homepage_relegation_filter import team_slug_in_relegation_scope
+
+            if not team_slug_in_relegation_scope(tm_chk, allowed_team_slugs):
+                continue
         rgp = len(recent_gp.get(int(pid), set()))
         if rgp < 3:
             continue
@@ -754,7 +782,12 @@ def build_trending_players(
 
 
 def build_active_streaks(
-    session, season_id: int, limit: int = 5, logo_season_year: int | None = None
+    session,
+    season_id: int,
+    limit: int = 5,
+    logo_season_year: int | None = None,
+    *,
+    allowed_team_slugs: frozenset[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Goal streak / point streak from most recent games backward (skaters only)."""
     games = session.scalars(
@@ -798,6 +831,11 @@ def build_active_streaks(
                 pt += 1
             else:
                 break
+        if allowed_team_slugs is not None:
+            from app.services.homepage_relegation_filter import team_slug_in_relegation_scope
+
+            if not team_slug_in_relegation_scope(tm, allowed_team_slugs):
+                continue
         if gl >= 2:
             goal_best.append((gl, pl, tm))
         if pt >= 2:

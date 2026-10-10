@@ -1580,7 +1580,7 @@ def homepage_leaders():
 
     return jsonify_cached(
         "homepage_leaders",
-        ("career-fallback-v1", segment, canonical_id, season_id, rel_scope),
+        ("career-fallback-v2", segment, canonical_id, season_id, rel_scope),
         DEFAULT_FRESH_TTL_SECONDS["homepage_leaders"],
         _build,
         cache_control=60,
@@ -1654,6 +1654,41 @@ def _build_homepage_postseason_odds_payload(
         db.session, season.id, tm_map, n_sims=max(100, min(n_sims, 2000))
     )
     return payload or {}
+
+
+def _homepage_schedule_game_dict(
+    g: Game,
+    ht: Team | None,
+    at: Team | None,
+    *,
+    logo_sy: int | None,
+    status: str | None = None,
+    relegation_cfg=None,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "id": g.id,
+        "date": g.game_date.isoformat() if g.game_date else None,
+        "status": status if status is not None else (g.status or ""),
+        "home_name": ht.name if ht else "",
+        "away_name": at.name if at else "",
+        "home_abbr": ht.abbreviation if ht else "",
+        "away_abbr": at.abbreviation if at else "",
+        "home_logo_url": dashboard_team_logo_url(ht, logo_sy) if ht else "",
+        "away_logo_url": dashboard_team_logo_url(at, logo_sy) if at else "",
+        "home_slug": ht.slug if ht else "",
+        "away_slug": at.slug if at else "",
+    }
+    if status == "final" or (status is None and (g.status or "") == "final"):
+        row["home_score"] = g.home_score
+        row["away_score"] = g.away_score
+        row["game_type"] = g.game_type or ""
+    if relegation_cfg is not None:
+        from app.services.relegation import team_tier
+
+        tier = team_tier(ht, relegation_cfg) or team_tier(at, relegation_cfg)
+        if tier:
+            row["relegation_tier"] = tier
+    return row
 
 
 def _build_homepage_summary_payload(
@@ -1735,7 +1770,9 @@ def _build_homepage_summary_payload(
         resolve_homepage_relegation_scope,
         team_slugs_for_scope,
     )
-    from app.services.relegation import is_relegation_league
+    from app.services.relegation import get_tier_config, is_relegation_league
+
+    relegation_cfg = get_tier_config(db.session) if league_slug == "bowl-fantasy" else None
 
     rel_scope, scope_team_ids = resolve_homepage_relegation_scope(
         db.session,
@@ -1781,6 +1818,16 @@ def _build_homepage_summary_payload(
             for row in special_teams
             if int(row.get("team_id") or 0) in st_scope_ids
         ]
+    if league_slug == "bowl-fantasy" and special_teams:
+        from app.services.relegation import get_tier_config, team_tier
+
+        st_tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+        for row in special_teams:
+            tid = row.get("team_id")
+            tm = db.session.get(Team, int(tid)) if tid is not None else None
+            tier = team_tier(tm, st_tier_cfg) if tm else None
+            if tier:
+                row["relegation_tier"] = tier
     div_pair, div_by_id = load_division_display_maps(raw_dir / "divisions.csv")
     standings_by_division = build_standings_by_division(
         db.session,
@@ -1794,6 +1841,8 @@ def _build_homepage_summary_payload(
         standings_by_division,
         _panel_scope_team_ids("divisional_standings"),
         relegation_scope=rel_scope,
+        session=db.session,
+        raw_import_dir=raw_dir,
     )
     tm_map = {
         tid: t
@@ -1803,6 +1852,8 @@ def _build_homepage_summary_payload(
     conf_cutoff = build_conf_cutoff_map(db.session, season.id)
     league_cal = league_calendar_anchor_date(db.session, season.id)
     gotn_since = league_cal - timedelta(days=7)
+    gotn_scope_ids = _panel_scope_team_ids("game_of_the_night")
+    ng_scope_ids = _panel_scope_team_ids("next_game_to_watch")
     game_of_the_night = pick_game_of_the_night(
         db.session,
         season.id,
@@ -1811,6 +1862,7 @@ def _build_homepage_summary_payload(
         conf_cutoff,
         gotn_since,
         logo_season_year=logo_sy,
+        allowed_team_ids=gotn_scope_ids,
     )
     next_game_to_watch = pick_next_game_to_watch(
         db.session,
@@ -1820,6 +1872,7 @@ def _build_homepage_summary_payload(
         conf_cutoff,
         league_cal,
         logo_season_year=logo_sy,
+        allowed_team_ids=ng_scope_ids,
     )
     if not game_spotlight_in_scope(
         game_of_the_night, _panel_scope_slugs("game_of_the_night")
@@ -1839,8 +1892,14 @@ def _build_homepage_summary_payload(
     star_selection_leaders = build_star_selection_leaders(
         db.session, season.id, logo_season_year=logo_sy
     )
+    momentum_slugs = _panel_scope_slugs("player_momentum")
     trending_players = build_trending_players(
-        db.session, season.id, segment, league_cal, logo_season_year=logo_sy
+        db.session,
+        season.id,
+        segment,
+        league_cal,
+        logo_season_year=logo_sy,
+        allowed_team_slugs=momentum_slugs,
     )
     process_momentum = build_process_momentum_payload(
         db.session,
@@ -1877,7 +1936,12 @@ def _build_homepage_summary_payload(
     team_momentum = filter_team_momentum_payload(
         team_momentum, _panel_scope_slugs("team_momentum")
     )
-    active_streaks = build_active_streaks(db.session, season.id, logo_season_year=logo_sy)
+    active_streaks = build_active_streaks(
+        db.session,
+        season.id,
+        logo_season_year=logo_sy,
+        allowed_team_slugs=momentum_slugs,
+    )
     star_slugs = _panel_scope_slugs("star_selection_leaders")
     stars_slugs = _panel_scope_slugs("three_stars")
     if stars_slugs is not None:
@@ -1896,6 +1960,21 @@ def _build_homepage_summary_payload(
     )
     baseline = select_power_rank_baseline_map(league_slug, power_rankings["teams"])
     apply_power_rank_trends(power_rankings["teams"], baseline)
+    if league_slug == "bowl-fantasy":
+        from app.services.relegation import get_tier_config, team_tier
+
+        pr_tier_cfg = get_tier_config(db.session, raw_import_dir=raw_dir)
+
+        def _power_row_tier(row: dict[str, object]) -> None:
+            tid = row.get("team_id")
+            tm = db.session.get(Team, int(tid)) if tid is not None else None
+            tier = team_tier(tm, pr_tier_cfg) if tm else None
+            if tier:
+                row["relegation_tier"] = tier
+
+        for bucket in ("teams", "top5", "bottom5"):
+            for prow in power_rankings.get(bucket) or []:
+                _power_row_tier(prow)
     module_settings = {
         "visibility": module_visibility_map(db.session, league_slug),
         "sort_order": module_sort_order_map(db.session, league_slug),
@@ -1928,19 +2007,9 @@ def _build_homepage_summary_payload(
         ht = db.session.get(Team, g.home_team_id)
         at = db.session.get(Team, g.away_team_id)
         upcoming_out.append(
-            {
-                "id": g.id,
-                "date": g.game_date.isoformat() if g.game_date else None,
-                "status": g.status or "",
-                "home_name": ht.name if ht else "",
-                "away_name": at.name if at else "",
-                "home_abbr": ht.abbreviation if ht else "",
-                "away_abbr": at.abbreviation if at else "",
-                "home_logo_url": dashboard_team_logo_url(ht, logo_sy) if ht else "",
-                "away_logo_url": dashboard_team_logo_url(at, logo_sy) if at else "",
-                "home_slug": ht.slug if ht else "",
-                "away_slug": at.slug if at else "",
-            }
+            _homepage_schedule_game_dict(
+                g, ht, at, logo_sy=logo_sy, relegation_cfg=relegation_cfg
+            )
         )
 
     # NHL rookie-eligibility style:
@@ -2138,22 +2207,14 @@ def _build_homepage_summary_payload(
         ht = db.session.get(Team, g.home_team_id)
         at = db.session.get(Team, g.away_team_id)
         games_out.append(
-            {
-                "id": g.id,
-                "date": g.game_date.isoformat() if g.game_date else None,
-                "status": "final",
-                "home_abbr": ht.abbreviation if ht else "",
-                "away_abbr": at.abbreviation if at else "",
-                "home_name": ht.name if ht else "",
-                "away_name": at.name if at else "",
-                "home_score": g.home_score,
-                "away_score": g.away_score,
-                "game_type": g.game_type or "",
-                "home_logo_url": dashboard_team_logo_url(ht, logo_sy) if ht else "",
-                "away_logo_url": dashboard_team_logo_url(at, logo_sy) if at else "",
-                "home_slug": ht.slug if ht else "",
-                "away_slug": at.slug if at else "",
-            }
+            _homepage_schedule_game_dict(
+                g,
+                ht,
+                at,
+                logo_sy=logo_sy,
+                status="final",
+                relegation_cfg=relegation_cfg,
+            )
         )
 
     league_transactions: list[dict[str, object]] = []

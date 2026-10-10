@@ -24,6 +24,52 @@ from app.services.season_team_logo_bundle import dashboard_team_logo_url
 _BOWL_SLUGS = frozenset({"bowl-fantasy", "bowl-historical", "bowl-cap"})
 
 
+def _leader_row(
+    pl: Player,
+    tm: Team | None,
+    value: object,
+    *,
+    logo_sy: int | None,
+    photo_url: Callable[[Player | None], str],
+) -> dict[str, Any]:
+    return {
+        "player_id": pl.id,
+        "player": pl.full_name,
+        "player_photo_url": photo_url(pl),
+        "team": tm.abbreviation if tm else "",
+        "team_slug": tm.slug if tm else "",
+        "team_id": int(tm.id) if tm else None,
+        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
+        "value": value,
+    }
+
+
+def _enrich_leaders_relegation_tier(
+    session: Session,
+    leaders: dict[str, list[dict[str, Any]]],
+    *,
+    league_slug: str,
+) -> None:
+    if league_slug != "bowl-fantasy":
+        return
+    from app.services.relegation import get_tier_config, team_tier
+
+    cfg = get_tier_config(session)
+    for rows in leaders.values():
+        for row in rows:
+            tm: Team | None = None
+            tid = row.get("team_id")
+            if tid is not None:
+                tm = session.get(Team, int(tid))
+            elif row.get("team_slug"):
+                tm = session.scalars(
+                    select(Team).where(Team.slug == str(row["team_slug"])).limit(1)
+                ).first()
+            tier = team_tier(tm, cfg) if tm else None
+            if tier:
+                row["relegation_tier"] = tier
+
+
 def _player_photo_url(pl: Player | None) -> str:
     if not pl:
         return ""
@@ -124,15 +170,13 @@ def build_homepage_leaders_payload(
                 pl = rec["player"]
                 tm = rec.get("team")
                 out.append(
-                    {
-                        "player_id": pl.id,
-                        "player": pl.full_name,
-                        "player_photo_url": photo_url(pl),
-                        "team": tm.abbreviation if tm else "",
-                        "team_slug": tm.slug if tm else "",
-                        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                        "value": int(rec["value"]),
-                    }
+                    _leader_row(
+                        pl,
+                        tm,
+                        int(rec["value"]),
+                        logo_sy=logo_sy,
+                        photo_url=photo_url,
+                    )
                 )
             return out
         return []
@@ -172,15 +216,13 @@ def build_homepage_leaders_payload(
                 pl = rec["player"]
                 tm = rec.get("team")
                 out.append(
-                    {
-                        "player_id": pl.id,
-                        "player": pl.full_name,
-                        "player_photo_url": photo_url(pl),
-                        "team": tm.abbreviation if tm else "",
-                        "team_slug": tm.slug if tm else "",
-                        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                        "value": int(rec["value"]),
-                    }
+                    _leader_row(
+                        pl,
+                        tm,
+                        int(rec["value"]),
+                        logo_sy=logo_sy,
+                        photo_url=photo_url,
+                    )
                 )
             return out
         return []
@@ -210,15 +252,13 @@ def build_homepage_leaders_payload(
             for pgs, pl in rows:
                 tm = session.get(Team, pgs.team_id) if pgs.team_id else None
                 out.append(
-                    {
-                        "player_id": pl.id,
-                        "player": pl.full_name,
-                        "player_photo_url": photo_url(pl),
-                        "team": tm.abbreviation if tm else "",
-                        "team_slug": tm.slug if tm else "",
-                        "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                        "value": getattr(pgs, order_col.key),
-                    }
+                    _leader_row(
+                        pl,
+                        tm,
+                        getattr(pgs, order_col.key),
+                        logo_sy=logo_sy,
+                        photo_url=photo_url,
+                    )
                 )
             return out
         q = select(PlayerSkaterStat, Player).join(
@@ -246,15 +286,7 @@ def build_homepage_leaders_payload(
             tm = session.get(Team, pss.team_id) if pss.team_id else None
             val = getattr(pss, stat)
             out.append(
-                {
-                    "player_id": pl.id,
-                    "player": pl.full_name,
-                    "player_photo_url": photo_url(pl),
-                    "team": tm.abbreviation if tm else "",
-                    "team_slug": tm.slug if tm else "",
-                    "team_logo_url": dashboard_team_logo_url(tm, logo_sy) if tm else "",
-                    "value": val,
-                }
+                _leader_row(pl, tm, val, logo_sy=logo_sy, photo_url=photo_url)
             )
         return out
 
@@ -265,4 +297,5 @@ def build_homepage_leaders_payload(
         "goalie_wins": leader_rows("", PlayerGoalieStat.wins, goalie=True),
         "goalie_shutouts": leader_rows("", PlayerGoalieStat.so, goalie=True),
     }
+    _enrich_leaders_relegation_tier(session, leaders, league_slug=slug)
     return {"segment": seg, "leaders": leaders}

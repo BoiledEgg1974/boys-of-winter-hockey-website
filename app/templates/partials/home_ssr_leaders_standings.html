@@ -1,11 +1,11 @@
 {# Mirrors home.html client tables for first paint; data from homepage_summary cache (RS). #}
-{% macro leader_table(rows, stat_label) %}
+{% macro leader_table(rows, stat_label, show_tier_column=false) %}
 {% if not rows %}
 <p class="empty-state">No stats yet.</p>
 {% else %}
 <table class="data home-leaders-table">
   <thead>
-    <tr><th>#</th><th>Player</th><th>Tm</th><th>{{ stat_label }}</th></tr>
+    <tr><th>#</th><th>Player</th><th>Tm</th>{% if show_tier_column %}<th scope="col"><span class="visually-hidden">League tier</span></th>{% endif %}<th>{{ stat_label }}</th></tr>
   </thead>
   <tbody>
     {% for r in rows %}
@@ -44,6 +44,17 @@
         —
         {% endif %}
       </td>
+      {% if show_tier_column %}
+      <td class="home-leader-tier{% if r.relegation_tier %} home-leader-tier--{{ r.relegation_tier }}{% endif %}">
+        {% if r.relegation_tier == 'upper' %}
+        <img class="home-leader-tier__logo" src="{{ url_for('static', filename='logos/relegation/blup.png') }}" alt="BLUP" title="BLUP" width="22" height="22" loading="lazy" decoding="async">
+        {% elif r.relegation_tier == 'lower' %}
+        <img class="home-leader-tier__logo" src="{{ url_for('static', filename='logos/relegation/blow.png') }}" alt="BLOW" title="BLOW" width="22" height="22" loading="lazy" decoding="async">
+        {% else %}
+        —
+        {% endif %}
+      </td>
+      {% endif %}
       <td>{{ r.value }}</td>
     </tr>
     {% endfor %}
@@ -57,7 +68,8 @@
 <p class="empty-state">No standings data.</p>
 {% else %}
 {% for grp in groups %}
-<h3 class="home-conf-h">{{ grp.division or grp.conference or 'Division' }}</h3>
+{% set div_lab = (grp.division or grp.conference or 'Division')|string %}
+<h3 class="home-conf-h{% if div_lab|lower == 'blup' %} home-conf-h--blup{% elif div_lab|lower == 'blow' %} home-conf-h--blow{% endif %}">{{ div_lab }}</h3>
 <table class="data home-conf-table">
   <thead>
     <tr>

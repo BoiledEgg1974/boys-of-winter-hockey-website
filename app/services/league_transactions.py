@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -27,6 +28,40 @@ def _team_by_fhm_or_abbr(key: str | None) -> Team | None:
 
 log = logging.getLogger(__name__)
 
+RELEGATION_RESERVE_LIST_LABEL = "Reserve list"
+_FHM_MINUS_ONE_RE = re.compile(r"(?<![.\d])-1(?![.\d])")
+
+
+def fhm_team_fallback_label(league_slug: str, fhm_id: int | str | None) -> str:
+    """Human label when ``player_master`` teamid is not mapped to a ``Team`` row."""
+    if fhm_id is None:
+        return "Unknown"
+    try:
+        n = int(fhm_id)
+    except (TypeError, ValueError):
+        return str(fhm_id).strip() or "Unknown"
+    if league_slug == "bowl-fantasy" and n == -1:
+        return RELEGATION_RESERVE_LIST_LABEL
+    return str(n)
+
+
+def scrub_relegation_fhm_minus_one(text: str | None, *, league_slug: str) -> str:
+    """Replace raw FHM team id ``-1`` with Reserve list on BOWL-Relegation."""
+    if league_slug != "bowl-fantasy" or not text:
+        return (text or "").strip()
+    return _FHM_MINUS_ONE_RE.sub(RELEGATION_RESERVE_LIST_LABEL, str(text).strip())
+
+
+def _apply_relegation_transaction_copy(item: dict[str, Any], *, league_slug: str) -> dict[str, Any]:
+    if league_slug != "bowl-fantasy":
+        return item
+    out = dict(item)
+    for key in ("headline", "body", "detail"):
+        if key in out and out[key]:
+            out[key] = scrub_relegation_fhm_minus_one(str(out[key]), league_slug=league_slug)
+    return out
+
+
 _KIND_LABELS: dict[str, str] = {
     "trade": "Trade",
     "signing": "Signing",
@@ -36,6 +71,7 @@ _KIND_LABELS: dict[str, str] = {
     "call_up": "Call-up",
     "send_down": "Send down",
     "roster_move": "Roster move",
+    "roster_transfer": "Roster transfer",
     "other": "Transaction",
 }
 
@@ -194,10 +230,28 @@ def record_roster_moves_from_import(raw_dir, app) -> int:
                 select(Player).where(Player.fhm_player_id == pid_key).limit(1)
             ).first()
             pname = names.get(pid_key) or (pl.full_name if pl else f"Player {pid_key}")
-            old_label = old_team.abbreviation if old_team else str(old_fhm)
-            new_label = new_team.abbreviation if new_team else str(new_fhm)
-            headline = f"{pname} → {new_label}"
-            body = f"Roster update from FHM import ({old_label} → {new_label})."
+            old_label = (
+                old_team.abbreviation
+                if old_team
+                else fhm_team_fallback_label(slug, old_fhm)
+            )
+            new_label = (
+                new_team.abbreviation
+                if new_team
+                else fhm_team_fallback_label(slug, new_fhm)
+            )
+            old_main = int(old_fhm) in main_fhm_teams
+            new_main = int(new_fhm) in main_fhm_teams
+            if not old_main and new_main:
+                move_kind = "call_up"
+            elif old_main and not new_main:
+                move_kind = "send_down"
+            elif old_main and new_main:
+                move_kind = "roster_transfer"
+            else:
+                move_kind = "roster_move"
+            headline = f"{pname}: {old_label} → {new_label}"
+            body = f"Detected on FHM roster import."
             ext = f"roster_delta:{pid_key}:{old_fhm}:{new_fhm}"
             exists = db.session.scalars(
                 select(LeagueTransaction.id).where(LeagueTransaction.external_id == ext).limit(1)
@@ -207,7 +261,7 @@ def record_roster_moves_from_import(raw_dir, app) -> int:
             db.session.add(
                 LeagueTransaction(
                     transaction_date=today,
-                    kind="roster_move",
+                    kind=move_kind,
                     team_id=int(new_team.id) if new_team else None,
                     other_team_id=int(old_team.id) if old_team else None,
                     player_id=int(pl.id) if pl else None,
@@ -225,10 +279,36 @@ def record_roster_moves_from_import(raw_dir, app) -> int:
     return n
 
 
+def _transaction_detail(row: LeagueTransaction) -> str:
+    body = (row.body or "").strip()
+    if body:
+        return body
+    team = row.team
+    other = row.other_team
+    pl = row.player
+    kind = (row.kind or "").strip().lower()
+    if kind == "trade" and team and other:
+        return f"{other.abbreviation} ↔ {team.abbreviation}"
+    if pl and team and other:
+        return f"{pl.full_name}: {other.abbreviation} → {team.abbreviation}"
+    if pl and team:
+        return f"{pl.full_name} — {team.abbreviation}"
+    if team and other:
+        return f"{other.abbreviation} → {team.abbreviation}"
+    if team:
+        return team.full_display_name()
+    return ""
+
+
 def _serialize_db_row(row: LeagueTransaction) -> dict[str, Any]:
     team = row.team
     other = row.other_team
     pl = row.player
+    detail = _transaction_detail(row)
+    kind = (row.kind or "other").strip().lower()
+    kind_label = transaction_kind_label(kind)
+    if kind == "roster_move" and row.other_team_id and row.team_id:
+        kind_label = transaction_kind_label("roster_transfer")
     return {
         "sort_at": (
             datetime.combine(row.transaction_date, datetime.min.time()).isoformat()
@@ -236,10 +316,11 @@ def _serialize_db_row(row: LeagueTransaction) -> dict[str, Any]:
             else ""
         ),
         "date": row.transaction_date.isoformat() if row.transaction_date else None,
-        "kind": row.kind,
-        "kind_label": transaction_kind_label(row.kind),
+        "kind": kind,
+        "kind_label": kind_label,
         "headline": row.headline,
         "body": (row.body or "").strip(),
+        "detail": detail,
         "team_id": int(row.team_id) if row.team_id is not None else None,
         "team_abbr": team.abbreviation if team else None,
         "other_team_id": int(row.other_team_id) if row.other_team_id is not None else None,
@@ -260,6 +341,7 @@ def _serialize_trade_row(row: TradeLogRow) -> dict[str, Any]:
         "kind_label": "Trade",
         "headline": row.title,
         "body": (row.body or "").strip(),
+        "detail": (row.body or "").strip() or row.title,
         "team_id": int(row.team_a.id) if row.team_a else None,
         "team_abbr": row.team_a.abbreviation if row.team_a else None,
         "other_team_id": int(row.team_b.id) if row.team_b else None,
@@ -299,13 +381,17 @@ def league_transactions_payload(
         rows = list(league_session.scalars(q.limit(500)).all())
 
     for row in rows:
-        payload = _serialize_db_row(row)
+        payload = _apply_relegation_transaction_copy(
+            _serialize_db_row(row), league_slug=league_slug
+        )
         merged.append((payload.get("sort_at") or "", payload))
 
     for trow in trade_log_rows(
         league_session, site_session, league_slug=league_slug, team_id=team_id, limit=200
     ):
-        payload = _serialize_trade_row(trow)
+        payload = _apply_relegation_transaction_copy(
+            _serialize_trade_row(trow), league_slug=league_slug
+        )
         merged.append((payload.get("sort_at") or "", payload))
 
     merged.sort(key=lambda x: x[0], reverse=True)

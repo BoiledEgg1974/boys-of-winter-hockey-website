@@ -17,6 +17,7 @@ from app.services.relegation import (
     normalize_relegation_scope,
     relegation_features_enabled,
     team_ids_for_scope,
+    team_tier,
 )
 
 # Relegation homepage panels limited to BLUP/BLOW (or upper/lower tab).
@@ -38,6 +39,7 @@ HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS = frozenset(
         "power_rankings",
         "top_rookies",
         "divisional_standings",
+        "player_momentum",
     }
 )
 
@@ -116,11 +118,21 @@ def _standing_row_sort_key(row: dict[str, Any]) -> tuple:
     )
 
 
+def _rank_standings_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    kept = [dict(r) for r in rows]
+    kept.sort(key=_standing_row_sort_key)
+    for i, row in enumerate(kept, start=1):
+        row["rank"] = i
+    return kept
+
+
 def filter_standings_by_division_payload(
     divisions: list[dict[str, Any]],
     allowed_team_ids: frozenset[int] | None,
     *,
     relegation_scope: RelegationScope = "combined",
+    session: Session | None = None,
+    raw_import_dir=None,
 ) -> list[dict[str, Any]]:
     if allowed_team_ids is None:
         return divisions
@@ -131,10 +143,51 @@ def filter_standings_by_division_payload(
             for row in div.get("teams") or div.get("rows") or []:
                 if int(row.get("team_id") or 0) in allowed_team_ids:
                     kept.append(dict(row))
-        kept.sort(key=_standing_row_sort_key)
-        for i, row in enumerate(kept, start=1):
-            row["rank"] = i
+        kept = _rank_standings_rows(kept)
         return [{"division": "League", "teams": kept}] if kept else []
+
+    if relegation_scope == "combined" and session is not None:
+        cfg = get_tier_config(session, raw_import_dir=raw_import_dir)
+        if cfg.upper_league_ids or cfg.lower_league_ids:
+            pooled: list[dict[str, Any]] = []
+            for div in divisions:
+                for row in div.get("teams") or div.get("rows") or []:
+                    if int(row.get("team_id") or 0) in allowed_team_ids:
+                        pooled.append(dict(row))
+            if pooled:
+                team_ids = {int(r.get("team_id") or 0) for r in pooled if r.get("team_id")}
+                if team_ids:
+                    team_map = {
+                        int(t.id): t
+                        for t in session.scalars(select(Team).where(Team.id.in_(team_ids))).all()
+                    }
+                else:
+                    team_map = {}
+                upper: list[dict[str, Any]] = []
+                lower: list[dict[str, Any]] = []
+                for row in pooled:
+                    tm = team_map.get(int(row.get("team_id") or 0))
+                    tier = team_tier(tm, cfg)
+                    if tier == "upper":
+                        upper.append(row)
+                    elif tier == "lower":
+                        lower.append(row)
+                out: list[dict[str, Any]] = []
+                if upper:
+                    out.append(
+                        {
+                            "division": (cfg.upper_label or "BLUP").strip() or "BLUP",
+                            "teams": _rank_standings_rows(upper),
+                        }
+                    )
+                if lower:
+                    out.append(
+                        {
+                            "division": (cfg.lower_label or "BLOW").strip() or "BLOW",
+                            "teams": _rank_standings_rows(lower),
+                        }
+                    )
+                return out
 
     out: list[dict[str, Any]] = []
     for div in divisions:
@@ -142,9 +195,7 @@ def filter_standings_by_division_payload(
         kept = [dict(r) for r in rows if int(r.get("team_id") or 0) in allowed_team_ids]
         if not kept:
             continue
-        kept.sort(key=_standing_row_sort_key)
-        for i, row in enumerate(kept, start=1):
-            row["rank"] = i
+        kept = _rank_standings_rows(kept)
         block = dict(div)
         if "teams" in div:
             block["teams"] = kept
@@ -241,6 +292,30 @@ def filter_trending_players_payload(
         "hot": filter_rows_by_team_slug(payload.get("hot") or [], allowed_slugs),
         "cold": filter_rows_by_team_slug(payload.get("cold") or [], allowed_slugs),
     }
+
+
+def filter_active_streaks_payload(
+    payload: dict[str, list[dict[str, Any]]],
+    allowed_slugs: frozenset[str] | None,
+) -> dict[str, list[dict[str, Any]]]:
+    if allowed_slugs is None:
+        return payload
+    return {
+        key: filter_rows_by_team_slug(payload.get(key) or [], allowed_slugs)
+        for key in payload
+    }
+
+
+def team_slug_in_relegation_scope(
+    team: Team | None,
+    allowed_slugs: frozenset[str] | None,
+) -> bool:
+    if allowed_slugs is None:
+        return True
+    if team is None:
+        return False
+    slug = (team.slug or "").strip()
+    return bool(slug and slug in allowed_slugs)
 
 
 def filter_team_momentum_payload(

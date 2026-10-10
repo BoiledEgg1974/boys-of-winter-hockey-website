@@ -13,6 +13,7 @@ from app.config import make_league_config
 from app.services.homepage_dashboard import build_stars_windows
 from app.services.homepage_relegation_filter import (
     HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS,
+    filter_standings_by_division_payload,
     homepage_panel_uses_relegation_scope,
     resolve_homepage_relegation_scope,
 )
@@ -25,7 +26,45 @@ class HomepageRelegationScopeTests(unittest.TestCase):
         self.assertTrue(homepage_panel_uses_relegation_scope("around_the_league"))
         self.assertTrue(homepage_panel_uses_relegation_scope("power_rankings"))
         self.assertTrue(homepage_panel_uses_relegation_scope("divisional_standings"))
+        self.assertTrue(homepage_panel_uses_relegation_scope("player_momentum"))
         self.assertIn("league_transactions", HOMEPAGE_RELEGATION_SCOPED_PANEL_KEYS)
+
+    def test_combined_standings_split_blup_blow(self) -> None:
+        session = MagicMock()
+        upper_team = SimpleNamespace(id=1, fhm_league_id=0)
+        lower_team = SimpleNamespace(id=2, fhm_league_id=1)
+        session.scalars.return_value.all.return_value = [upper_team, lower_team]
+        cfg = RelegationTierConfig(
+            mode="league_id",
+            upper_league_ids=frozenset({0}),
+            lower_league_ids=frozenset({1}),
+            upper_conference_ids=frozenset(),
+            lower_conference_ids=frozenset(),
+            upper_label="BLUP",
+            lower_label="BLOW",
+            combined_league_ids=(0, 1),
+        )
+        divisions = [
+            {
+                "division": "League",
+                "teams": [
+                    {"team_id": 1, "pts": 10, "w": 5, "name": "A"},
+                    {"team_id": 2, "pts": 8, "w": 4, "name": "B"},
+                ],
+            }
+        ]
+        with patch("app.services.homepage_relegation_filter.get_tier_config", return_value=cfg):
+            out = filter_standings_by_division_payload(
+                divisions,
+                frozenset({1, 2}),
+                relegation_scope="combined",
+                session=session,
+            )
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0]["division"], "BLUP")
+        self.assertEqual(out[1]["division"], "BLOW")
+        self.assertEqual([r["team_id"] for r in out[0]["teams"]], [1])
+        self.assertEqual([r["team_id"] for r in out[1]["teams"]], [2])
 
     def test_combined_scope_limits_to_main_tiers_without_split_flag(self) -> None:
         session = MagicMock()

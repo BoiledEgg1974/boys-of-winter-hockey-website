@@ -25,7 +25,6 @@
       <button type="button" class="home-scope-tab" data-home-scope="upper">BLUP</button>
       <button type="button" class="home-scope-tab" data-home-scope="lower">BLOW</button>
       <a class="home-scope-tab home-scope-tab--link" href="{{ url_for('main.relegation_page') }}" title="Promotion and relegation zones">Promo / Relegation</a>
-      <a class="home-scope-tab home-scope-tab--link" href="#dash-transactions">Transactions</a>
       <a class="home-scope-tab home-scope-tab--link" href="{{ url_for('main.injuries_page') }}">Injuries</a>
     </nav>
     {% endif %}
@@ -39,15 +38,6 @@
       <a class="home-dashboard__toc-link" href="#dash-standings">Standings</a>
     </nav>
   </div>
-  {% if current_league_slug == 'bowl-fantasy' %}
-  <section id="dash-transactions" class="card home-dashboard__card" aria-labelledby="home-transactions-h" data-module-key="league_transactions">
-    <h2 id="home-transactions-h" class="home-dashboard__h">Transactions</h2>
-    <div id="home-transactions-body">
-      <p class="empty-state loading-with-puck">Loading…</p>
-    </div>
-    <a class="link-more" href="{{ url_for('main.trade_log_page') }}">Full trade log</a>
-  </section>
-  {% endif %}
   <div id="dash-schedule" class="home-dash-schedule-ribbon" data-module-key="schedule">
     <div class="card card--team-schedule home-dash-schedule-ribbon__card" style="--schedule-accent: var(--accent);">
       <h2 class="card--team-schedule__title">Schedule</h2>
@@ -171,7 +161,7 @@
         </div>
         <div id="home-leaders" class="table-wrap">
           {% if home_ssr and home_ssr.leaders %}
-          {{ leader_table(home_ssr.leaders.get('goals', []), 'Goals') }}
+          {{ leader_table(home_ssr.leaders.get('goals', []), 'Goals', show_tier_column=(current_league_slug == 'bowl-fantasy')) }}
           {% else %}
           <p class="empty-state loading-with-puck">Loading…</p>
           {% endif %}
@@ -212,6 +202,15 @@
         <p class="muted home-dashboard__sub">Regular season · 1st = 5 pts · 2nd = 3 pts · 3rd = 1 pt</p>
         <div id="home-star-selection-leaders" class="home-dashboard__slot table-wrap"></div>
       </section>
+      {% if current_league_slug == 'bowl-fantasy' %}
+      <section id="dash-transactions" class="card home-dashboard__card" aria-labelledby="home-transactions-h" data-module-key="league_transactions">
+        <h2 id="home-transactions-h" class="home-dashboard__h">Transactions</h2>
+        <div id="home-transactions-body">
+          <p class="empty-state loading-with-puck">Loading…</p>
+        </div>
+        <a class="link-more" href="{{ url_for('main.trade_log_page') }}">Full trade log</a>
+      </section>
+      {% endif %}
       {% if current_league_slug not in ('bowl-fantasy', 'bowl-cap') %}
       <section id="home-spotlight-card" class="card home-dashboard__card" aria-labelledby="spotlight-h" data-module-key="league_spotlight">
         <h2 id="spotlight-h">League Spotlight</h2>
@@ -265,6 +264,11 @@
 {% block scripts %}
 <script>
 (function () {
+  var RELEGATION_RESERVE_LIST_LABEL = {% if current_league_slug == 'bowl-fantasy' %}'Reserve list'{% else %}null{% endif %};
+  var HOME_SCHEDULE_TIER = {% if current_league_slug == 'bowl-fantasy' %}{
+    upper: { label: 'BLUP', logo: {{ url_for('static', filename='logos/relegation/blup.png')|tojson }} },
+    lower: { label: 'BLOW', logo: {{ url_for('static', filename='logos/relegation/blow.png')|tojson }} }
+  }{% else %}null{% endif %};
   function withRoot(path) {
     var root = document.documentElement.getAttribute("data-application-root") || "";
     root = root.replace(/\/$/, "");
@@ -969,7 +973,11 @@
     }
     var h = '';
     rows.forEach(function (grp) {
-      h += '<h3 class="home-conf-h">' + escape(grp.division || grp.conference || 'Division') + '</h3>';
+      var divLab = String(grp.division || grp.conference || 'Division');
+      var hCls = 'home-conf-h';
+      if (/^blup$/i.test(divLab)) hCls += ' home-conf-h--blup';
+      else if (/^blow$/i.test(divLab)) hCls += ' home-conf-h--blow';
+      h += '<h3 class="' + hCls + '">' + escape(divLab) + '</h3>';
       h += '<table class="data home-conf-table"><thead><tr><th>#</th><th scope="col" title="Team"><span class="visually-hidden">Team</span></th><th>GP</th><th>W</th><th>L</th><th title="Ties">T</th><th>Pts</th></tr></thead><tbody>';
       (grp.teams || []).forEach(function (r, idx) {
         var lab = String((r.name || r.abbr || 'Team') || '').trim();
@@ -1070,10 +1078,17 @@
       'PWS (power ranking score): composite rating blending recent win pace, goal differential per game, special teams net impact, and opponent strength from recent matchups.'
     );
     var rows = sortedPowerRows();
-    var h = '<table class="data home-power-table"><thead><tr>';
+    var tierCol = leadersShowTierColumn();
+    var h =
+      '<table class="data home-power-table' +
+      (tierCol ? ' home-power-table--tier-col' : '') +
+      '"><thead><tr>';
     h += '<th title="Rank (follows current sort)">#</th>';
     h += '<th scope="col" title="Rank change vs saved power order (automatic CSV import snapshots; right after an import may compare to the prior snapshot when needed)">CHG</th>';
     h += '<th scope="col" title="' + thTeam + '">Team</th>';
+    if (tierCol) {
+      h += '<th scope="col"><span class="visually-hidden">League tier</span></th>';
+    }
     h += '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-power-sort="pws" title="' + thPws + '" aria-sort="' + escapeAttr(powerSortAria()) + '">PWS<span class="st-sort-ind" aria-hidden="true">' + (powerSortDir === 'desc' ? '▼' : '▲') + '</span></button></th>';
     h += '</tr></thead><tbody>';
     rows.forEach(function (r, i) {
@@ -1112,7 +1127,9 @@
         formatPowerRankChange(r) +
         '</td><td class="home-power-td-team">' +
         teamCell +
-        '</td><td class="home-power-td-pws">' +
+        '</td>' +
+        (tierCol ? leaderRelegationTierCell(r) : '') +
+        '<td class="home-power-td-pws">' +
         (r.power_score != null ? escape(String(r.power_score)) : '—') +
         '</td></tr>';
     });
@@ -1420,9 +1437,14 @@
       return;
     }
     var rows = stSortedRows();
-    var h = '<table class="data home-special-teams-table"><thead><tr>' +
+    var tierCol = leadersShowTierColumn();
+    var h =
+      '<table class="data home-special-teams-table' +
+      (tierCol ? ' home-special-teams-table--tier-col' : '') +
+      '"><thead><tr>' +
       '<th title="Rank (follows current sort)">#</th>' +
       '<th scope="col" title="Team"><span class="visually-hidden">Team</span></th>' +
+      (tierCol ? '<th scope="col"><span class="visually-hidden">League tier</span></th>' : '') +
       '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="pp_pct" title="Power Play Percentage" aria-sort="' + escapeAttr(stSortAria('pp_pct')) + '">PP%<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'pp_pct' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
       '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="pk_pct" title="Penalty Kill Percentage" aria-sort="' + escapeAttr(stSortAria('pk_pct')) + '">PK%<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'pk_pct' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
       '<th class="st-sort-th" scope="col"><button type="button" class="st-sort-btn" data-st-sort="net_st" title="Net Special Teams (PP% + PK%)" aria-sort="' + escapeAttr(stSortAria('net_st')) + '">Net ST<span class="st-sort-ind" aria-hidden="true">' + (stSortKey === 'net_st' ? (stSortDir === 'desc' ? '▼' : '▲') : '') + '</span></button></th>' +
@@ -1454,7 +1476,23 @@
       } else {
         teamCell = '—';
       }
-      h += '<tr><td>' + (i + 1) + '</td><td>' + teamCell + '</td><td>' + (r.pp_pct != null ? r.pp_pct.toFixed(1) : '—') + '</td><td>' + (r.pk_pct != null ? r.pk_pct.toFixed(1) : '—') + '</td><td>' + (r.net_st != null ? r.net_st.toFixed(1) : '—') + '</td></tr>';
+      var pp = r.pp_pct != null ? Number(r.pp_pct) : null;
+      var pk = r.pk_pct != null ? Number(r.pk_pct) : null;
+      var net = r.net_st != null ? Number(r.net_st) : null;
+      h +=
+        '<tr><td>' +
+        (i + 1) +
+        '</td><td>' +
+        teamCell +
+        '</td>' +
+        (tierCol ? leaderRelegationTierCell(r) : '') +
+        '<td>' +
+        (pp != null && isFinite(pp) ? pp.toFixed(1) : '—') +
+        '</td><td>' +
+        (pk != null && isFinite(pk) ? pk.toFixed(1) : '—') +
+        '</td><td>' +
+        (net != null && isFinite(net) ? net.toFixed(1) : '—') +
+        '</td></tr>';
     });
     h += '</tbody></table>';
     el.innerHTML = h;
@@ -1593,7 +1631,8 @@
           ? '<img src="' + escapeAttr(r.player_photo_url) + '" alt="" loading="lazy" decoding="async">'
           : '<span class="home-leader-player__photo-ph" aria-hidden="true"></span>';
         var playerCell = '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span><a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player) + '</a></span>';
-        h += '<tr><td>' + (i + 1) + '</td><td>' + playerCell + '</td><td>' + rookieTmCell(r) + '</td><td>' + (r.gp || 0) + '</td><td>' + (r.goals != null ? r.goals : 0) + '</td><td>' + (r.assists != null ? r.assists : 0) + '</td><td>' + (r.points != null ? r.points : 0) + '</td><td>' + (r.ppg != null ? r.ppg.toFixed(3) : '0.000') + '</td></tr>';
+        var ppg = r.ppg != null ? Number(r.ppg) : null;
+        h += '<tr><td>' + (i + 1) + '</td><td>' + playerCell + '</td><td>' + rookieTmCell(r) + '</td><td>' + (r.gp || 0) + '</td><td>' + (r.goals != null ? r.goals : 0) + '</td><td>' + (r.assists != null ? r.assists : 0) + '</td><td>' + (r.points != null ? r.points : 0) + '</td><td>' + (ppg != null && isFinite(ppg) ? ppg.toFixed(3) : '0.000') + '</td></tr>';
       });
       h += '</tbody></table>';
     }
@@ -1792,15 +1831,35 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
   }
 
+  function leagueScheduleTierKey(g) {
+    var t = g && g.relegation_tier;
+    return t === 'upper' || t === 'lower' ? t : null;
+  }
+
+  function leagueScheduleTierHtml(g) {
+    if (!HOME_SCHEDULE_TIER) return '';
+    var key = leagueScheduleTierKey(g);
+    if (!key) return '';
+    var meta = HOME_SCHEDULE_TIER[key];
+    if (!meta) return '';
+    return (
+      '<span class="team-schedule-card__tier team-schedule-card__tier--' +
+      key +
+      '">' +
+      '<img class="team-schedule-card__tier-logo" src="' +
+      escapeAttr(meta.logo) +
+      '" alt="" width="22" height="22" loading="lazy" decoding="async">' +
+      '<span class="team-schedule-card__tier-label">' +
+      escape(meta.label) +
+      '</span></span>'
+    );
+  }
+
   function leagueScheduleCardHtml(g, i, focusIdx) {
     var st = String(g.status || '').toLowerCase();
     var isFinal = st === 'final';
     var isNext = i === focusIdx && !isFinal;
     var isFuture = !isFinal && !isNext;
-    var cardCls = 'team-schedule-card';
-    if (isFinal) cardCls += ' team-schedule-card--past';
-    else if (isNext) cardCls += ' team-schedule-card--next';
-    else cardCls += ' team-schedule-card--future';
     var awLogo = g.away_logo_url
       ? '<img class="team-schedule-card__logo" src="' + escapeAttr(g.away_logo_url) + '" alt="">'
       : '';
@@ -1809,6 +1868,14 @@
       : '';
     var awAb = escape(String(g.away_abbr || '').trim() || '—');
     var hmAb = escape(String(g.home_abbr || '').trim() || '—');
+    var tierKey = leagueScheduleTierKey(g);
+    var tierHtml = leagueScheduleTierHtml(g);
+    var matchup = awAb + ' @ ' + hmAb;
+    var cardCls = 'team-schedule-card';
+    if (isFinal) cardCls += ' team-schedule-card--past';
+    else if (isNext) cardCls += ' team-schedule-card--next';
+    else cardCls += ' team-schedule-card--future';
+    if (tierKey) cardCls += ' team-schedule-card--tier-' + tierKey;
     var body;
     if (isNext) {
       body =
@@ -1816,10 +1883,10 @@
         awLogo +
         '<span class="team-schedule-card__vs">vs</span>' +
         hmLogo +
-        '</span><span class="team-schedule-card__sub">League · ' +
-        awAb +
-        ' @ ' +
-        hmAb +
+        '</span>' +
+        tierHtml +
+        '<span class="team-schedule-card__sub">' +
+        (tierHtml ? matchup : 'League · ' + matchup) +
         '</span>';
     } else {
       body =
@@ -1827,10 +1894,10 @@
         awLogo +
         '<span class="team-schedule-card__vs">@</span>' +
         hmLogo +
-        '</span><span class="team-schedule-card__opp">' +
-        awAb +
-        ' @ ' +
-        hmAb +
+        '</span>' +
+        tierHtml +
+        '<span class="team-schedule-card__opp">' +
+        matchup +
         '</span>';
       if (isFuture) body += '<span class="team-schedule-card__sub">Scheduled</span>';
     }
@@ -1935,10 +2002,39 @@
     if (split === 'ps') return 'No preseason stats yet.';
     return 'No stats yet.';
   }
+  function leadersShowTierColumn() {
+    return HOME_SCHEDULE_TIER && homeScope === 'combined';
+  }
+  function leaderRelegationTierCell(r) {
+    if (!leadersShowTierColumn()) return '';
+    var key = leagueScheduleTierKey(r);
+    if (!key || !HOME_SCHEDULE_TIER[key]) return '<td class="home-leader-tier">—</td>';
+    var meta = HOME_SCHEDULE_TIER[key];
+    var label = meta.label || (key === 'upper' ? 'BLUP' : 'BLOW');
+    return (
+      '<td class="home-leader-tier home-leader-tier--' +
+      key +
+      '">' +
+      '<img class="home-leader-tier__logo" src="' +
+      escapeAttr(meta.logo) +
+      '" alt="' +
+      escapeAttr(label) +
+      '" title="' +
+      escapeAttr(label) +
+      '" width="22" height="22" loading="lazy" decoding="async">' +
+      '</td>'
+    );
+  }
   function rowLeaders(rows, statLabel, split) {
     if (!rows.length) return '<p class="empty-state">' + leadersEmptyMessage(split || seg) + '</p>';
     var col = statLabel || 'Stat';
-    var h = '<table class="data home-leaders-table"><thead><tr><th>#</th><th>Player</th><th>Tm</th><th>' + escape(col) + '</th></tr></thead><tbody>';
+    var tierCol = leadersShowTierColumn();
+    var h =
+      '<table class="data home-leaders-table"><thead><tr><th>#</th><th>Player</th><th>Tm</th>' +
+      (tierCol ? '<th scope="col"><span class="visually-hidden">League tier</span></th>' : '') +
+      '<th>' +
+      escape(col) +
+      '</th></tr></thead><tbody>';
     rows.forEach(function (r, i) {
       var tm = '—';
       if (r.team_logo_url) {
@@ -1956,7 +2052,18 @@
         ? '<a class="home-leader-player__name" href="' + withRoot('/player/' + r.player_id) + '">' + escape(r.player) + '</a>'
         : '<span class="home-leader-player__name">' + escape(r.player) + '</span>';
       var playerCell = '<span class="home-leader-player"><span class="home-leader-player__photo">' + ph + '</span>' + playerName + '</span>';
-      h += '<tr><td>' + (i + 1) + '</td><td>' + playerCell + '</td><td>' + tm + '</td><td>' + r.value + '</td></tr>';
+      h +=
+        '<tr><td>' +
+        (i + 1) +
+        '</td><td>' +
+        playerCell +
+        '</td><td>' +
+        tm +
+        '</td>' +
+        leaderRelegationTierCell(r) +
+        '<td>' +
+        r.value +
+        '</td></tr>';
     });
     h += '</tbody></table>';
     return h;
@@ -2014,7 +2121,7 @@
 
   function summaryStorageKey() {
     var root = document.documentElement.getAttribute('data-application-root') || '';
-    return 'bwlHomeSummary:v4:' + root + ':' + seg + ':' + homeScope;
+    return 'bwlHomeSummary:v11:' + root + ':' + seg + ':' + homeScope;
   }
 
   function readStoredSummary() {
@@ -2043,7 +2150,7 @@
     if (!team || !team.name) return '<span class="muted">—</span>';
     var logo = team.logo_url ? '<img src="' + escapeAttr(team.logo_url) + '" alt="" width="28" height="28" loading="lazy">' : '';
     var href = team.slug ? withRoot('/teams/' + encodeURIComponent(team.slug)) : '#';
-    return '<a class="home-relegation-team" href="' + escapeAttr(href) + '">' + logo + '<span>' + escapeHtml(team.name) + '</span></a>';
+    return '<a class="home-relegation-team" href="' + escapeAttr(href) + '">' + logo + '<span>' + escape(team.name) + '</span></a>';
   }
 
   function paintRelegationOverview(overview) {
@@ -2057,7 +2164,7 @@
       el.innerHTML =
         '<article class="home-relegation-card home-relegation-card--watch" style="grid-column:1/-1;">' +
         '<h3>Under construction</h3>' +
-        '<p class="muted">' + escapeHtml(overview.message || 'Upper / Lower leagues activate after the season-reset import.') + '</p>' +
+        '<p class="muted">' + escape(overview.message || 'Upper / Lower leagues activate after the season-reset import.') + '</p>' +
         '<p><a href="' + escapeAttr(withRoot('/relegation')) + '">Learn more</a></p>' +
         '</article>';
       return;
@@ -2068,25 +2175,25 @@
     var dangerRows = Array.isArray(danger) ? danger : (danger && danger.team ? [danger] : []);
     var promoRows = Array.isArray(promo) ? promo : (promo && promo.team ? [promo] : []);
     var h = '';
-    h += '<article class="home-relegation-card home-relegation-card--upper"><h3>' + escapeHtml(overview.upper_label || 'Upper League') + '</h3>';
+    h += '<article class="home-relegation-card home-relegation-card--upper"><h3>' + escape(overview.upper_label || 'Upper League') + '</h3>';
     if (dangerRows.length) {
       dangerRows.forEach(function (row) {
         if (!row || !row.team) return;
         h += '<p><strong>Relegation danger:</strong> ' + rowRelegationTeam(row.team) + '</p>';
-        h += '<p class="muted">' + escapeHtml(String(row.points || 0)) + ' pts';
-        if (row.gap_to_safety != null) h += ' · ' + escapeHtml(String(row.gap_to_safety)) + ' from safety';
+        h += '<p class="muted">' + escape(String(row.points || 0)) + ' pts';
+        if (row.gap_to_safety != null) h += ' · ' + escape(String(row.gap_to_safety)) + ' from safety';
         h += '</p>';
       });
     } else {
       h += '<p class="muted">No upper standings yet.</p>';
     }
     h += '</article>';
-    h += '<article class="home-relegation-card home-relegation-card--lower"><h3>' + escapeHtml(overview.lower_label || 'Lower League') + '</h3>';
+    h += '<article class="home-relegation-card home-relegation-card--lower"><h3>' + escape(overview.lower_label || 'Lower League') + '</h3>';
     if (promoRows.length) {
       promoRows.forEach(function (row) {
         if (!row || !row.team) return;
         h += '<p><strong>Promotion watch:</strong> ' + rowRelegationTeam(row.team) + '</p>';
-        h += '<p class="muted">' + escapeHtml(row.note || '') + '</p>';
+        h += '<p class="muted">' + escape(row.note || '') + '</p>';
       });
     } else {
       h += '<p class="muted">No lower standings yet.</p>';
@@ -2099,6 +2206,30 @@
     el.innerHTML = h;
   }
 
+  function scrubRelegationFhmMinusOne(text) {
+    if (!RELEGATION_RESERVE_LIST_LABEL || text == null || text === '') return text || '';
+    return String(text).replace(/(?<![.\d])-1(?![.\d])/g, RELEGATION_RESERVE_LIST_LABEL);
+  }
+
+  function transactionDetailText(row) {
+    if (!row) return '';
+    var d = scrubRelegationFhmMinusOne((row.detail || row.body || '').trim());
+    if (d) return d;
+    var kind = String(row.kind || '').toLowerCase();
+    if (row.player_name && row.other_team_abbr && row.team_abbr) {
+      return row.player_name + ': ' + row.other_team_abbr + ' → ' + row.team_abbr;
+    }
+    if (row.other_team_abbr && row.team_abbr) {
+      return row.other_team_abbr + ' → ' + row.team_abbr;
+    }
+    if (kind === 'signing' && row.team_abbr) return 'Signed with ' + row.team_abbr;
+    if (kind === 'waiver' || kind === 'claim') {
+      return row.team_abbr ? 'Claimed by ' + row.team_abbr : '';
+    }
+    if (kind === 'release' && row.team_abbr) return 'Released from ' + row.team_abbr;
+    return '';
+  }
+
   function paintTransactions(rows) {
     var el = document.getElementById('home-transactions-body');
     if (!el) return;
@@ -2108,14 +2239,30 @@
     }
     var h = '<ul class="home-transactions-list">';
     rows.slice(0, 18).forEach(function (row) {
+      var kindKey = String(row.kind || 'other').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (kindKey === 'roster_move' && row.other_team_abbr && row.team_abbr) {
+        kindKey = 'roster_transfer';
+      }
+      var detail = transactionDetailText(row);
+      var headline = scrubRelegationFhmMinusOne((row.headline || '').trim());
       h += '<li class="home-transactions-list__item">';
-      if (row.date) h += '<time class="home-transactions-list__date muted">' + escapeHtml(row.date) + '</time> ';
-      h += '<span class="home-transactions-list__kind">' + escapeHtml(row.kind_label || 'Transaction') + '</span> ';
-      h += '<span class="home-transactions-list__headline">' + escapeHtml(row.headline || '') + '</span>';
-      if (row.team_abbr) {
-        h += ' <span class="muted">(' + escapeHtml(row.team_abbr);
-        if (row.other_team_abbr) h += ' · ' + escapeHtml(row.other_team_abbr);
-        h += ')</span>';
+      h += '<div class="home-transactions-list__meta">';
+      if (row.date) h += '<time class="home-transactions-list__date muted">' + escape(row.date) + '</time>';
+      h +=
+        '<span class="home-transactions-list__kind home-transactions-list__kind--' +
+        escape(kindKey) +
+        '">' +
+        escape(row.kind_label || 'Transaction') +
+        '</span>';
+      if (row.source_label) {
+        h += '<span class="home-transactions-list__source muted">' + escape(row.source_label) + '</span>';
+      }
+      h += '</div>';
+      if (headline) {
+        h += '<p class="home-transactions-list__headline"><strong>' + escape(headline) + '</strong></p>';
+      }
+      if (detail && detail !== headline) {
+        h += '<p class="home-transactions-list__detail muted">' + escape(detail) + '</p>';
       }
       h += '</li>';
     });
@@ -2136,17 +2283,25 @@
       var icon = row.status_icon_path ? withRoot('/static/' + row.status_icon_path) : '';
       h += '<li>';
       if (icon) h += '<img class="home-injuries-list__icon" src="' + escapeAttr(icon) + '" alt="" width="16" height="16"> ';
-      h += '<a href="' + escapeAttr(href) + '"><strong>' + escapeHtml(row.team_abbr || row.team_name || 'Team') + '</strong></a> ';
-      h += escapeHtml(row.player_name || 'Player') + ' — ' + escapeHtml(row.injury_name || 'Injury');
-      if (row.recovery_days != null) h += ' <span class="muted">(' + escapeHtml(String(row.recovery_days)) + 'd)</span>';
+      h += '<a href="' + escapeAttr(href) + '"><strong>' + escape(row.team_abbr || row.team_name || 'Team') + '</strong></a> ';
+      h += escape(row.player_name || 'Player') + ' — ' + escape(row.injury_name || 'Injury');
+      if (row.recovery_days != null) h += ' <span class="muted">(' + escape(String(row.recovery_days)) + 'd)</span>';
       h += '</li>';
     });
     h += '</ul>';
     el.innerHTML = h;
   }
 
+  function setHomeSlot(id, html) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+
   function applyHomeSummaryData(data) {
     if (!data) return;
+    var step = 'init';
+    try {
+    step = 'transactions';
     paintTransactions(data.league_transactions);
     var noteEl = document.getElementById('home-dashboard-season-note');
         if (noteEl) {
@@ -2163,19 +2318,21 @@
             noteEl.textContent = '';
           }
         }
+        step = 'modules';
         moduleVisibility = (data.module_settings && data.module_settings.visibility) || {};
         moduleSortOrder = (data.module_settings && data.module_settings.sort_order) || {};
         applyHomeModuleOrder();
         applyHomeModuleVisibility();
-        document.getElementById('home-gotn').innerHTML = rowGameSpotlight(data.game_of_the_night);
-        document.getElementById('home-ngtw').innerHTML = rowGameSpotlight(data.next_game_to_watch, { includeBoxscore: false });
-        document.getElementById('home-stars-7').innerHTML = rowStarsMini(data.stars_last_7d);
-        document.getElementById('home-stars-14').innerHTML = rowStarsMini(data.stars_last_14d);
-        document.getElementById('home-stars-30').innerHTML = rowStarsMini(data.stars_last_30d);
+        step = 'watch-panels';
+        setHomeSlot('home-gotn', rowGameSpotlight(data.game_of_the_night));
+        setHomeSlot('home-ngtw', rowGameSpotlight(data.next_game_to_watch, { includeBoxscore: false }));
+        setHomeSlot('home-stars-7', rowStarsMini(data.stars_last_7d));
+        setHomeSlot('home-stars-14', rowStarsMini(data.stars_last_14d));
+        setHomeSlot('home-stars-30', rowStarsMini(data.stars_last_30d));
         var starSelEl = document.getElementById('home-star-selection-leaders');
         if (starSelEl) starSelEl.innerHTML = rowStarSelectionLeaders(data.star_selection_leaders);
-        document.getElementById('home-trending').innerHTML = rowTrending(data.trending_players);
-        document.getElementById('home-streaks').innerHTML = rowStreaks(data.active_streaks);
+        setHomeSlot('home-trending', rowTrending(data.trending_players));
+        setHomeSlot('home-streaks', rowStreaks(data.active_streaks));
         var pmEl = document.getElementById('home-process-momentum');
         if (pmEl) pmEl.innerHTML = rowProcessMomentum(data.process_momentum || {});
         warLeaderData = data.war_leaders || { skaters: [], goalies: [] };
@@ -2185,8 +2342,10 @@
         var tmData = data.team_momentum || {};
         if (tmEl) tmEl.innerHTML = rowTeamTrending(tmData.trending || {});
         if (tsEl) tsEl.innerHTML = rowTeamStreaks(tmData.streaks || {});
+        step = 'standings';
         paintStandingsDiv(data.standings_by_division || data.standings_by_conference || []);
         powerSortDir = 'desc';
+        step = 'power';
         paintPower(data.power_rankings || {});
         paintChampions(data.champions_panel || {});
         loadAroundTheLeague();
@@ -2207,6 +2366,7 @@
         rkSkSortDir = 'desc';
         rkGlSortKey = 'sv_pct';
         rkGlSortDir = 'desc';
+        step = 'rookies';
         paintRookies();
 
         var spotlight = data.league_spotlight || {};
@@ -2240,10 +2400,14 @@
             idEl.innerHTML = '';
           }
         }
+        step = 'schedule';
         paintLeagueScheduleStrip(data.games || [], data.upcoming || []);
 
         paintSegPicks();
         syncPlayerHoverCards();
+    } catch (e) {
+      throw new Error(step + ': ' + (e && e.message ? e.message : String(e)));
+    }
   }
 
   var homeScope = 'combined';
@@ -2268,18 +2432,53 @@
     if (errEl) errEl.hidden = true;
     var stored = readStoredSummary();
     if (stored) {
-      applyHomeSummaryData(rewriteSummaryStaticUrls(stored));
+      try {
+        applyHomeSummaryData(rewriteSummaryStaticUrls(stored));
+      } catch (e) {
+        try {
+          sessionStorage.removeItem(summaryStorageKey());
+        } catch (ignore) {}
+      }
     }
-    fetch(summaryUrl())
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        data = rewriteSummaryStaticUrls(data);
-        writeStoredSummary(data);
+    function finishSummary(data) {
+      data = rewriteSummaryStaticUrls(data);
+      writeStoredSummary(data);
+      try {
         applyHomeSummaryData(data);
-      })
-      .catch(function () {
-        if (!stored && errEl) errEl.hidden = false;
-      });
+        if (errEl) errEl.hidden = true;
+      } catch (e) {
+        try {
+          sessionStorage.removeItem(summaryStorageKey());
+        } catch (ignore) {}
+        if (errEl) errEl.hidden = false;
+        window.__bowlHomeSummaryApplyError = String(e && e.message ? e.message : e);
+        if (typeof console !== 'undefined' && console.error) {
+          console.error('homepage summary apply failed', e);
+        }
+      }
+    }
+    function fetchSummary(attempt) {
+      fetch(summaryUrl(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) {
+          if (!r.ok) throw new Error('summary HTTP ' + r.status);
+          return r.json();
+        })
+        .then(finishSummary)
+        .catch(function (err) {
+          if (attempt < 5) {
+            window.setTimeout(function () {
+              fetchSummary(attempt + 1);
+            }, attempt < 2 ? 1000 : 3000);
+            return;
+          }
+          if (!stored && errEl) errEl.hidden = false;
+          window.__bowlHomeSummaryFetchError = String(err && err.message ? err.message : err);
+          if (typeof console !== 'undefined' && console.error) {
+            console.error('homepage summary load failed', err);
+          }
+        });
+    }
+    fetchSummary(1);
   }
   function paintSegPicks() {
     document.querySelectorAll('a.seg-pick').forEach(function (a) {
@@ -2388,7 +2587,14 @@
       }
     } catch (e) { /* ignore */ }
   })();
-  loadSummary();
+  function bootHomeDashboard() {
+    loadSummary();
+  }
+  if (document.readyState === 'complete') {
+    bootHomeDashboard();
+  } else {
+    window.addEventListener('load', bootHomeDashboard, { once: true });
+  }
 })();
 </script>
 {% if home_ssr %}

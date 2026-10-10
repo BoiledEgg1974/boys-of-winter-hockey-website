@@ -32,7 +32,7 @@ ALLOWED_HOMEPAGE_MODULE_KEYS = (
 )
 
 DEFAULT_HOMEPAGE_MODULES = (
-    {"module_key": "league_transactions", "sort_order": 7},
+    {"module_key": "league_transactions", "sort_order": 126},
     {"module_key": "schedule", "sort_order": 10},
     {"module_key": "postseason_odds", "sort_order": 20},
     {"module_key": "game_of_the_night", "sort_order": 30},
@@ -100,6 +100,11 @@ def ensure_homepage_module_settings(session, league_slug: str, updated_by_user_i
     if stale is not None and int(stale.sort_order) == 55:
         stale.sort_order = 125
         stale.updated_at = now
+        changed = True
+    stale_tx = by_key.get("league_transactions")
+    if stale_tx is not None and int(stale_tx.sort_order) == 7:
+        stale_tx.sort_order = 126
+        stale_tx.updated_at = now
         changed = True
     stale_war = by_key.get("war_leaders")
     if stale_war is not None and int(stale_war.sort_order) == 116:

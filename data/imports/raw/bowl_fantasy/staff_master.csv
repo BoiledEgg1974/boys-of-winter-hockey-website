@@ -6260,7 +6260,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6258;-1;Jonathan;Mains;;1958-12-30;West Lafayette;IN;United States;;;0
 6259;-1;Dylan;Ward;;1976-4-8;Coquitlam;BC;Canada;;;0
 6260;-1;Drake;Knowles;;1971-10-15;North Cowichan;BC;Canada;;;0
-6261;-1;Cole;Halmo;;1963-9-14;LaSalle;ON;Canada;;;0
+6261;15;Cole;Halmo;;1963-9-14;LaSalle;ON;Canada;;;0
 6262;-1;Woody;Whitten;;1955-8-7;Seattle;WA;United States;;;0
 6263;-1;Myles;Dingwall;;1972-10-18;Whitehorse;YT;Canada;;;0
 6264;-1;Austin;Kozak;;1965-3-16;Grande Prairie;AB;Canada;;;0

@@ -233,7 +233,6 @@ LeagueId;Date;Event
 13;2026-8-1;HOF Induction
 13;2026-9-4;Preseason Start
 13;2026-9-18;Opening Night
-14;2025-10-14;Preseason Start
 14;2025-10-17;Opening Night
 14;2025-11-1;Assign Scouts
 14;2025-11-1;Set Monthly Budget
@@ -251,6 +250,7 @@ LeagueId;Date;Event
 14;2026-7-7;ECHL Entry Draft
 14;2026-7-7;Player Training Programs
 14;2026-8-1;HOF Induction
+14;2026-10-14;Preseason Start
 15;2025-11-1;Assign Scouts
 15;2025-11-1;Set Monthly Budget
 15;2026-1-10;All-Star Announcement

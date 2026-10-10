@@ -83,7 +83,12 @@ def _snapshots_equal(
     return json.dumps(previous, sort_keys=True) == json.dumps(current, sort_keys=True)
 
 
-def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> bool:
+def maybe_enqueue_injury_report_delta(
+    session: Session,
+    league_slug: str,
+    *,
+    force: bool = False,
+) -> bool:
     """Publish BLUP/BLOW injury snapshot to Discord after each changed FHM import."""
     slug = str(league_slug or "").strip()
     if slug != INJURY_LEAGUE_SLUG:
@@ -91,6 +96,18 @@ def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> boo
     from app.services.injuries import injuries_supported_for_league
 
     if not injuries_supported_for_league(slug):
+        return False
+
+    from app.services.discord_events import ensure_discord_routes, is_discord_event_route_active
+
+    ensure_discord_routes(session, slug)
+    if not is_discord_event_route_active(
+        session, league_slug=slug, event_key="injury_report_delta"
+    ):
+        _log.warning(
+            "%s: injury_report_delta route inactive (bot off, route disabled, or missing channel)",
+            slug,
+        )
         return False
 
     current = _snapshot_rows(session)
@@ -107,18 +124,17 @@ def maybe_enqueue_injury_report_delta(session: Session, league_slug: str) -> boo
 
     first_publish = snap is None
     state_changed = not _snapshots_equal(previous, current)
-    if not first_publish and not state_changed:
+    if not force and not first_publish and not state_changed:
         return False
 
     digest = hashlib.sha256(json.dumps(current, sort_keys=True).encode("utf-8")).hexdigest()[:24]
     batch_id = datetime.utcnow().strftime("%Y%m%d%H%M") + "-" + digest
     delta = diff_injury_snapshots(previous, current)
 
-    from app.league_db import db
     from app.services.discord_events import enqueue_discord_event
 
     row = enqueue_discord_event(
-        db.session,
+        session,
         league_slug=slug,
         event_key="injury_report_delta",
         payload={

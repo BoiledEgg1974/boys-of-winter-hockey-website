@@ -1644,8 +1644,9 @@ def _normalize_hockey_sim_log_discord_routes(session, league_slug: str) -> bool:
             )
             changed = True
             return
-        if not str(row.discord_channel_id or "").strip():
-            row.discord_channel_id = cid[:32]
+        want_cid = cid[:32]
+        if str(row.discord_channel_id or "").strip() != want_cid:
+            row.discord_channel_id = want_cid
             row.updated_at = now
             changed = True
         if not bool(row.is_enabled):
@@ -2536,6 +2537,10 @@ def enqueue_discord_event(
     )
     # Fan-out only for racing feeds. Hockey events use the primary channel.
     targets = _enqueue_channel_targets(route, key)
+    if key != GAME_BOXSCORE_EVENT_KEY and not any(
+        str(cid or "").strip() for _, cid in targets
+    ):
+        return None
     first_row: DiscordOutboundEvent | None = None
     for slot_idx, cid in targets:
         payload_i = dict(payload_clean)

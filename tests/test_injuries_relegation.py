@@ -75,6 +75,11 @@ class InjuryDiscordEnqueueTest(unittest.TestCase):
             "app.services.injury_discord._snapshot_rows",
             return_value=[],
         ), patch(
+            "app.services.discord_events.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.discord_events.ensure_discord_routes",
+        ), patch(
             "app.services.discord_events.enqueue_discord_event",
             return_value=object(),
         ) as enqueue:
@@ -99,6 +104,11 @@ class InjuryDiscordEnqueueTest(unittest.TestCase):
         with patch(
             "app.services.injury_discord._snapshot_rows",
             return_value=[{"player_id": 1, "injury_name": "X"}],
+        ), patch(
+            "app.services.discord_events.is_discord_event_route_active",
+            return_value=True,
+        ), patch(
+            "app.services.discord_events.ensure_discord_routes",
         ), patch(
             "app.services.discord_events.enqueue_discord_event",
         ) as enqueue:

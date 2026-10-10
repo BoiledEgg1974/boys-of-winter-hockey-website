@@ -37,6 +37,8 @@ def _snapshot_rows(session: Session) -> list[dict[str, Any]]:
                 "player_name": str(row.get("player_name") or "").strip(),
                 "team_id": int(row["team_id"]) if row.get("team_id") else None,
                 "team_abbr": str(row.get("team_abbr") or "").strip(),
+                "team_abbrev": str(row.get("team_abbrev") or row.get("team_abbr") or "").strip(),
+                "fhm_team_id": row.get("fhm_team_id"),
                 "team_name": str(row.get("team_name") or "").strip(),
                 "injury_name": str(row.get("injury_name") or ""),
                 "recovery_days": row.get("recovery_days"),

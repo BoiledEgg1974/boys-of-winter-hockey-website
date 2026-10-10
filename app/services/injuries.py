@@ -125,6 +125,12 @@ def _injury_row_dict(row: PlayerInjury) -> dict[str, object]:
     max_d = int(it.max_days) if it and it.max_days is not None else None
     rec = int(row.recovery_days) if row.recovery_days is not None else None
     status = classify_injury_status(rec, min_d, max_d)
+    fhm_team_id: int | None = None
+    if team and team.fhm_team_id:
+        try:
+            fhm_team_id = int(str(team.fhm_team_id).strip())
+        except (TypeError, ValueError):
+            fhm_team_id = None
     return {
         "player_id": int(row.player_id),
         "player_name": player.full_name if player else "",
@@ -133,6 +139,8 @@ def _injury_row_dict(row: PlayerInjury) -> dict[str, object]:
         "team_name": team.full_display_name() if team else "",
         "team_slug": team.slug if team else "",
         "team_abbr": team.abbreviation if team else "",
+        "team_abbrev": team.abbreviation if team else "",
+        "fhm_team_id": fhm_team_id,
         "injury_name": it.name if it else "Injury",
         "recovery_days": row.recovery_days,
         "status": status,

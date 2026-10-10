@@ -40,7 +40,8 @@ class InjuryDiscordFormatterTest(unittest.TestCase):
                     "active": [
                         {
                             "player_name": "Patrik Laine",
-                            "team_abbr": "MTL",
+                            "fhm_team_id": 5,
+                            "team_abbr": "RSL",
                             "injury_name": "Knee sprain",
                             "status_label": "Day-to-day",
                             "recovery_days": 5,
@@ -51,7 +52,9 @@ class InjuryDiscordFormatterTest(unittest.TestCase):
             max_parts=1,
         )
         content = str(parts[0].get("content") or "")
-        self.assertIn("Patrik Laine (MTL)", content)
+        self.assertIn("Patrik Laine", content)
+        self.assertIn("<:RSL:1549540927968780368>", content)
+        self.assertNotIn("(RSL)", content)
         self.assertIn("Knee sprain", content)
 
     def test_empty_active_renders_none(self) -> None:

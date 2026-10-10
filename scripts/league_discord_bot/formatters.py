@@ -95,6 +95,28 @@ def _allowed_mentions_from_content(content: str) -> dict[str, Any] | None:
     return {"parse": [], "roles": roles, "users": users}
 
 
+def _injury_team_emote_for_row(league_slug: str, row: dict[str, Any]) -> str:
+    tid = row.get("fhm_team_id")
+    if tid is not None:
+        entry = entry_for_fhm_team_id(league_slug, tid)
+        if entry:
+            em = str(entry[1] or "").strip()
+            if em:
+                return em
+    abbr = str(row.get("team_abbr") or row.get("team_abbrev") or "").strip()
+    return emoji_for_abbrev(league_slug, abbr) if abbr else ""
+
+
+def _injury_player_label(league_slug: str, row: dict[str, Any]) -> str:
+    player = str(row.get("player_name") or "").strip() or f"Player #{row.get('player_id')}"
+    emote = _injury_team_emote_for_row(league_slug, row)
+    if emote:
+        return f"{emote} {player}"
+    abbr = str(row.get("team_abbr") or row.get("team_abbrev") or "").strip()
+    team_bit = f" ({abbr})" if abbr else ""
+    return f"{player}{team_bit}"
+
+
 def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
     """Last-line cleanup before Discord REST POST (strips invalid embed URLs)."""
     out: dict[str, Any] = {}
@@ -418,13 +440,11 @@ def _text_only_header_lines(
                 for row in active[:48]:
                     if not isinstance(row, dict):
                         continue
-                    player = str(row.get("player_name") or "").strip() or f"Player #{row.get('player_id')}"
-                    abbr = str(row.get("team_abbr") or "").strip()
-                    team_bit = f" ({abbr})" if abbr else ""
+                    player_label = _injury_player_label(league_slug, row)
                     status = str(row.get("status_label") or row.get("status") or "").replace("_", "-")
                     injury = str(row.get("injury_name") or "Injury")
                     days = row.get("recovery_days", "?")
-                    lines.append(f"• {player}{team_bit} — {injury} — {status} ({days}d)")
+                    lines.append(f"• {player_label} — {injury} — {status} ({days}d)")
         else:
             added = payload.get("added") if isinstance(payload.get("added"), list) else []
             removed = payload.get("removed") if isinstance(payload.get("removed"), list) else []
@@ -434,9 +454,13 @@ def _text_only_header_lines(
                 for row in added[:12]:
                     if not isinstance(row, dict):
                         continue
-                    status = str(row.get("status") or "").replace("_", "-")
+                    player_label = _injury_player_label(league_slug, row)
+                    status = str(
+                        row.get("status_label") or row.get("status") or ""
+                    ).replace("_", "-")
                     lines.append(
-                        f"• {row.get('injury_name', 'Injury')} — {status} ({row.get('recovery_days', '?')}d)"
+                        f"• {player_label} — {row.get('injury_name', 'Injury')} — {status} "
+                        f"({row.get('recovery_days', '?')}d)"
                     )
             if changed:
                 lines.append(f"Updated ({len(changed)}):")
@@ -444,15 +468,18 @@ def _text_only_header_lines(
                     if not isinstance(item, dict):
                         continue
                     after = item.get("after") if isinstance(item.get("after"), dict) else {}
+                    player_label = _injury_player_label(league_slug, after)
                     lines.append(
-                        f"• {after.get('injury_name', 'Injury')} — {after.get('recovery_days', '?')}d"
+                        f"• {player_label} — {after.get('injury_name', 'Injury')} — "
+                        f"{after.get('recovery_days', '?')}d"
                     )
             if removed:
                 lines.append(f"Cleared ({len(removed)}):")
                 for row in removed[:8]:
                     if not isinstance(row, dict):
                         continue
-                    lines.append(f"• Player #{row.get('player_id')} off IR")
+                    player_label = _injury_player_label(league_slug, row)
+                    lines.append(f"• {player_label} off IR")
             if not added and not changed and not removed:
                 lines.append("None")
             total = payload.get("total_active")

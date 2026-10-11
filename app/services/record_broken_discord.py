@@ -429,29 +429,50 @@ def _holder_from_team_row(
     )
 
 
+def _relegation_main_tier_team_ids_for_records(
+    session: Session, league_slug: str
+) -> frozenset[int] | None:
+    """BLUP+BLOW team ids for snapshot collection on BOWL-Relegation mounts."""
+    from app.services.relegation import is_relegation_league, relegation_main_tier_team_ids
+
+    if not is_relegation_league(league_slug):
+        return None
+    ids = relegation_main_tier_team_ids(session)
+    return ids if ids else None
+
+
 def collect_current_record_holders(session: Session, *, league_slug: str) -> dict[str, RecordHolderState]:
     """Build current #1 holders for season / all-time / team boards."""
     out: dict[str, RecordHolderState] = {}
+    main_team_ids = _relegation_main_tier_team_ids_for_records(session, league_slug)
 
     for segment in ("rs", "po"):
         seg_label = _SEGMENT_LABEL.get(segment, segment)
-        for section in build_league_season_record_sections(session, segment):
-            if not section.rows:
-                continue
-            key = f"season:league:{segment}:{_slug_key(section.title)}"
-            title = f"League Season Record — {section.title} ({seg_label})"
-            holder = _holder_from_season_row(
-                snapshot_key=key,
-                record_title=title,
-                record_scope="league",
-                row=section.rows[0],
-                team=None,
-                record_path=f"/season-records?segment={segment}",
-            )
-            if holder is not None:
-                out[key] = holder
+        for player_scope, scope_key, title_prefix in (
+            ("all", "league", "League Season Record"),
+            ("rookie", "rookie", "League Season Rookie Record"),
+        ):
+            for section in build_league_season_record_sections(
+                session, segment, player_scope=player_scope
+            ):
+                if not section.rows:
+                    continue
+                key = f"season:{scope_key}:{segment}:{_slug_key(section.title)}"
+                title = f"{title_prefix} — {section.title} ({seg_label})"
+                holder = _holder_from_season_row(
+                    snapshot_key=key,
+                    record_title=title,
+                    record_scope=scope_key,
+                    row=section.rows[0],
+                    team=None,
+                    record_path=f"/season-records?segment={segment}",
+                )
+                if holder is not None:
+                    out[key] = holder
 
     teams = list(session.scalars(select(Team).order_by(Team.id.asc())).all())
+    if main_team_ids is not None:
+        teams = [t for t in teams if int(t.id) in main_team_ids]
     for team in teams:
         rs_sections, po_sections = build_team_season_records_bundle(session, team)
         for segment, sections in (("rs", rs_sections), ("po", po_sections)):
@@ -525,7 +546,9 @@ def collect_current_record_holders(session: Session, *, league_slug: str) -> dic
             if holder is not None:
                 out[key] = holder
 
-    for section in build_team_record_leaderboards(session, league_slug=league_slug):
+    for section in build_team_record_leaderboards(
+        session, league_slug=league_slug, team_ids=main_team_ids
+    ):
         if not section.rows:
             continue
         key = f"team:{_slug_key(section.title)}"
@@ -645,12 +668,13 @@ def _payload_from_game_break(*, league_slug: str, br: GameRecordBreak) -> dict[s
     old = br.old_holder
     title = _game_break_title(br)
     record_path = (
-        f"/game-records?segment={br.segment}&scope={br.scope}&player_kind={br.metric.player_kind}"
+        f"/game-records?segment={br.segment}&scope={br.scope}&kind={br.metric.player_kind}"
     )
+    game_scope = br.scope if br.scope in ("all", "rookie") else "all"
     payload: dict[str, Any] = {
         "title": title,
         "record_category": "game",
-        "record_scope": "league",
+        "record_scope": game_scope,
         "record_title": title,
         "old_record_line": format_game_holder_line(old) if old is not None else "—",
         "new_record_line": format_game_holder_line(new),
@@ -712,10 +736,10 @@ def record_broken_eligible_for_discord(
     category = str(p.get("record_category") or "").strip()
     scope = str(p.get("record_scope") or "").strip()
     # League boards on the site already aggregate BLUP+BLOW only.
-    if category in ("season", "all_time") and scope == "league":
+    if category in ("season", "all_time") and scope in ("league", "rookie"):
         return True
-    # Single-game baselines (and deploy live-diff payloads) are BLUP/BLOW-only on this mount.
-    if category == "game" and scope == "league":
+    # Game boards (all players / rookies, RS + PO) are BLUP/BLOW-only on this mount.
+    if category == "game" and scope in ("all", "rookie", "league"):
         return True
     return False
 
@@ -970,7 +994,7 @@ def events_from_live_record_state_diff(
                 f"({_SEGMENT_LABEL.get(segment, segment)}, {_SCOPE_LABEL.get(scope, scope)})"
             )
             record_path = (
-                f"/game-records?segment={segment}&scope={scope}&player_kind={player_kind}"
+                f"/game-records?segment={segment}&scope={scope}&kind={player_kind}"
             )
             old_line = _format_player_line(
                 player_name=str(old_raw.get("player_name") or "Unknown"),
@@ -989,7 +1013,7 @@ def events_from_live_record_state_diff(
             payload: dict[str, Any] = {
                 "title": title,
                 "record_category": "game",
-                "record_scope": "league",
+                "record_scope": scope if scope in ("all", "rookie") else "all",
                 "record_title": title,
                 "old_record_line": old_line,
                 "new_record_line": new_line,

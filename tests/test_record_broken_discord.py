@@ -391,7 +391,7 @@ class RecordBrokenRelegationTierTest(unittest.TestCase):
         session = MagicMock()
         payload = {
             "record_category": "game",
-            "record_scope": "league",
+            "record_scope": "all",
             "new_record_line": "Player (MTL) — 6",
         }
         with patch(
@@ -403,6 +403,62 @@ class RecordBrokenRelegationTierTest(unittest.TestCase):
                     session, league_slug="bowl-fantasy", payload=payload
                 )
             )
+
+    def test_season_rookie_board_without_team_id_allowed(self) -> None:
+        from app.services.record_broken_discord import record_broken_eligible_for_discord
+
+        session = MagicMock()
+        payload = {
+            "record_category": "season",
+            "record_scope": "rookie",
+            "new_record_line": "Rookie — 40",
+        }
+        with patch(
+            "app.services.relegation.relegation_main_tier_team_ids",
+            return_value=frozenset({10}),
+        ):
+            self.assertTrue(
+                record_broken_eligible_for_discord(
+                    session, league_slug="bowl-fantasy", payload=payload
+                )
+            )
+
+    def test_collect_scopes_franchise_and_team_boards_on_relegation(self) -> None:
+        from app.services.record_broken_discord import collect_current_record_holders
+
+        session = MagicMock()
+        team = SimpleNamespace(
+            id=10,
+            slug="mtl",
+            abbreviation="MTL",
+            name="Canadiens",
+            fhm_team_id="1",
+            full_display_name=lambda: "Montreal Canadiens",
+        )
+        with patch(
+            "app.services.record_broken_discord._relegation_main_tier_team_ids_for_records",
+            return_value=frozenset({10}),
+        ), patch(
+            "app.services.record_broken_discord.build_league_season_record_sections",
+            return_value=[],
+        ), patch(
+            "app.services.record_broken_discord.select",
+        ) as select_mock, patch(
+            "app.services.record_broken_discord.build_team_season_records_bundle",
+            return_value=([], []),
+        ), patch(
+            "app.services.record_broken_discord.fetch_skater_all_time",
+            return_value=([], "", ""),
+        ), patch(
+            "app.services.record_broken_discord.fetch_goalie_all_time",
+            return_value=([], "", ""),
+        ), patch(
+            "app.services.record_broken_discord.build_team_record_leaderboards",
+        ) as team_lb:
+            select_mock.return_value.order_by.return_value.all.return_value = [team]
+            collect_current_record_holders(session, league_slug="bowl-fantasy")
+        team_lb.assert_called_once()
+        self.assertEqual(team_lb.call_args.kwargs.get("team_ids"), frozenset({10}))
 
 
 class RecordBrokenHumanGmLeagueTest(unittest.TestCase):

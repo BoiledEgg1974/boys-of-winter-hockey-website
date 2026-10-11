@@ -20,6 +20,7 @@ from app.models import (
     Team,
 )
 from app.services.all_time_records import bowl_nhl_league_ids
+from app.services.rookie_eligibility import rookie_player_ids_for_season
 
 TOP_N = 10
 _MIN_GP_GOALIE_RATE_RS = 20
@@ -176,11 +177,21 @@ def _load_teams_for_fhm_ids(session: Session, fhm_ids: set[int]) -> dict[int, Te
     return out
 
 
+def _season_for_start_year(session: Session, start_year: int) -> Season | None:
+    return session.scalars(
+        select(Season)
+        .where(Season.start_year == int(start_year))
+        .order_by(Season.id.asc())
+        .limit(1)
+    ).first()
+
+
 def _load_skater_rows_merged(
     session: Session,
     segment: str,
     *,
     team_fhm_ids: frozenset[str] | None = None,
+    rookies_only: bool = False,
 ) -> list[tuple[Any, Player, Team | None, str]]:
     out: list[tuple[Any, Player, Team | None, str]] = []
     career_keys: set[tuple[int, int, tuple[int | None, int | None]]] = set()
@@ -210,6 +221,7 @@ def _load_skater_rows_merged(
     teams_by_fhm = _load_teams_for_fhm_ids(session, team_fhms)
 
     players_seen: dict[int, Player] = {}
+    rookie_cache: dict[int, set[int]] = {}
     for (pid, sy, tk), ln in best.items():
         if team_fhm_ids is not None and (
             ln.team_fhm_id is None or str(ln.team_fhm_id) not in team_fhm_ids
@@ -235,6 +247,17 @@ def _load_skater_rows_merged(
             continue
         from app.services.record_stat_adjustments import LINE_SKATER, apply_career_line_overrides
 
+        if rookies_only:
+            sn_rook = _season_for_start_year(session, sy)
+            if sn_rook is None:
+                continue
+            sid = int(sn_rook.id)
+            if sid not in rookie_cache:
+                rookie_cache[sid] = rookie_player_ids_for_season(
+                    session, sn_rook, player_kind="skater"
+                )
+            if int(pl.id) not in rookie_cache[sid]:
+                continue
         st_row = apply_career_line_overrides(
             ln,
             _skater_namespace_from_career(ln),
@@ -259,6 +282,14 @@ def _load_skater_rows_merged(
             continue
         if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
             continue
+        if rookies_only:
+            sid = int(sn.id)
+            if sid not in rookie_cache:
+                rookie_cache[sid] = rookie_player_ids_for_season(
+                    session, sn, player_kind="skater"
+                )
+            if int(pl.id) not in rookie_cache[sid]:
+                continue
         out.append((st, pl, tm, _season_label(sn)))
     return out
 
@@ -268,6 +299,7 @@ def _load_goalie_rows_merged(
     segment: str,
     *,
     team_fhm_ids: frozenset[str] | None = None,
+    rookies_only: bool = False,
 ) -> list[tuple[Any, Player, Team | None, str]]:
     out: list[tuple[Any, Player, Team | None, str]] = []
     career_keys: set[tuple[int, int, tuple[int | None, int | None]]] = set()
@@ -297,6 +329,7 @@ def _load_goalie_rows_merged(
     teams_by_fhm = _load_teams_for_fhm_ids(session, team_fhms)
 
     players_seen: dict[int, Player] = {}
+    rookie_cache: dict[int, set[int]] = {}
     for (pid, sy, tk), ln in best.items():
         if team_fhm_ids is not None and (
             ln.team_fhm_id is None or str(ln.team_fhm_id) not in team_fhm_ids
@@ -322,6 +355,17 @@ def _load_goalie_rows_merged(
             continue
         from app.services.record_stat_adjustments import LINE_GOALIE, apply_career_line_overrides
 
+        if rookies_only:
+            sn_rook = _season_for_start_year(session, sy)
+            if sn_rook is None:
+                continue
+            sid = int(sn_rook.id)
+            if sid not in rookie_cache:
+                rookie_cache[sid] = rookie_player_ids_for_season(
+                    session, sn_rook, player_kind="goalie"
+                )
+            if int(pl.id) not in rookie_cache[sid]:
+                continue
         st_row = apply_career_line_overrides(
             ln,
             _goalie_namespace_from_career(ln),
@@ -346,6 +390,14 @@ def _load_goalie_rows_merged(
             continue
         if team_fhm_ids is not None and tm is not None and tm.fhm_team_id and str(tm.fhm_team_id) not in team_fhm_ids:
             continue
+        if rookies_only:
+            sid = int(sn.id)
+            if sid not in rookie_cache:
+                rookie_cache[sid] = rookie_player_ids_for_season(
+                    session, sn, player_kind="goalie"
+                )
+            if int(pl.id) not in rookie_cache[sid]:
+                continue
         out.append((st, pl, tm, _season_label(sn)))
     return out
 
@@ -462,9 +514,15 @@ def build_league_season_record_sections(
     segment: str,
     *,
     team_fhm_ids: frozenset[str] | None = None,
+    player_scope: str = "all",
 ) -> list[LeagueSeasonRecordSection]:
-    sk = _load_skater_rows_merged(session, segment, team_fhm_ids=team_fhm_ids)
-    gk = _load_goalie_rows_merged(session, segment, team_fhm_ids=team_fhm_ids)
+    rookies_only = str(player_scope or "all").strip().lower() == "rookie"
+    sk = _load_skater_rows_merged(
+        session, segment, team_fhm_ids=team_fhm_ids, rookies_only=rookies_only
+    )
+    gk = _load_goalie_rows_merged(
+        session, segment, team_fhm_ids=team_fhm_ids, rookies_only=rookies_only
+    )
     return _build_skater_sections(sk) + _build_goalie_sections(gk, segment)
 
 

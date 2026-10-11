@@ -1599,6 +1599,8 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
                 "app/services/deploy_discord_finals.py",
                 "app/services/deploy_discord_records.py",
                 "app/services/record_broken_discord.py",
+                "app/services/game_records.py",
+                "app/services/league_season_records.py",
                 "app/services/game_boxscore_discord.py",
                 "app/services/discord_events.py",
             ),

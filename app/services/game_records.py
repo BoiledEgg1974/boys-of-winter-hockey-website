@@ -274,6 +274,30 @@ def _goalie_metric_column(metric: GameRecordMetric):
     return col.label("metric_val")
 
 
+def _relegation_main_tier_team_ids(session: Session) -> frozenset[int] | None:
+    """On BOWL-Relegation, only BLUP/BLOW clubs count toward single-game records."""
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    except RuntimeError:
+        return None
+    from app.services.relegation import is_relegation_league, relegation_main_tier_team_ids
+
+    if not is_relegation_league(slug):
+        return None
+    ids = relegation_main_tier_team_ids(session)
+    return ids if ids else None
+
+
+def _team_on_main_tier(team: Team | None, main_ids: frozenset[int] | None) -> bool:
+    if main_ids is None:
+        return True
+    if team is None or team.id is None:
+        return False
+    return int(team.id) in main_ids
+
+
 def _game_segment_filter(segment: str):
     if segment == "po":
         return or_(
@@ -304,6 +328,7 @@ def _best_from_skater_query(
     if metric_col is None:
         return None
     rookie_cache: dict[int, set[int]] = {}
+    main_tier = _relegation_main_tier_team_ids(session)
     q = (
         select(GameSkaterStat, Game, Player, Team, metric_col)
         .join(Game, GameSkaterStat.game_id == Game.id)
@@ -328,6 +353,8 @@ def _best_from_skater_query(
     rows = session.execute(q.order_by(order, Game.game_date.desc()).limit(400)).all()
     for gs, game, pl, tm, raw_val in rows:
         if raw_val is None:
+            continue
+        if not _team_on_main_tier(tm, main_tier):
             continue
         val = float(raw_val)
         if scope == "rookie":
@@ -365,6 +392,7 @@ def _best_from_goalie_query(
     if metric_col is None:
         return None
     rookie_cache: dict[int, set[int]] = {}
+    main_tier = _relegation_main_tier_team_ids(session)
     min_sa = 1 if metric.key == "save_pct" else 0
     q = (
         select(GameGoalieStat, Game, Player, Team, metric_col)
@@ -383,6 +411,8 @@ def _best_from_goalie_query(
     rows = session.execute(q.order_by(order, Game.game_date.desc()).limit(400)).all()
     for gg, game, pl, tm, raw_val in rows:
         if raw_val is None:
+            continue
+        if not _team_on_main_tier(tm, main_tier):
             continue
         val = float(raw_val)
         if scope == "rookie":
@@ -419,7 +449,7 @@ def _best_from_scoring(
     pp: bool,
 ) -> GameRecordHolder | None:
     strength_fn = _strength_is_pp if pp else _strength_is_sh
-    rookie_cache: dict[int, set[int]] = {}
+    main_tier = _relegation_main_tier_team_ids(session)
     games = session.scalars(
         select(Game).where(Game.status == "final", _game_segment_filter(segment))
     ).all()
@@ -440,48 +470,47 @@ def _best_from_scoring(
         counts[key] = counts.get(key, 0) + 1
     if not counts:
         return None
-    best_key = max(counts.keys(), key=lambda k: counts[k])
-    best_val = float(counts[best_key])
-    game = game_by_id[best_key[0]]
-    pl = session.get(Player, best_key[1])
-    if pl is None:
-        return None
-    if scope == "rookie":
-        sn = session.get(Season, game.season_id)
-        if sn and not player_was_rookie_in_season(session, int(pl.id), sn, player_kind="skater"):
-            sorted_keys = sorted(counts.keys(), key=lambda k: counts[k], reverse=True)
-            for gk in sorted_keys:
-                g2 = game_by_id[gk[0]]
-                sn2 = session.get(Season, g2.season_id)
-                pl2 = session.get(Player, gk[1])
-                if pl2 and sn2 and player_was_rookie_in_season(session, int(pl2.id), sn2, player_kind="skater"):
-                    best_key = gk
-                    best_val = float(counts[gk])
-                    game = g2
-                    pl = pl2
-                    break
-            else:
+
+    def _holder_for_key(gk: tuple[int, int]) -> GameRecordHolder | None:
+        g = game_by_id[gk[0]]
+        player = session.get(Player, gk[1])
+        if player is None:
+            return None
+        if scope == "rookie":
+            sn = session.get(Season, g.season_id)
+            if sn and not player_was_rookie_in_season(
+                session, int(player.id), sn, player_kind="skater"
+            ):
                 return None
-    gs = session.scalars(
-        select(GameSkaterStat).where(
-            GameSkaterStat.game_id == game.id,
-            GameSkaterStat.player_id == pl.id,
-        ).limit(1)
-    ).first()
-    tm = session.get(Team, gs.team_id) if gs and gs.team_id else None
-    opp = _opponent_for_game(game, tm.id if tm else None)
-    return GameRecordHolder(
-        metric=metric,
-        value=best_val,
-        display_value=format_game_record_value(best_val, metric),
-        player=pl,
-        team=tm,
-        opponent_team=opp,
-        game_date=game.game_date,
-        season_label=_season_label_for_game(session, game),
-        game_id=int(game.id),
-        source="boxscore",
-    )
+        gs_row = session.scalars(
+            select(GameSkaterStat).where(
+                GameSkaterStat.game_id == g.id,
+                GameSkaterStat.player_id == player.id,
+            ).limit(1)
+        ).first()
+        team = session.get(Team, gs_row.team_id) if gs_row and gs_row.team_id else None
+        if not _team_on_main_tier(team, main_tier):
+            return None
+        opp = _opponent_for_game(g, team.id if team else None)
+        val = float(counts[gk])
+        return GameRecordHolder(
+            metric=metric,
+            value=val,
+            display_value=format_game_record_value(val, metric),
+            player=player,
+            team=team,
+            opponent_team=opp,
+            game_date=g.game_date,
+            season_label=_season_label_for_game(session, g),
+            game_id=int(g.id),
+            source="boxscore",
+        )
+
+    for gk in sorted(counts.keys(), key=lambda k: counts[k], reverse=True):
+        holder = _holder_for_key(gk)
+        if holder is not None:
+            return holder
+    return None
 
 
 def _merge_holders(

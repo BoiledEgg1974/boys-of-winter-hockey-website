@@ -14,9 +14,10 @@ Where "record broken" comes from (code paths):
    ``rebuild.refresh_after_import`` drains the stash into
    ``notify_record_breaks_after_import(..., game_breaks=...)``.
 
-2. **Season / franchise season / all-time / team board records** —
+2. **Season / season-rookie / franchise season / all-time / team board records** —
    ``app/services/record_broken_discord.py`` ``collect_current_record_holders()``
-   reads live #1 rows from season boards, all-time queries, and team record pages.
+   reads live #1 rows from season boards (RS + PO, all players + rookies),
+   franchise season panels, all-time queries, and team record pages.
    ``detect_snapshot_breaks()`` diffs against ``record_leader_snapshots`` (previous
    import). Each strict improvement enqueues Discord with ``source_id`` like
    ``{snapshot_key}:{entity_key}:{value}`` (e.g. ``season:league:rs:goals:player:9:61``).

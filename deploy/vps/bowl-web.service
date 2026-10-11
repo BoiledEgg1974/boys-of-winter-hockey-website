@@ -11,7 +11,7 @@ EnvironmentFile=/srv/bowl/app/.env
 Environment=PYTHONPATH=/srv/bowl/app
 ExecStart=/srv/bowl/app/.venv/bin/gunicorn \
   --bind 127.0.0.1:8000 \
-  --workers 3 \
+  --workers 4 \
   --threads 2 \
   --timeout 120 \
   --worker-class gthread \

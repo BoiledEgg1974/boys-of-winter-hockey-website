@@ -7,7 +7,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 5;0;Rideau-St Lawrence;Kings;RSL;-1;-1;-1;-1;-1;-1;-1;-1;#2d3679;#909599;#ffffff;-1;-1
 6;0;Winnipeg;Jets;WPG;-1;-1;-1;-1;-1;-1;-1;-1;#041e42;#00488f;#fefef4;-1;-1
 7;0;Detroit;Battling Bathers;DBB;-1;-1;-1;-1;-1;-1;-1;-1;#0a1e2e;#b00417;#ffffff;-1;-1
-8;1;Columbus;Chill;COL;-1;-1;-1;-1;-1;-1;-1;-1;#764235;#3a3940;#ffffff;-1;-1
+8;1;Columbus;Chill;COL;-1;-1;-1;-1;-1;-1;-1;-1;#ffffff;#3a3940;#764235;-1;-1
 9;1;Trois-Rivières;Lions;TRL;-1;-1;-1;-1;-1;-1;-1;-1;#253d87;#cec8c8;#ffffff;-1;-1
 10;1;Stockholm;Sentinels;STO;-1;-1;-1;-1;-1;-1;-1;-1;#005293;#fecb00;#fefef4;-1;-1
 11;1;Winnipeg;Trash Pandas;WTP;-1;-1;-1;-1;-1;-1;-1;-1;#222b1a;#cac09f;#ffffff;-1;-1

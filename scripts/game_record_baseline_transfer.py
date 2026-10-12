@@ -1,4 +1,4 @@
-"""Export/import ``game_record_baselines`` keyed by metric+segment+scope+player_kind.
+"""Export/import ``game_record_baselines`` keyed by metric+segment+scope+player_kind+relegation_scope.
 
 Used when uploading locally built league SQLite files to production: capture live
 single-game record baselines from the server, merge into the local DB (keeping
@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS game_record_baselines (
     segment VARCHAR(8) NOT NULL DEFAULT 'rs',
     scope VARCHAR(16) NOT NULL DEFAULT 'all',
     player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+    relegation_scope VARCHAR(16) NOT NULL DEFAULT 'combined',
     value FLOAT NOT NULL,
     player_id INTEGER,
     team_id INTEGER,
@@ -43,9 +44,22 @@ CREATE TABLE IF NOT EXISTS game_record_baselines (
     FOREIGN KEY(team_id) REFERENCES teams (id),
     FOREIGN KEY(opponent_team_id) REFERENCES teams (id),
     FOREIGN KEY(game_id) REFERENCES games (id),
-    UNIQUE (metric_key, segment, scope, player_kind)
+    UNIQUE (metric_key, segment, scope, player_kind, relegation_scope)
 )
 """
+
+_DEFAULT_RELEGATION_SCOPE = "combined"
+
+
+def _prepare_baselines_table(db_path: Path) -> None:
+    """Ensure league DB matches current ``GameRecordBaseline`` schema (incl. relegation_scope)."""
+    from sqlalchemy import create_engine
+
+    from app.db_utils import ensure_game_record_baselines_sqlite
+
+    engine = create_engine(f"sqlite:///{db_path.resolve().as_posix()}")
+    ensure_game_record_baselines_sqlite(engine)
+    engine.dispose()
 
 
 def _utc_now_iso() -> str:
@@ -62,12 +76,13 @@ def _is_better(a: float, b: float, *, higher_is_better: bool) -> bool:
     return a < b
 
 
-def _row_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
+def _row_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
     return (
         str(row.get("metric_key") or ""),
         str(row.get("segment") or "rs"),
         str(row.get("scope") or "all"),
         str(row.get("player_kind") or "skater"),
+        str(row.get("relegation_scope") or _DEFAULT_RELEGATION_SCOPE),
     )
 
 
@@ -105,6 +120,7 @@ def export_game_record_baselines_json(db_path: Path, out_path: Path) -> int:
     db_path = db_path.resolve()
     if not db_path.is_file():
         raise FileNotFoundError(db_path)
+    _prepare_baselines_table(db_path)
     conn = sqlite3.connect(str(db_path), timeout=30.0)
     try:
         if not conn.execute(
@@ -116,7 +132,7 @@ def export_game_record_baselines_json(db_path: Path, out_path: Path) -> int:
         _player_id_by_fhm, player_fhm_by_id, _team_id_by_fhm, team_fhm_by_id = _fhm_lookups(conn)
         rows = conn.execute(
             """
-            SELECT metric_key, segment, scope, player_kind, value,
+            SELECT metric_key, segment, scope, player_kind, relegation_scope, value,
                    player_id, team_id, opponent_team_id,
                    game_date, season_label, notes
             FROM game_record_baselines
@@ -132,6 +148,7 @@ def export_game_record_baselines_json(db_path: Path, out_path: Path) -> int:
         segment,
         scope,
         player_kind,
+        relegation_scope,
         value,
         player_id,
         team_id,
@@ -146,6 +163,7 @@ def export_game_record_baselines_json(db_path: Path, out_path: Path) -> int:
                 "segment": segment,
                 "scope": scope,
                 "player_kind": player_kind,
+                "relegation_scope": relegation_scope or _DEFAULT_RELEGATION_SCOPE,
                 "value": float(value),
                 "player_fhm_id": player_fhm_by_id.get(int(player_id)) if player_id is not None else None,
                 "team_fhm_id": team_fhm_by_id.get(int(team_id)) if team_id is not None else None,
@@ -191,28 +209,19 @@ def import_game_record_baselines_json(db_path: Path, in_path: Path) -> tuple[int
     if not isinstance(raw, list):
         raise ValueError(f"Expected JSON array in {in_path}")
 
+    _prepare_baselines_table(db_path)
     conn = sqlite3.connect(str(db_path), timeout=30.0)
     written = 0
     skipped = 0
     kept_local = 0
     now = _utc_now_iso()
     try:
-        conn.execute(_TABLE_DDL)
-        has_index = conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='index' "
-            "AND name='ix_game_record_baseline_segment' LIMIT 1"
-        ).fetchone()
-        if not has_index:
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS ix_game_record_baseline_segment "
-                "ON game_record_baselines (segment, scope, player_kind)"
-            )
-
         player_id_by_fhm, _pf, team_id_by_fhm, _tf = _fhm_lookups(conn)
         existing = {
-            (str(r[0]), str(r[1]), str(r[2]), str(r[3])): float(r[4])
+            (str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4])): float(r[5])
             for r in conn.execute(
-                "SELECT metric_key, segment, scope, player_kind, value FROM game_record_baselines"
+                "SELECT metric_key, segment, scope, player_kind, relegation_scope, value "
+                "FROM game_record_baselines"
             )
         }
 
@@ -224,6 +233,10 @@ def import_game_record_baselines_json(db_path: Path, in_path: Path) -> tuple[int
             segment = str(item.get("segment") or "rs").strip() or "rs"
             scope = str(item.get("scope") or "all").strip() or "all"
             player_kind = str(item.get("player_kind") or "skater").strip() or "skater"
+            relegation_scope = (
+                str(item.get("relegation_scope") or _DEFAULT_RELEGATION_SCOPE).strip()
+                or _DEFAULT_RELEGATION_SCOPE
+            )
             if not metric_key:
                 skipped += 1
                 continue
@@ -233,7 +246,7 @@ def import_game_record_baselines_json(db_path: Path, in_path: Path) -> tuple[int
                 skipped += 1
                 continue
 
-            key = (metric_key, segment, scope, player_kind)
+            key = (metric_key, segment, scope, player_kind, relegation_scope)
             local_val = existing.get(key)
             if not _should_take_incoming(local_val, value, metric_key):
                 kept_local += 1
@@ -258,11 +271,11 @@ def import_game_record_baselines_json(db_path: Path, in_path: Path) -> tuple[int
             conn.execute(
                 """
                 INSERT INTO game_record_baselines (
-                    metric_key, segment, scope, player_kind, value,
+                    metric_key, segment, scope, player_kind, relegation_scope, value,
                     player_id, team_id, opponent_team_id, game_id,
                     game_date, season_label, notes, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
-                ON CONFLICT(metric_key, segment, scope, player_kind) DO UPDATE SET
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+                ON CONFLICT(metric_key, segment, scope, player_kind, relegation_scope) DO UPDATE SET
                     value = excluded.value,
                     player_id = excluded.player_id,
                     team_id = excluded.team_id,
@@ -278,6 +291,7 @@ def import_game_record_baselines_json(db_path: Path, in_path: Path) -> tuple[int
                     segment,
                     scope,
                     player_kind,
+                    relegation_scope,
                     value,
                     player_id,
                     team_id,

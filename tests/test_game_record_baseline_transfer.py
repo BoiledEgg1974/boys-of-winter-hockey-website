@@ -29,6 +29,7 @@ def _create_league_db(path: Path) -> None:
                 segment VARCHAR(8) NOT NULL DEFAULT 'rs',
                 scope VARCHAR(16) NOT NULL DEFAULT 'all',
                 player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+                relegation_scope VARCHAR(16) NOT NULL DEFAULT 'combined',
                 value FLOAT NOT NULL,
                 player_id INTEGER,
                 team_id INTEGER,
@@ -39,7 +40,7 @@ def _create_league_db(path: Path) -> None:
                 notes TEXT,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
-                UNIQUE (metric_key, segment, scope, player_kind)
+                UNIQUE (metric_key, segment, scope, player_kind, relegation_scope)
             );
             INSERT INTO players (id, fhm_player_id) VALUES
                 (1, 'P1'), (2, 'P2'), (3, 'P3');
@@ -69,10 +70,10 @@ def _insert_baseline(
         conn.execute(
             """
             INSERT INTO game_record_baselines (
-                metric_key, segment, scope, player_kind, value,
+                metric_key, segment, scope, player_kind, relegation_scope, value,
                 player_id, team_id, opponent_team_id, game_id,
                 game_date, season_label, notes, created_at, updated_at
-            ) VALUES (?, 'rs', 'all', 'skater', ?, ?, ?, ?, NULL, ?, ?, ?, '2020-01-01', '2020-01-01')
+            ) VALUES (?, 'rs', 'all', 'skater', 'combined', ?, ?, ?, ?, NULL, ?, ?, ?, '2020-01-01', '2020-01-01')
             """,
             (metric_key, value, player_id, team_id, opponent_team_id, game_date, season_label, notes),
         )
@@ -89,6 +90,7 @@ def _get_baseline(path: Path, metric_key: str) -> tuple:
             SELECT value, player_id, team_id, opponent_team_id, season_label, notes, game_date
             FROM game_record_baselines
             WHERE metric_key=? AND segment='rs' AND scope='all' AND player_kind='skater'
+              AND relegation_scope='combined'
             """,
             (metric_key,),
         ).fetchone()
@@ -224,6 +226,64 @@ class GameRecordBaselineTransferTests(unittest.TestCase):
             row = _get_baseline(local, "goals")
             self.assertEqual(row[0], 7.0)
             self.assertEqual(row[4], "1991-92")
+
+    def test_import_migrates_legacy_table_without_relegation_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            local = root / "local.db"
+            json_path = root / "live.json"
+            conn = sqlite3.connect(str(local))
+            try:
+                conn.executescript(
+                    """
+                    CREATE TABLE players (id INTEGER PRIMARY KEY, fhm_player_id TEXT);
+                    CREATE TABLE teams (id INTEGER PRIMARY KEY, fhm_team_id TEXT);
+                    INSERT INTO players (id, fhm_player_id) VALUES (1, 'P1');
+                    INSERT INTO teams (id, fhm_team_id) VALUES (10, 'T10');
+                    CREATE TABLE game_record_baselines (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        metric_key VARCHAR(64) NOT NULL,
+                        segment VARCHAR(8) NOT NULL DEFAULT 'rs',
+                        scope VARCHAR(16) NOT NULL DEFAULT 'all',
+                        player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+                        value FLOAT NOT NULL,
+                        player_id INTEGER,
+                        team_id INTEGER,
+                        opponent_team_id INTEGER,
+                        game_id INTEGER,
+                        game_date DATE,
+                        season_label VARCHAR(32),
+                        notes TEXT,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL,
+                        UNIQUE (metric_key, segment, scope, player_kind)
+                    );
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            json_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "metric_key": "goals",
+                            "segment": "rs",
+                            "scope": "all",
+                            "player_kind": "skater",
+                            "value": 7.0,
+                            "player_fhm_id": "P1",
+                            "team_fhm_id": "T10",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            written, skipped, kept = transfer.import_game_record_baselines_json(local, json_path)
+            self.assertEqual(written, 1)
+            self.assertEqual(skipped, 0)
+            row = _get_baseline(local, "goals")
+            self.assertEqual(row[0], 7.0)
 
     def test_plus_minus_low_prefers_lower_value(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

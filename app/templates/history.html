@@ -113,6 +113,7 @@
   </section>
   {% endif %}
 
+  {% if config.SHOW_CHAMPIONSHIP_BANNERS %}
   <div class="card history-champions-panel">
     <h2>Champions</h2>
     {% if champion_banners %}
@@ -135,6 +136,7 @@
     </p>
     {% endif %}
   </div>
+  {% endif %}
 
   {% if all_star_bundle and all_star_bundle.season_labels %}
   <div class="card history-all-stars-panel">

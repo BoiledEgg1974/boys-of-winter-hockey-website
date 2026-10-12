@@ -171,8 +171,10 @@ def league_calendar_anchor_date(session, season_id: int) -> date:
 
 def _champion_banner_urls() -> list[str]:
     """Same logic as main.champion_banner_urls; avoids circular import at module load."""
-    from app.config import BASE_DIR
+    from app.config import show_championship_banners
 
+    if not show_championship_banners():
+        return []
     rel = str(current_app.config.get("HISTORY_CHAMPIONS_REL_DIR", "img/history/champions")).strip("/\\")
     primary_dir = (Path(current_app.root_path) / "static" / Path(rel)).resolve()
     legacy_rel = "img/history/champions"

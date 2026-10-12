@@ -266,6 +266,10 @@ def champion_banner_urls() -> list[str]:
     are case-insensitive. If the same *N* exists in both the league folder and ``img/history/champions``,
     the league copy wins. Filenames are NFC-normalized; URLs use each file's real on-disk name.
     """
+    from app.config import show_championship_banners
+
+    if not show_championship_banners():
+        return []
     rel = str(current_app.config.get("HISTORY_CHAMPIONS_REL_DIR", "img/history/champions")).strip("/\\")
     primary_dir = (BASE_DIR / "app" / "static" / Path(rel)).resolve()
     legacy_rel = "img/history/champions"

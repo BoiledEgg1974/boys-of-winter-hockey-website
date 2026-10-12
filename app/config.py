@@ -438,6 +438,8 @@ class Config:
     LEAGUE_LOGO_DIR = BASE_DIR / "app" / "static" / LEAGUE_LOGO_REL_DIR
     HISTORY_CHAMPIONS_REL_DIR = "img/history/champions"
     HISTORY_CHAMPIONS_DIR = BASE_DIR / "app" / "static" / HISTORY_CHAMPIONS_REL_DIR
+    # Static BannerN images (history grid, home carousel, team victory banners).
+    SHOW_CHAMPIONSHIP_BANNERS = True
     PLAYER_HEADSHOTS_REL_DIR = "players"
     PLAYER_HEADSHOTS_DIR = BASE_DIR / "app" / "static" / PLAYER_HEADSHOTS_REL_DIR
     ITEMS_PER_PAGE = 50
@@ -536,6 +538,13 @@ def is_racing_league(slug: str) -> bool:
     return league_kind_for_slug(slug) == "racing"
 
 
+def show_championship_banners() -> bool:
+    """Whether this league mount shows championship banner images."""
+    from flask import current_app
+
+    return bool(current_app.config.get("SHOW_CHAMPIONSHIP_BANNERS", True))
+
+
 def league_group_for_slug(slug: str) -> str:
     """Redemption catalog group: Relegation vs Cap+Historical.
 
@@ -572,6 +581,7 @@ def make_league_config(slug: str) -> type:
         LEAGUE_LOGO_DIR = BASE_DIR / "app" / "static" / league_logo_rel
         HISTORY_CHAMPIONS_REL_DIR = champions_rel
         HISTORY_CHAMPIONS_DIR = BASE_DIR / "app" / "static" / champions_rel
+        SHOW_CHAMPIONSHIP_BANNERS = slug != "bowl-fantasy"
         PLAYER_HEADSHOTS_REL_DIR = headshots_rel
         RELEGATION_SPLIT_ACTIVE = relegation_split_active(slug)
         PLAYER_HEADSHOTS_DIR = BASE_DIR / "app" / "static" / headshots_rel

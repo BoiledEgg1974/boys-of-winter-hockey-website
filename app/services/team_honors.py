@@ -70,10 +70,12 @@ def team_honors_page_bundle(session: Session, team_id: int) -> dict[str, object]
     meta = get_team_honors_meta(session, team_id)
     retired_enabled = bool(meta and meta.retired_section_enabled)
     retired_rows = active_retired_numbers_for_team(session, team_id)
+    from app.config import show_championship_banners
+
     banner_rows = active_victory_banners_for_team(session, team_id)
     banner_count = sum(1 for row in banner_rows if row.banner_image_rel_path)
     show_retired_panel = retired_enabled or bool(retired_rows)
-    show_banner_panel = bool(banner_rows)
+    show_banner_panel = bool(banner_rows) and show_championship_banners()
     show_honors_section = show_retired_panel or show_banner_panel
     stack_panels = honors_panels_should_stack(
         retired_count=len(retired_rows),

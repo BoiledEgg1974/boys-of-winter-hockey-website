@@ -70,6 +70,34 @@ class InjuryDiscordFormatterTest(unittest.TestCase):
         self.assertIn("None", content)
 
 
+class InjuryDeploySidecarTest(unittest.TestCase):
+    def test_sidecar_mark_and_clear(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from app.services.deploy_discord_injury import (
+            clear_deploy_injury_report_pending,
+            injury_report_pending_for_deploy,
+            mark_deploy_injury_report_pending,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertFalse(
+                injury_report_pending_for_deploy("bowl-fantasy", instance_root=root)
+            )
+            mark_deploy_injury_report_pending("bowl-fantasy", instance_root=root)
+            self.assertTrue(
+                injury_report_pending_for_deploy("bowl-fantasy", instance_root=root)
+            )
+            self.assertTrue(
+                clear_deploy_injury_report_pending("bowl-fantasy", instance_root=root)
+            )
+            self.assertFalse(
+                injury_report_pending_for_deploy("bowl-fantasy", instance_root=root)
+            )
+
+
 class InjuryDeployNotifyTest(unittest.TestCase):
     def test_notify_after_deploy_script_enqueues_relegation_injuries(self) -> None:
         from pathlib import Path
@@ -80,8 +108,8 @@ class InjuryDeployNotifyTest(unittest.TestCase):
             / "notify_discord_after_db_deploy.py"
         ).read_text(encoding="utf-8")
         self.assertIn("maybe_enqueue_injury_report_delta", text)
+        self.assertIn("injury_report_pending_for_deploy", text)
         self.assertIn('slug == "bowl-fantasy"', text)
-        self.assertIn("force=True", text)
 
 
 class InjuryDiscordEnqueueTest(unittest.TestCase):

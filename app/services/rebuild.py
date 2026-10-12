@@ -138,9 +138,11 @@ def refresh_after_import(engine, app=None) -> None:
                             db.session, db.session, slug
                         )
                         if slug == "bowl-fantasy":
-                            from app.services.injury_discord import maybe_enqueue_injury_report_delta
+                            from app.services.deploy_discord_injury import (
+                                mark_deploy_injury_report_pending,
+                            )
 
-                            maybe_enqueue_injury_report_delta(db.session, slug)
+                            mark_deploy_injury_report_pending(slug)
                         db.session.commit()
                     from app.services.homepage_summary_cache import invalidate_homepage_summary_cache
                     from app.services.league_json_cache import invalidate_league_json_cache

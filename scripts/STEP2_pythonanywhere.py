@@ -607,6 +607,10 @@ def upload_deploy_discord_sidecars(
         DEPLOY_DISCORD_FINALS_DIRNAME,
         list_deploy_discord_finals_files,
     )
+    from app.services.deploy_discord_injury import (
+        DEPLOY_DISCORD_INJURY_DIRNAME,
+        list_deploy_discord_injury_files,
+    )
     from app.services.deploy_discord_records import (
         DEPLOY_DISCORD_RECORDS_DIRNAME,
         list_deploy_discord_records_files,
@@ -664,6 +668,14 @@ def upload_deploy_discord_sidecars(
             "(remote notify will diff stashed live record boards) ---"
         ),
     )
+    _sync_dir(
+        DEPLOY_DISCORD_INJURY_DIRNAME,
+        list_deploy_discord_injury_files(instance_root),
+        empty_note=(
+            "--- no deploy Discord injury sidecars "
+            "(Relegation #injury-list skipped until BOWL-Site-Update import) ---"
+        ),
+    )
     return uploaded
 
 
@@ -675,6 +687,7 @@ def clear_local_sidecars_after_notify(
         clear_local_deploy_discord_notify_sidecars,
         list_deploy_discord_finals_files,
     )
+    from app.services.deploy_discord_injury import list_deploy_discord_injury_files
     from app.services.deploy_discord_records import list_deploy_discord_records_files
 
     instance_root = local_root / "instance"
@@ -684,8 +697,10 @@ def clear_local_sidecars_after_notify(
         return n
     names = {f"{slug}.json" for slug in slugs}
     n = 0
-    for path in list_deploy_discord_finals_files(instance_root) + list_deploy_discord_records_files(
-        instance_root
+    for path in (
+        list_deploy_discord_finals_files(instance_root)
+        + list_deploy_discord_records_files(instance_root)
+        + list_deploy_discord_injury_files(instance_root)
     ):
         if path.name not in names:
             continue

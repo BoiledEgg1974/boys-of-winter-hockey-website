@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Queue a BLUP/BLOW injury report post to Discord (#injury-list on Relegation).
 
+Normal flow: run ``BOWL-Site-Update.py`` (import + deploy-db). Injury posts only when
+that import leaves a deploy sidecar. Use this script manually on the VPS only to catch up::
+
 Run on the VPS after fixing routes or when catching up a missed import::
 
     cd /srv/bowl/app && sudo -u bowl .venv/bin/python scripts/publish_relegation_injury_discord.py

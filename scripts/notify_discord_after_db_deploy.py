@@ -200,16 +200,24 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
 
         if slug == "bowl-fantasy":
             try:
+                from app.config import BASE_DIR
+                from app.services.deploy_discord_injury import (
+                    clear_deploy_injury_report_pending,
+                    injury_report_pending_for_deploy,
+                )
                 from app.services.injury_discord import maybe_enqueue_injury_report_delta
 
-                # Force: local import may have updated a dev site snapshot; production
-                # site DB + promoted league SQLite only get synced here after deploy-db.
-                out["injury_report"] = bool(
-                    maybe_enqueue_injury_report_delta(
-                        db.session, slug, force=True
+                instance_root = Path(BASE_DIR) / "instance"
+                if injury_report_pending_for_deploy(slug, instance_root=instance_root):
+                    out["injury_report"] = bool(
+                        maybe_enqueue_injury_report_delta(
+                            db.session, slug, force=True
+                        )
                     )
-                )
-                commit_with_sqlite_retry(db.session)
+                    commit_with_sqlite_retry(db.session)
+                    clear_deploy_injury_report_pending(slug, instance_root=instance_root)
+                else:
+                    out["injury_report"] = False
             except Exception:
                 _log.exception("Injury report Discord enqueue failed for %s", slug)
                 db.session.rollback()

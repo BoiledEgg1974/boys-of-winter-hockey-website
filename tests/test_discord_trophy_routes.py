@@ -21,6 +21,8 @@ class DiscordTrophyRoutesTest(unittest.TestCase):
 
     def test_obsolete_lady_byng_keys_listed(self) -> None:
         self.assertIn("blup-lady-byng", _OBSOLETE_TROPHY_CHANNEL_KEYS)
+        self.assertIn("art-ross", _OBSOLETE_TROPHY_CHANNEL_KEYS)
+        self.assertIn("lady-byng", _OBSOLETE_TROPHY_CHANNEL_KEYS)
 
 
 if __name__ == "__main__":

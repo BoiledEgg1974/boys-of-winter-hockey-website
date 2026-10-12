@@ -38,11 +38,23 @@ RELEGATION_TROPHY_CHANNEL_SPECS: tuple[tuple[str, str, str], ...] = (
     ("blow", "blow-crosby", "Crosby Trophy (BLOW)"),
 )
 
-# Legacy BLUP-only keys seeded before BLOW channels existed — removed on ensure.
+# Legacy keys seeded before BLUP channels were renamed and BLOW channels existed.
 _OBSOLETE_TROPHY_CHANNEL_KEYS = frozenset(
     {
-        "blup-lady-byng",
+        "art-ross",
+        "richard",
+        "norris",
+        "bourque",
+        "langway",
+        "calder",
+        "selke",
+        "vezina",
+        "crozier",
+        "green-jacket",
+        "plus-minus",
+        "conn-smythe",
         "lady-byng",
+        "blup-lady-byng",
         "blup-lady_byng",
     }
 )

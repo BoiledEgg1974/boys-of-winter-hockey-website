@@ -1035,7 +1035,7 @@ def build_post_db_upload_script(
     # Site DB (MySQL on VPS) is not uploaded; re-evaluate against promoted league SQLite.
     parts.append(f"{py} {achievements}{league_flag}")
     if notify_discord:
-        # Enqueue boxscores, broken records, BOWL Six, and playoff bracket.
+        # Enqueue boxscores, broken records, BOWL Six, playoff bracket, Relegation injuries.
         days = max(1, int(discord_fallback_days))
         parts.append(f"{py} {notify} --fallback-days {days}{league_flag}")
     parts.extend(_vps_fix_ownership_fragments(remote_project=remote_project, ssh_user=ssh_user))

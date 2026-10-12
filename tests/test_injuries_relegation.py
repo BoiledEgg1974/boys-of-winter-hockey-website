@@ -70,6 +70,20 @@ class InjuryDiscordFormatterTest(unittest.TestCase):
         self.assertIn("None", content)
 
 
+class InjuryDeployNotifyTest(unittest.TestCase):
+    def test_notify_after_deploy_script_enqueues_relegation_injuries(self) -> None:
+        from pathlib import Path
+
+        text = (
+            Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "notify_discord_after_db_deploy.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("maybe_enqueue_injury_report_delta", text)
+        self.assertIn('slug == "bowl-fantasy"', text)
+        self.assertIn("force=True", text)
+
+
 class InjuryDiscordEnqueueTest(unittest.TestCase):
     def test_first_import_with_no_injuries_posts_none(self) -> None:
         session = MagicMock()

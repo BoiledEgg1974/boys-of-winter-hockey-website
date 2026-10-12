@@ -13,7 +13,7 @@ This is the normal nightly path. It:
 
 1. Imports FHM CSVs **locally** (including Historical awards alignment + racing when present).
 2. Commits/pushes CSV + alignment files to GitHub.
-3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket) and reloads the web app (WSGI touch on PA, **`systemctl restart bowl-web`** on the VPS).
+3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket / Relegation **#injury-list**) and reloads the web app (WSGI touch on PA, **`systemctl restart bowl-web`** on the VPS).
 
 League databases are **gitignored**. GitHub + a server `git pull` alone never refresh live scores, standings, or Discord queues.
 
@@ -178,7 +178,7 @@ python scripts/BOWL-Site-Update.py
 | Script | Purpose |
 |--------|--------|
 | `import_data.py` | Per-league importer (also used by STEP1 / STEP2 / `run_site_update`). |
-| `notify_discord_after_db_deploy.py` | Queue boxscores / BOWL Six / bracket after `deploy-db` promotes league DBs. |
+| `notify_discord_after_db_deploy.py` | Queue boxscores / BOWL Six / bracket / Relegation injuries after `deploy-db` promotes league DBs. |
 | `reset_db.py` | Wipe a league DB and re-import from scratch. |
 | `reimport_history_awards.py` | Replace-only `history_awards` from CSV (optional `--only-award`). |
 | `reimport_history_all_stars.py` | Additive upsert of `history_all_stars.csv` (never wipes existing / admin rows). |

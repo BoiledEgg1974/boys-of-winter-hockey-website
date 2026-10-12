@@ -200,6 +200,31 @@ class TradeToolAdminOnlyTest(unittest.TestCase):
                 self.assertEqual(int(data["left_team_id"]), int(team_a.id))
                 self.assertEqual(int(data["right_team_id"]), int(team_b.id))
 
+    def test_admin_can_load_trade_tool_assets_all_hockey_leagues(self) -> None:
+        hockey_slugs = {e.slug for e in LEAGUES if e.kind == "hockey"}
+        for entry in LEAGUES:
+            if entry.slug not in hockey_slugs:
+                continue
+            slug = entry.slug
+            self.app = create_app(make_league_config(slug))
+            with self.app.app_context():
+                admin, _gm, team_a, team_b, _player = self._setup_admin(slug)
+                with self.app.test_client() as client:
+                    _login(client, int(admin.id))
+                    resp = client.get(
+                        "/operations/trade-tool/assets"
+                        f"?admin_team_id={int(team_a.id)}"
+                        f"&partner_team_id={int(team_b.id)}"
+                    )
+                    self.assertEqual(resp.status_code, 200, slug)
+                    data = resp.get_json()
+                    self.assertIsNotNone(data)
+                    self.assertNotIn("error", data or {})
+                    self.assertEqual(int(data["left_team_id"]), int(team_a.id))
+                    self.assertEqual(int(data["right_team_id"]), int(team_b.id))
+                    self.assertIn("left", data)
+                    self.assertIn("right", data)
+
     def test_trade_submit_uses_sqlite_retry(self) -> None:
         from pathlib import Path
 

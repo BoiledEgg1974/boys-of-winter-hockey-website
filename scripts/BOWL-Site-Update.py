@@ -14,7 +14,8 @@ Default flow:
    league editorial data on the live server, merge them into the local SQLite files,
    re-run GM achievements (local site DB + again on the server against MySQL),
    upload league databases (+ ``app/static``), integrity-check, enqueue Discord
-   boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
+   boxscores / BOWL Six / playoff bracket / broken records / Relegation injuries
+   from deploy sidecars
    (or live-board diffs / recent undelivered finals), then reload.
 
 Use ``--remote-import`` to use the older CSV + server-side ``import_data.py`` deploy instead.
@@ -149,7 +150,7 @@ def _deploy_preflight_note(env: dict[str, str]) -> None:
             "before upload so no worker is writing to SQLite.\n"
             "This step uploads league SQLite + queues Discord "
             "(notify_discord_after_db_deploy: boxscores / BOWL Six / playoff bracket "
-            "/ broken records). A server `git pull` / touch WSGI alone "
+            "/ broken records / Relegation #injury-list). A server `git pull` / touch WSGI alone "
             "does NOT update live data or Discord posts.\n"
         )
 
@@ -180,7 +181,7 @@ def _deploy_success_note(env: dict[str, str], *, via_deploy_db: bool = True) -> 
         print(
             f"\nLive deploy-db finished on {host}: league DBs uploaded, GM achievements "
             "evaluated on the server, Discord notify ran (boxscores / BOWL Six / playoff "
-            f"bracket / broken records as applicable), {reload}.\n"
+            f"bracket / broken records / Relegation injuries as applicable), {reload}.\n"
             "No extra server git pull is required for this data update.\n"
         )
     else:

@@ -1,4 +1,4 @@
-"""Enqueue Discord boxscores, BOWL Six, playoff bracket, and broken records after deploy-db.
+"""Enqueue Discord boxscores, BOWL Six, playoff bracket, broken records, and Relegation injuries after deploy-db.
 
 Runs on PythonAnywhere (or locally against a site DB with real Discord routes).
 
@@ -99,6 +99,7 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
         "boxscore": {},
         "bowl_six": False,
         "playoff_bracket": None,
+        "injury_report": None,
         "record_broken": {},
         "sidecar_ids": 0,
         "cleared_sidecar": False,
@@ -196,10 +197,28 @@ def _notify_league(slug: str, *, fallback_days: int, dry_run: bool) -> dict:
         except Exception:
             _log.exception("Playoff bracket Discord enqueue failed for %s", slug)
             db.session.rollback()
+
+        if slug == "bowl-fantasy":
+            try:
+                from app.services.injury_discord import maybe_enqueue_injury_report_delta
+
+                # Force: local import may have updated a dev site snapshot; production
+                # site DB + promoted league SQLite only get synced here after deploy-db.
+                out["injury_report"] = bool(
+                    maybe_enqueue_injury_report_delta(
+                        db.session, slug, force=True
+                    )
+                )
+                commit_with_sqlite_retry(db.session)
+            except Exception:
+                _log.exception("Injury report Discord enqueue failed for %s", slug)
+                db.session.rollback()
+                out["injury_report"] = False
+
         print(
             f"{slug}: boxscore={out['boxscore']} bowl_six={out['bowl_six']} "
-            f"record_broken={out['record_broken']} sidecar_ids={out['sidecar_ids']} "
-            f"cleared={out['cleared_sidecar']}"
+            f"record_broken={out['record_broken']} injury_report={out.get('injury_report')} "
+            f"sidecar_ids={out['sidecar_ids']} cleared={out['cleared_sidecar']}"
         )
     return out
 

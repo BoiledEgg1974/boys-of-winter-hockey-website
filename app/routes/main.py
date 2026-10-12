@@ -1166,17 +1166,27 @@ def advanced_stats_page():
 def game_records_page():
     """Single-game league records (regular season / playoffs, all players / rookies)."""
     from app.services.game_records import build_game_records_page
-
     segment = (request.args.get("segment") or "rs").strip().lower()
-    scope = (request.args.get("scope") or "all").strip().lower()
     player_kind = (request.args.get("kind") or "skater").strip().lower()
+    relegation_ctx = _relegation_template_context(
+        "main.game_records_page",
+        segment=segment,
+        kind=player_kind,
+        player_scope=request.args.get("player_scope"),
+    )
+    rel_scope = str(relegation_ctx.get("relegation_scope") or "combined")
+    if relegation_ctx.get("relegation_enabled"):
+        player_scope = (request.args.get("player_scope") or "all").strip().lower()
+    else:
+        player_scope = (request.args.get("scope") or request.args.get("player_scope") or "all").strip().lower()
     page = build_game_records_page(
         db.session,
         segment=segment,
-        scope=scope,
+        scope=player_scope,
         player_kind=player_kind,
+        relegation_scope=rel_scope,
     )
-    return render_template("game_records.html", **page)
+    return render_template("game_records.html", **page, **relegation_ctx)
 
 
 def _trade_log_label_name_and_year(label: str) -> tuple[str, int | None]:

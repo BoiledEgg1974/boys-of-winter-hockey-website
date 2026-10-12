@@ -1112,9 +1112,16 @@ class GameRecordBaseline(db.Model):
             "segment",
             "scope",
             "player_kind",
+            "relegation_scope",
             name="uq_game_record_baseline_metric",
         ),
-        Index("ix_game_record_baseline_segment", "segment", "scope", "player_kind"),
+        Index(
+            "ix_game_record_baseline_segment",
+            "segment",
+            "scope",
+            "player_kind",
+            "relegation_scope",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1122,6 +1129,7 @@ class GameRecordBaseline(db.Model):
     segment: Mapped[str] = mapped_column(String(8), nullable=False, default="rs")
     scope: Mapped[str] = mapped_column(String(16), nullable=False, default="all")
     player_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="skater")
+    relegation_scope: Mapped[str] = mapped_column(String(16), nullable=False, default="combined")
     value: Mapped[float] = mapped_column(Float, nullable=False)
     player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"))
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))

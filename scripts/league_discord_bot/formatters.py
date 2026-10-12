@@ -422,6 +422,9 @@ def _text_only_header_lines(
             _append_team_gm_mention(lines, payload)
         lines.append(f"**{title}**")
     elif event_key == "record_broken":
+        tier_emote = str(payload.get("relegation_tier_emote") or "").strip()
+        if tier_emote:
+            lines.append(tier_emote)
         team_line = format_team_label(league_slug, payload)
         if team_line:
             lines.append(team_line)

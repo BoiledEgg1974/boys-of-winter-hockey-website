@@ -201,6 +201,41 @@
     </div>
     <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save team boxscore channels</button>
   </form>
+  {% if trophy_channel_routes %}
+  <h3 style="margin:0.85rem 0 0.35rem;">Trophy Case channels (BLUP / BLOW)</h3>
+  <p class="muted" style="margin:0 0 0.45rem;">
+    Map each private trophy-case channel to its Discord snowflake. Lady Byng is not used in
+    BOWL-Relegation — only the awards listed below are seeded. Channel keys match Discord
+    names (for example <code>blup-art-ross</code>, <code>blow-lemieux</code>).
+  </p>
+  <form method="post" style="margin:0 0 0.9rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_trophy_channels">
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Tier</th><th>Channel key</th><th>Award</th><th>Discord channel ID</th><th>Enabled</th></tr></thead>
+        <tbody>
+          {% for t in trophy_channel_routes %}
+          <tr>
+            <td><strong>{{ t.tier|upper }}</strong></td>
+            <td><code>{{ t.channel_key }}</code>
+              <input type="hidden" name="trophy_channel_key_{{ t.channel_key }}" value="{{ t.channel_key }}">
+            </td>
+            <td>{{ t.label }}</td>
+            <td>
+              <input type="text" name="trophy_channel_id_{{ t.channel_key }}" value="{{ t.discord_channel_id or '' }}" placeholder="Channel snowflake" style="min-width:14rem;">
+            </td>
+            <td>
+              <label><input type="checkbox" name="trophy_enabled_{{ t.channel_key }}" value="1"{% if t.is_enabled %} checked{% endif %}> enabled</label>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="admin-news-body-btn" style="margin-top:0.45rem;">Save Trophy Case channels</button>
+  </form>
+  {% endif %}
   {% for r in routes %}
   <form method="post" style="display:inline;margin:0 0.35rem 0.35rem 0;" onsubmit="return confirm('Remove route {{ r.event_key }}?');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -12,6 +12,7 @@ Default flow:
 5) Commit and push to GitHub once all local imports finish (CSVs, static assets, alignment files).
 6) Run STEP2 ``deploy-db``: snapshot live OVR, trade logs, game-record baselines, and
    league editorial data on the live server, merge them into the local SQLite files,
+   re-run GM achievements (local site DB + again on the server against MySQL),
    upload league databases (+ ``app/static``), integrity-check, enqueue Discord
    boxscores / BOWL Six / playoff bracket / broken records from deploy sidecars
    (or live-board diffs / recent undelivered finals), then reload.
@@ -177,9 +178,9 @@ def _deploy_success_note(env: dict[str, str], *, via_deploy_db: bool = True) -> 
     reload = "systemctl restart bowl-web" if uses_vps_deploy(env) else "WSGI touched"
     if via_deploy_db:
         print(
-            f"\nLive deploy-db finished on {host}: league DBs uploaded, Discord notify ran "
-            "(boxscores / BOWL Six / playoff bracket / broken records as applicable), "
-            f"{reload}.\n"
+            f"\nLive deploy-db finished on {host}: league DBs uploaded, GM achievements "
+            "evaluated on the server, Discord notify ran (boxscores / BOWL Six / playoff "
+            f"bracket / broken records as applicable), {reload}.\n"
             "No extra server git pull is required for this data update.\n"
         )
     else:

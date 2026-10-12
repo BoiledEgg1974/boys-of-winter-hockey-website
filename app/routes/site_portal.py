@@ -7661,6 +7661,39 @@ def admin_discord_integration():
             commit_with_sqlite_retry(db.session)
             flash("Discord route settings updated.", "ok")
             return redirect(url_for("site_admin.admin_discord_integration"))
+        if action == "save_trophy_channels":
+            from app.services.discord_trophy_routes import update_relegation_trophy_channel_routes
+
+            trophy_rows = []
+            for key in request.form:
+                if not str(key).startswith("trophy_channel_key_"):
+                    continue
+                channel_key = (request.form.get(key) or "").strip()
+                if not channel_key:
+                    continue
+                trophy_rows.append(
+                    {
+                        "channel_key": channel_key,
+                        "discord_channel_id": (
+                            request.form.get(f"trophy_channel_id_{channel_key}") or ""
+                        ).strip(),
+                        "is_enabled": request.form.get(f"trophy_enabled_{channel_key}") == "1",
+                    }
+                )
+            saved_trophy = update_relegation_trophy_channel_routes(
+                db.session, slug, trophy_rows, int(current_user.id)
+            )
+            db.session.add(
+                AdminAuditLog(
+                    admin_user_id=int(current_user.id),
+                    league_slug=slug,
+                    action="discord_trophy_channels_update",
+                    detail_json=json.dumps({"rows": saved_trophy}),
+                )
+            )
+            commit_with_sqlite_retry(db.session)
+            flash("Trophy Case channel settings updated.", "ok")
+            return redirect(url_for("site_admin.admin_discord_integration"))
         if action == "save_boxscore_team_channels":
             team_rows = []
             for key in request.form:
@@ -7912,6 +7945,14 @@ def admin_discord_integration():
     event_key_filter = (request.args.get("event_key") or "").strip()
     routes = list_discord_routes(db.session, slug)
     boxscore_team_channels = list_game_boxscore_team_channels(db.session, db.session, slug)
+    from app.services.discord_trophy_routes import list_relegation_trophy_channel_routes
+    from app.services.relegation import is_relegation_league
+
+    trophy_channel_routes = (
+        list_relegation_trophy_channel_routes(db.session, slug)
+        if is_relegation_league(slug)
+        else []
+    )
     bot_config = get_league_bot_config(db.session, slug)
     events = list_outbound_events(
         db.session, league_slug=slug, status=status, event_key=event_key_filter, limit=250
@@ -7969,6 +8010,7 @@ def admin_discord_integration():
         "admin_discord_integration.html",
         routes=routes,
         boxscore_team_channels=boxscore_team_channels,
+        trophy_channel_routes=trophy_channel_routes,
         bot_config=bot_config,
         events=events,
         dead_letters=dead_letters,

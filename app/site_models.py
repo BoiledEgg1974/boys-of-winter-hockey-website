@@ -706,6 +706,31 @@ class DiscordTeamChannelRoute(db.Model):
     last_boxscore_game_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
+class DiscordTrophyChannelRoute(db.Model):
+    """Trophy Case channel snowflakes (BLUP / BLOW award feeds on BOWL-Relegation)."""
+
+    __tablename__ = "discord_trophy_channel_routes"
+    __bind_key__ = "site"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_slug",
+            "channel_key",
+            name="uq_discord_trophy_route_league_channel",
+        ),
+        Index("ix_discord_trophy_route_league", "league_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    league_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    tier: Mapped[str] = mapped_column(String(8), nullable=False, default="blup")
+    channel_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    discord_channel_id: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class DiscordGameBoxscorePending(db.Model):
     """Final games waiting for Discord boxscore enqueue (survives blank channel config)."""
 

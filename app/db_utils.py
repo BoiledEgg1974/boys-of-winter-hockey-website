@@ -3175,6 +3175,42 @@ def ensure_discord_outbound_sqlite(engine: Engine) -> None:
                     "ON discord_game_boxscore_pending (league_slug, created_at)"
                 )
             )
+        has_trophy_routes = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='discord_trophy_channel_routes'"
+            )
+        ).fetchone()
+        if not has_trophy_routes:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE discord_trophy_channel_routes (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        league_slug VARCHAR(64) NOT NULL,
+                        tier VARCHAR(8) NOT NULL DEFAULT 'blup',
+                        channel_key VARCHAR(64) NOT NULL,
+                        label VARCHAR(160) NOT NULL DEFAULT '',
+                        discord_channel_id VARCHAR(32) NOT NULL DEFAULT '',
+                        is_enabled BOOLEAN NOT NULL DEFAULT 1,
+                        updated_by_user_id INTEGER,
+                        updated_at DATETIME NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_discord_trophy_route_league_channel "
+                    "ON discord_trophy_channel_routes (league_slug, channel_key)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX ix_discord_trophy_route_league "
+                    "ON discord_trophy_channel_routes (league_slug)"
+                )
+            )
         conn.commit()
     ensure_discord_channel_route_multi_ids(engine)
     ensure_discord_team_boxscore_watermark_columns(engine)
@@ -3639,6 +3675,71 @@ def ensure_record_stat_adjustments_sqlite(engine: Engine) -> None:
         conn.commit()
 
 
+def _migrate_game_record_baselines_relegation_scope_sqlite(conn) -> None:
+    """Add relegation_scope + widen uniqueness for BLUP/BLOW/combined game records."""
+    cols = {
+        str(row[1])
+        for row in conn.execute(text("PRAGMA table_info(game_record_baselines)")).fetchall()
+    }
+    if "relegation_scope" in cols:
+        return
+    conn.execute(
+        text(
+            """
+            CREATE TABLE game_record_baselines_new (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                metric_key VARCHAR(64) NOT NULL,
+                segment VARCHAR(8) NOT NULL DEFAULT 'rs',
+                scope VARCHAR(16) NOT NULL DEFAULT 'all',
+                player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+                relegation_scope VARCHAR(16) NOT NULL DEFAULT 'combined',
+                value FLOAT NOT NULL,
+                player_id INTEGER,
+                team_id INTEGER,
+                opponent_team_id INTEGER,
+                game_id INTEGER,
+                game_date DATE,
+                season_label VARCHAR(32),
+                notes TEXT,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                FOREIGN KEY(player_id) REFERENCES players (id),
+                FOREIGN KEY(team_id) REFERENCES teams (id),
+                FOREIGN KEY(opponent_team_id) REFERENCES teams (id),
+                FOREIGN KEY(game_id) REFERENCES games (id),
+                CONSTRAINT uq_game_record_baseline_metric UNIQUE (
+                    metric_key, segment, scope, player_kind, relegation_scope
+                )
+            )
+            """
+        )
+    )
+    conn.execute(
+        text(
+            """
+            INSERT INTO game_record_baselines_new (
+                id, metric_key, segment, scope, player_kind, relegation_scope,
+                value, player_id, team_id, opponent_team_id, game_id, game_date,
+                season_label, notes, created_at, updated_at
+            )
+            SELECT
+                id, metric_key, segment, scope, player_kind, 'combined',
+                value, player_id, team_id, opponent_team_id, game_id, game_date,
+                season_label, notes, created_at, updated_at
+            FROM game_record_baselines
+            """
+        )
+    )
+    conn.execute(text("DROP TABLE game_record_baselines"))
+    conn.execute(text("ALTER TABLE game_record_baselines_new RENAME TO game_record_baselines"))
+    conn.execute(
+        text(
+            "CREATE INDEX ix_game_record_baseline_segment "
+            "ON game_record_baselines (segment, scope, player_kind, relegation_scope)"
+        )
+    )
+
+
 def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
     """Create admin-seeded single-game record baselines table (league DB)."""
     if engine.dialect.name != "sqlite":
@@ -3650,6 +3751,8 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
             )
         ).fetchone()
         if exists:
+            _migrate_game_record_baselines_relegation_scope_sqlite(conn)
+            conn.commit()
             return
         conn.execute(
             text(
@@ -3660,6 +3763,7 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
                     segment VARCHAR(8) NOT NULL DEFAULT 'rs',
                     scope VARCHAR(16) NOT NULL DEFAULT 'all',
                     player_kind VARCHAR(16) NOT NULL DEFAULT 'skater',
+                    relegation_scope VARCHAR(16) NOT NULL DEFAULT 'combined',
                     value FLOAT NOT NULL,
                     player_id INTEGER,
                     team_id INTEGER,
@@ -3675,7 +3779,7 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
                     FOREIGN KEY(opponent_team_id) REFERENCES teams (id),
                     FOREIGN KEY(game_id) REFERENCES games (id),
                     CONSTRAINT uq_game_record_baseline_metric UNIQUE (
-                        metric_key, segment, scope, player_kind
+                        metric_key, segment, scope, player_kind, relegation_scope
                     )
                 )
                 """
@@ -3684,7 +3788,7 @@ def ensure_game_record_baselines_sqlite(engine: Engine) -> None:
         conn.execute(
             text(
                 "CREATE INDEX ix_game_record_baseline_segment "
-                "ON game_record_baselines (segment, scope, player_kind)"
+                "ON game_record_baselines (segment, scope, player_kind, relegation_scope)"
             )
         )
         conn.commit()

@@ -347,6 +347,7 @@ def _holder_from_all_time_row(
     sort_key: str,
     row: SkaterAllTimeRow | GoalieAllTimeRow,
     higher_is_better: bool,
+    record_path: str | None = None,
 ) -> RecordHolderState | None:
     value = _all_time_stat_value(row, sort_key)
     if value is None:
@@ -381,7 +382,7 @@ def _holder_from_all_time_row(
         team_name=tname,
         player_id=pid,
         player_name=player_name,
-        record_path=f"/records?split={split}",
+        record_path=record_path or f"/records?split={split}",
     )
 
 
@@ -390,6 +391,7 @@ def _holder_from_team_row(
     snapshot_key: str,
     record_title: str,
     row: dict[str, Any],
+    record_path: str | None = None,
 ) -> RecordHolderState | None:
     raw = row.get("raw_value")
     try:
@@ -425,7 +427,7 @@ def _holder_from_team_row(
         fhm_team_id=fhm,
         team_abbrev=abbr,
         team_name=tname,
-        record_path="/team-records",
+        record_path=record_path or "/team-records",
     )
 
 
@@ -441,130 +443,175 @@ def _relegation_main_tier_team_ids_for_records(
     return ids if ids else None
 
 
+def _record_path_with_rel_scope(path: str, rel_scope: str) -> str:
+    base = str(path or "").strip()
+    if not base or rel_scope in ("", "combined"):
+        return base
+    sep = "&" if "?" in base else "?"
+    return f"{base}{sep}scope={rel_scope}"
+
+
 def collect_current_record_holders(session: Session, *, league_slug: str) -> dict[str, RecordHolderState]:
     """Build current #1 holders for season / all-time / team boards."""
+    from app.services.relegation import get_tier_config
+    from app.services.relegation_records import (
+        record_rel_scopes_for_league,
+        record_snapshot_scope_prefix,
+        scope_filters,
+        team_ids_for_rel_scope,
+    )
+
     out: dict[str, RecordHolderState] = {}
-    main_team_ids = _relegation_main_tier_team_ids_for_records(session, league_slug)
+    config = get_tier_config(session)
+    for rel_scope in record_rel_scopes_for_league(league_slug):
+        prefix = record_snapshot_scope_prefix(rel_scope)
+        filters = scope_filters(session, rel_scope, config)
+        league_ids = filters["league_ids"]
+        team_fhm_ids = filters["team_fhm_ids"]
+        scoped_team_ids = team_ids_for_rel_scope(session, rel_scope, config)
 
-    for segment in ("rs", "po"):
-        seg_label = _SEGMENT_LABEL.get(segment, segment)
-        for player_scope, scope_key, title_prefix in (
-            ("all", "league", "League Season Record"),
-            ("rookie", "rookie", "League Season Rookie Record"),
-        ):
-            for section in build_league_season_record_sections(
-                session, segment, player_scope=player_scope
-            ):
-                if not section.rows:
-                    continue
-                key = f"season:{scope_key}:{segment}:{_slug_key(section.title)}"
-                title = f"{title_prefix} — {section.title} ({seg_label})"
-                holder = _holder_from_season_row(
-                    snapshot_key=key,
-                    record_title=title,
-                    record_scope=scope_key,
-                    row=section.rows[0],
-                    team=None,
-                    record_path=f"/season-records?segment={segment}",
-                )
-                if holder is not None:
-                    out[key] = holder
-
-    teams = list(session.scalars(select(Team).order_by(Team.id.asc())).all())
-    if main_team_ids is not None:
-        teams = [t for t in teams if int(t.id) in main_team_ids]
-    for team in teams:
-        rs_sections, po_sections = build_team_season_records_bundle(session, team)
-        for segment, sections in (("rs", rs_sections), ("po", po_sections)):
+        for segment in ("rs", "po"):
             seg_label = _SEGMENT_LABEL.get(segment, segment)
-            for section in sections:
-                if not section.rows:
-                    continue
-                key = f"season:franchise:{int(team.id)}:{segment}:{_slug_key(section.title)}"
-                title = (
-                    f"Franchise Season Record — {section.title} ({seg_label}) "
-                    f"· {team.abbreviation or team.name}"
+            for player_scope, scope_key, title_prefix in (
+                ("all", "league", "League Season Record"),
+                ("rookie", "rookie", "League Season Rookie Record"),
+            ):
+                for section in build_league_season_record_sections(
+                    session,
+                    segment,
+                    player_scope=player_scope,
+                    team_fhm_ids=team_fhm_ids,  # type: ignore[arg-type]
+                ):
+                    if not section.rows:
+                        continue
+                    key = f"{prefix}season:{scope_key}:{segment}:{_slug_key(section.title)}"
+                    title = f"{title_prefix} — {section.title} ({seg_label})"
+                    holder = _holder_from_season_row(
+                        snapshot_key=key,
+                        record_title=title,
+                        record_scope=scope_key,
+                        row=section.rows[0],
+                        team=None,
+                        record_path=_record_path_with_rel_scope(
+                            f"/season-records?segment={segment}", rel_scope
+                        ),
+                    )
+                    if holder is not None:
+                        out[key] = holder
+
+        teams = list(session.scalars(select(Team).order_by(Team.id.asc())).all())
+        if scoped_team_ids is not None:
+            teams = [t for t in teams if int(t.id) in scoped_team_ids]
+        for team in teams:
+            rs_sections, po_sections = build_team_season_records_bundle(session, team)
+            for segment, sections in (("rs", rs_sections), ("po", po_sections)):
+                seg_label = _SEGMENT_LABEL.get(segment, segment)
+                for section in sections:
+                    if not section.rows:
+                        continue
+                    key = (
+                        f"{prefix}season:franchise:{int(team.id)}:{segment}:"
+                        f"{_slug_key(section.title)}"
+                    )
+                    title = (
+                        f"Franchise Season Record — {section.title} ({seg_label}) "
+                        f"· {team.abbreviation or team.name}"
+                    )
+                    holder = _holder_from_season_row(
+                        snapshot_key=key,
+                        record_title=title,
+                        record_scope="franchise",
+                        row=section.rows[0],
+                        team=team,
+                        record_path=_record_path_with_rel_scope(
+                            f"/team/{team.slug}?panel=season_records", rel_scope
+                        ),
+                    )
+                    if holder is not None:
+                        out[key] = holder
+
+        for split in ("rs", "po"):
+            seg_label = _SEGMENT_LABEL.get(split, split)
+            for sort_key, label in _SKATER_ALL_TIME_STATS:
+                rows, _, _ = fetch_skater_all_time(
+                    session,
+                    split,  # type: ignore[arg-type]
+                    sort_key,
+                    default_skater_sort_order(sort_key),
+                    "all",
+                    league_ids=league_ids,  # type: ignore[arg-type]
+                    team_fhm_ids=team_fhm_ids,  # type: ignore[arg-type]
                 )
-                holder = _holder_from_season_row(
+                if not rows:
+                    continue
+                key = f"{prefix}all_time:{split}:skater:{sort_key}"
+                title = f"All-Time Record — {label} ({seg_label})"
+                higher = default_skater_sort_order(sort_key) != "asc"
+                holder = _holder_from_all_time_row(
                     snapshot_key=key,
                     record_title=title,
-                    record_scope="franchise",
-                    row=section.rows[0],
-                    team=team,
-                    record_path=f"/team/{team.slug}?panel=season_records",
+                    split=split,
+                    sort_key=sort_key,
+                    row=rows[0],
+                    higher_is_better=higher,
+                    record_path=_record_path_with_rel_scope("/records", rel_scope),
                 )
                 if holder is not None:
                     out[key] = holder
 
-    for split in ("rs", "po"):
-        seg_label = _SEGMENT_LABEL.get(split, split)
-        for sort_key, label in _SKATER_ALL_TIME_STATS:
-            rows, _, _ = fetch_skater_all_time(
-                session,
-                split,  # type: ignore[arg-type]
-                sort_key,
-                default_skater_sort_order(sort_key),
-                "all",
-            )
-            if not rows:
+            for sort_key, label in _GOALIE_ALL_TIME_STATS:
+                rows, _, _ = fetch_goalie_all_time(
+                    session,
+                    split,  # type: ignore[arg-type]
+                    sort_key,
+                    default_goalie_sort_order(sort_key),
+                    "all",
+                    league_ids=league_ids,  # type: ignore[arg-type]
+                    team_fhm_ids=team_fhm_ids,  # type: ignore[arg-type]
+                )
+                if not rows:
+                    continue
+                key = f"{prefix}all_time:{split}:goalie:{sort_key}"
+                title = f"All-Time Record — Goalie {label} ({seg_label})"
+                higher = default_goalie_sort_order(sort_key) != "asc"
+                holder = _holder_from_all_time_row(
+                    snapshot_key=key,
+                    record_title=title,
+                    split=split,
+                    sort_key=sort_key,
+                    row=rows[0],
+                    higher_is_better=higher,
+                    record_path=_record_path_with_rel_scope(
+                        "/records?goalies=1", rel_scope
+                    ),
+                )
+                if holder is not None:
+                    out[key] = holder
+
+        for section in build_team_record_leaderboards(
+            session,
+            league_slug=league_slug,
+            team_ids=scoped_team_ids,
+        ):
+            if not section.rows:
                 continue
-            key = f"all_time:{split}:skater:{sort_key}"
-            title = f"All-Time Record — {label} ({seg_label})"
-            higher = default_skater_sort_order(sort_key) != "asc"
-            holder = _holder_from_all_time_row(
+            key = f"{prefix}team:{_slug_key(section.title)}"
+            title = f"Team Record — {section.title}"
+            holder = _holder_from_team_row(
                 snapshot_key=key,
                 record_title=title,
-                split=split,
-                sort_key=sort_key,
-                row=rows[0],
-                higher_is_better=higher,
+                row=section.rows[0],
+                record_path=_record_path_with_rel_scope("/team-records", rel_scope),
             )
             if holder is not None:
                 out[key] = holder
-
-        for sort_key, label in _GOALIE_ALL_TIME_STATS:
-            rows, _, _ = fetch_goalie_all_time(
-                session,
-                split,  # type: ignore[arg-type]
-                sort_key,
-                default_goalie_sort_order(sort_key),
-                "all",
-            )
-            if not rows:
-                continue
-            key = f"all_time:{split}:goalie:{sort_key}"
-            title = f"All-Time Record — Goalie {label} ({seg_label})"
-            higher = default_goalie_sort_order(sort_key) != "asc"
-            holder = _holder_from_all_time_row(
-                snapshot_key=key,
-                record_title=title,
-                split=split,
-                sort_key=sort_key,
-                row=rows[0],
-                higher_is_better=higher,
-            )
-            if holder is not None:
-                out[key] = holder
-
-    for section in build_team_record_leaderboards(
-        session, league_slug=league_slug, team_ids=main_team_ids
-    ):
-        if not section.rows:
-            continue
-        key = f"team:{_slug_key(section.title)}"
-        title = f"Team Record — {section.title}"
-        holder = _holder_from_team_row(
-            snapshot_key=key,
-            record_title=title,
-            row=section.rows[0],
-        )
-        if holder is not None:
-            out[key] = holder
 
     return out
 
 
-def _load_snapshot_map(session: Session) -> dict[str, RecordHolderState]:
+def _load_snapshot_map(session: Session, *, league_slug: str) -> dict[str, RecordHolderState]:
+    from app.services.relegation_records import normalize_record_snapshot_key
+
     out: dict[str, RecordHolderState] = {}
     rows = session.scalars(select(RecordLeaderSnapshot)).all()
     for row in rows:
@@ -577,7 +624,10 @@ def _load_snapshot_map(session: Session) -> dict[str, RecordHolderState]:
         holder = RecordHolderState.from_json_dict(data)
         if holder is None:
             continue
-        key = str(row.snapshot_key or holder.snapshot_key or "").strip()
+        key = normalize_record_snapshot_key(
+            str(row.snapshot_key or holder.snapshot_key or "").strip(),
+            league_slug=league_slug,
+        )
         if key:
             out[key] = holder
     return out
@@ -630,11 +680,52 @@ def _game_break_title(br: GameRecordBreak) -> str:
     return f"Game Record — {br.metric.title} ({seg}, {scope})"
 
 
+def _rel_scope_from_snapshot_key(snapshot_key: str) -> str:
+    key = str(snapshot_key or "").strip()
+    if key.startswith("rec:"):
+        parts = key.split(":", 3)
+        if len(parts) >= 2 and parts[1] in ("combined", "upper", "lower"):
+            return parts[1]
+    return "combined"
+
+
+def _enrich_relegation_record_payload(
+    league_session: Session,
+    league_slug: str,
+    payload: dict[str, Any],
+    *,
+    rel_scope: str | None = None,
+    team_id: int | None = None,
+) -> dict[str, Any]:
+    from app.services.relegation import get_tier_config, is_relegation_league
+    from app.services.relegation_records import (
+        relegation_tier_emote_for_scope,
+        relegation_tier_emote_for_team,
+    )
+
+    out = dict(payload)
+    slug = str(league_slug or "").strip()
+    if not is_relegation_league(slug):
+        return out
+    scope = str(rel_scope or out.get("relegation_scope") or "combined").strip().lower()
+    cfg = get_tier_config(league_session)
+    emote = relegation_tier_emote_for_scope(scope) if scope in ("upper", "lower") else ""
+    if not emote and team_id is not None:
+        tm = league_session.get(Team, int(team_id))
+        emote = relegation_tier_emote_for_team(tm, cfg)
+    if scope in ("combined", "upper", "lower"):
+        out["relegation_scope"] = scope
+    if emote:
+        out["relegation_tier_emote"] = emote
+    return out
+
+
 def _payload_from_holders(
     *,
     league_slug: str,
     old: RecordHolderState | None,
     new: RecordHolderState,
+    league_session: Session | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "title": new.record_title,
@@ -660,16 +751,30 @@ def _payload_from_holders(
         if url:
             payload["record_url"] = url
             payload["url"] = url
+    if league_session is not None:
+        rel_scope = _rel_scope_from_snapshot_key(new.snapshot_key)
+        payload = _enrich_relegation_record_payload(
+            league_session,
+            league_slug,
+            payload,
+            rel_scope=rel_scope,
+            team_id=_as_int_or_none(payload.get("team_id")),
+        )
     return payload
 
 
-def _payload_from_game_break(*, league_slug: str, br: GameRecordBreak) -> dict[str, Any]:
+def _payload_from_game_break(
+    *, league_slug: str, br: GameRecordBreak, league_session: Session | None = None
+) -> dict[str, Any]:
     new = br.new_holder
     old = br.old_holder
     title = _game_break_title(br)
+    rel_scope = str(getattr(br, "relegation_scope", None) or "combined").strip().lower()
     record_path = (
-        f"/game-records?segment={br.segment}&scope={br.scope}&kind={br.metric.player_kind}"
+        f"/game-records?segment={br.segment}&player_scope={br.scope}"
+        f"&kind={br.metric.player_kind}"
     )
+    record_path = _record_path_with_rel_scope(record_path, rel_scope)
     game_scope = br.scope if br.scope in ("all", "rookie") else "all"
     payload: dict[str, Any] = {
         "title": title,
@@ -688,6 +793,15 @@ def _payload_from_game_break(*, league_slug: str, br: GameRecordBreak) -> dict[s
     if url:
         payload["record_url"] = url
         payload["url"] = url
+    if league_session is not None:
+        tid = _as_int_or_none(payload.get("team_id"))
+        payload = _enrich_relegation_record_payload(
+            league_session,
+            league_slug,
+            payload,
+            rel_scope=rel_scope,
+            team_id=tid,
+        )
     return payload
 
 
@@ -887,7 +1001,9 @@ def enqueue_record_broken_events_from_deploy(
     return stats
 
 
-def collect_live_record_state(league_session: Session) -> dict[str, Any]:
+def collect_live_record_state(
+    league_session: Session, *, league_slug: str | None = None
+) -> dict[str, Any]:
     """Serialize current record snapshots + game baselines for deploy-db fallback."""
     from app.services.game_records import (
         format_game_record_value,
@@ -895,9 +1011,18 @@ def collect_live_record_state(league_session: Session) -> dict[str, Any]:
         game_record_snapshot_key,
     )
 
+    slug = str(league_slug or "").strip()
+    if not slug:
+        try:
+            from flask import current_app
+
+            slug = str(current_app.config.get("LEAGUE_SLUG") or "").strip()
+        except RuntimeError:
+            slug = ""
+
     snapshots = {
         key: holder.to_json_dict()
-        for key, holder in _load_snapshot_map(league_session).items()
+        for key, holder in _load_snapshot_map(league_session, league_slug=slug).items()
     }
     metrics = {
         (metric.player_kind, metric.key): metric
@@ -919,6 +1044,7 @@ def collect_live_record_state(league_session: Session) -> dict[str, Any]:
             scope=str(row.scope or "all"),
             player_kind=metric.player_kind,
             metric_key=metric.key,
+            relegation_scope=str(getattr(row, "relegation_scope", None) or "combined"),
         )
         tid, fhm, team_abbrev, _tname = _team_bits(row.team)
         _, _, opp_abbrev, _ = _team_bits(row.opponent_team)
@@ -967,13 +1093,20 @@ def events_from_live_record_state_diff(
             events.append(
                 {
                     "source_id": _source_id_for_holder(new),
-                    "payload": _payload_from_holders(league_slug=league_slug, old=old, new=new),
+                    "payload": _payload_from_holders(
+                        league_slug=league_slug,
+                        old=old,
+                        new=new,
+                        league_session=league_session,
+                    ),
                 }
             )
 
     live_games = live_state.get("game_baselines") or {}
     if isinstance(live_games, dict) and live_games:
-        fresh = collect_live_record_state(league_session).get("game_baselines") or {}
+        fresh = collect_live_record_state(
+            league_session, league_slug=league_slug
+        ).get("game_baselines") or {}
         for key, new_raw in fresh.items():
             old_raw = live_games.get(key)
             if not isinstance(old_raw, dict) or not isinstance(new_raw, dict):
@@ -1057,7 +1190,9 @@ def notify_record_breaks_after_import(
 
     if notify and game_breaks:
         for br in game_breaks:
-            payload = _payload_from_game_break(league_slug=slug, br=br)
+            payload = _payload_from_game_break(
+                league_slug=slug, br=br, league_session=league_session
+            )
             source_id = _source_id_for_game_break(br)
             pending_events.append({"source_id": source_id, "payload": payload})
             if enqueue_record_broken_event(
@@ -1071,7 +1206,7 @@ def notify_record_breaks_after_import(
                 stats["game_breaks"] += 1
 
     try:
-        previous = _load_snapshot_map(league_session)
+        previous = _load_snapshot_map(league_session, league_slug=slug)
         current = collect_current_record_holders(league_session, league_slug=slug)
     except Exception:
         _log.exception("record holder snapshot collect failed for %s", slug)
@@ -1096,7 +1231,12 @@ def notify_record_breaks_after_import(
             )
         else:
             for old, new in snapshot_breaks:
-                payload = _payload_from_holders(league_slug=slug, old=old, new=new)
+                payload = _payload_from_holders(
+                    league_slug=slug,
+                    old=old,
+                    new=new,
+                    league_session=league_session,
+                )
                 source_id = _source_id_for_holder(new)
                 pending_events.append({"source_id": source_id, "payload": payload})
                 if enqueue_record_broken_event(

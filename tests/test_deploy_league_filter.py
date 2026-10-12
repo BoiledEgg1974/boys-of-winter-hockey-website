@@ -41,6 +41,7 @@ class DeployLeagueFilterTests(unittest.TestCase):
         )
         self.assertIn("--league bowl-fantasy", script)
         self.assertIn("--stash-live-record-state --league bowl-fantasy", script)
+        self.assertIn("run_gm_achievements_after_deploy.py --league bowl-fantasy", script)
 
 
 if __name__ == "__main__":

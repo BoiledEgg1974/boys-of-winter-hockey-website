@@ -53,7 +53,7 @@ def _stash_league(slug: str) -> dict:
     app = create_app(make_league_config(slug))
     out: dict = {"league_slug": slug, "snapshots": 0, "game_baselines": 0}
     with app.app_context():
-        state = collect_live_record_state(db.session)
+        state = collect_live_record_state(db.session, league_slug=slug)
         snapshots = state.get("snapshots") or {}
         games = state.get("game_baselines") or {}
         out["snapshots"] = len(snapshots) if isinstance(snapshots, dict) else 0

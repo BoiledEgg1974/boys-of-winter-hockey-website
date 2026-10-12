@@ -11,11 +11,12 @@ For the usual CSV + import + reload sequence from your machine, prefer
            touch WSGI to reload. Use this for CSVs, images, CSS/JS.
 
   deploy-db — Upload locally built league SQLite files (+ app/static). Snapshots live OVR on the
-              server first, merges those baselines into the local DBs, then uploads so depth-chart
-              arrows stay accurate. Also merges live trade logs, game-record baselines, and
-              league editorial data (gap-fill: restore live-only HoF/awards/all-stars/honors/
-              franchise rows, career adjustments, etc.). Aborts if live capture JSON is missing
-              or corrupt. Skips server-side import_data.py.
+              server first, merges those baselines into the local DBs, re-runs GM achievements
+              (local site DB, then again on the server against SITE_DATABASE_URL after DB
+              promote), then uploads so depth-chart arrows stay accurate. Also merges live trade
+              logs, game-record baselines, and league editorial data (gap-fill: restore live-only
+              HoF/awards/all-stars/honors/franchise rows, career adjustments, etc.). Aborts if
+              live capture JSON is missing or corrupt. Skips server-side import_data.py.
 
   sync   — Upload the whole project tree (newer files only), same rules as before; does NOT
            run imports. Use this for code/template changes without a data refresh.
@@ -1009,6 +1010,9 @@ def build_post_db_upload_script(
     notify = shlex.quote(
         f"{remote_project.rstrip('/')}/scripts/notify_discord_after_db_deploy.py"
     )
+    achievements = shlex.quote(
+        f"{remote_project.rstrip('/')}/scripts/run_gm_achievements_after_deploy.py"
+    )
     league_flag = f" --league {shlex.quote(notify_league)}" if notify_league else ""
     parts = ["set -euo pipefail", f"cd {rp}", f". {act}"]
     if notify_discord:
@@ -1028,6 +1032,8 @@ def build_post_db_upload_script(
             f"{py} -c {shlex.quote(_remote_remove_wal_sidecars_code(slug))}"
         )
         parts.append(f"{py} {repair} --check --league {shlex.quote(slug)}")
+    # Site DB (MySQL on VPS) is not uploaded; re-evaluate against promoted league SQLite.
+    parts.append(f"{py} {achievements}{league_flag}")
     if notify_discord:
         # Enqueue boxscores, broken records, BOWL Six, and playoff bracket.
         days = max(1, int(discord_fallback_days))
@@ -1572,6 +1578,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             print(f"would upload {remote_rel} ({db_path.name})")
         print("--- would upload deploy Discord notify helpers + finals/records sidecars ---")
         print("would upload scripts/notify_discord_after_db_deploy.py")
+        print("would upload scripts/run_gm_achievements_after_deploy.py")
         print("would upload app/services/deploy_discord_finals.py")
         print("would upload app/services/deploy_discord_records.py")
         print("would upload app/services/record_broken_discord.py")
@@ -1596,6 +1603,7 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
                 "scripts/league_editorial_transfer.py",
                 "scripts/repair_league_sqlite.py",
                 "scripts/notify_discord_after_db_deploy.py",
+                "scripts/run_gm_achievements_after_deploy.py",
                 "app/services/deploy_discord_finals.py",
                 "app/services/deploy_discord_records.py",
                 "app/services/record_broken_discord.py",
@@ -1746,6 +1754,15 @@ def cmd_deploy_db(ns: argparse.Namespace) -> int:
             )
             sqlite_wal_checkpoint(resolve_league_db_path(slug, db_targets))
 
+        print("--- GM achievements (post-merge, pre-upload) ---")
+        ach_script = local_root / "scripts" / "run_gm_achievements_after_deploy.py"
+        for slug in slugs:
+            subprocess.run(
+                [sys.executable, str(ach_script), "--league", slug],
+                cwd=str(local_root),
+                check=True,
+            )
+
         print("--- upload league databases (staged) ---")
         for slug, db_path, remote_rel in db_targets:
             remote_file = f"{remote_base}/{remote_rel}"
@@ -1872,6 +1889,7 @@ def cmd_notify_discord(ns: argparse.Namespace) -> int:
             local_root,
             (
                 "scripts/notify_discord_after_db_deploy.py",
+                "scripts/run_gm_achievements_after_deploy.py",
                 "app/services/deploy_discord_finals.py",
                 "app/services/deploy_discord_records.py",
                 "app/services/record_broken_discord.py",

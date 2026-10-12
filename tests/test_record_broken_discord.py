@@ -225,6 +225,7 @@ class GameRecordBreakCollectionTest(unittest.TestCase):
             metric=metric,
             segment="rs",
             scope="all",
+            relegation_scope="combined",
             old_holder=old,
             new_holder=new,
         )
@@ -435,9 +436,12 @@ class RecordBrokenRelegationTierTest(unittest.TestCase):
             fhm_team_id="1",
             full_display_name=lambda: "Montreal Canadiens",
         )
+        def _team_ids_for_scope(_session, rel_scope, _config):
+            return frozenset({10}) if rel_scope == "combined" else frozenset()
+
         with patch(
-            "app.services.record_broken_discord._relegation_main_tier_team_ids_for_records",
-            return_value=frozenset({10}),
+            "app.services.relegation_records.team_ids_for_rel_scope",
+            side_effect=_team_ids_for_scope,
         ), patch(
             "app.services.record_broken_discord.build_league_season_record_sections",
             return_value=[],
@@ -457,8 +461,11 @@ class RecordBrokenRelegationTierTest(unittest.TestCase):
         ) as team_lb:
             select_mock.return_value.order_by.return_value.all.return_value = [team]
             collect_current_record_holders(session, league_slug="bowl-fantasy")
-        team_lb.assert_called_once()
-        self.assertEqual(team_lb.call_args.kwargs.get("team_ids"), frozenset({10}))
+            self.assertGreaterEqual(team_lb.call_count, 1)
+            team_id_sets = [
+                c.kwargs.get("team_ids") for c in team_lb.call_args_list if c.kwargs
+            ]
+        self.assertIn(frozenset({10}), team_id_sets)
 
 
 class RecordBrokenHumanGmLeagueTest(unittest.TestCase):

@@ -214,6 +214,8 @@ def _baseline_row(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    relegation_scope: str = "combined",
 ) -> GameRecordHolder | None:
     row = session.scalars(
         select(GameRecordBaseline).where(
@@ -221,6 +223,7 @@ def _baseline_row(
             GameRecordBaseline.segment == segment,
             GameRecordBaseline.scope == scope,
             GameRecordBaseline.player_kind == metric.player_kind,
+            GameRecordBaseline.relegation_scope == relegation_scope,
         ).limit(1)
     ).first()
     if row is None:
@@ -298,6 +301,27 @@ def _team_on_main_tier(team: Team | None, main_ids: frozenset[int] | None) -> bo
     return int(team.id) in main_ids
 
 
+def _allowed_team_ids_for_game_records(
+    session: Session,
+    *,
+    relegation_scope: str = "combined",
+) -> frozenset[int] | None:
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    except RuntimeError:
+        return None
+    from app.services.relegation import get_tier_config, is_relegation_league, normalize_relegation_scope
+    from app.services.relegation_records import team_ids_for_rel_scope
+
+    if not is_relegation_league(slug):
+        return None
+    rel = normalize_relegation_scope(relegation_scope)
+    cfg = get_tier_config(session)
+    return team_ids_for_rel_scope(session, rel, cfg)
+
+
 def _game_segment_filter(segment: str):
     if segment == "po":
         return or_(
@@ -323,12 +347,15 @@ def _best_from_skater_query(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> GameRecordHolder | None:
     metric_col = _skater_metric_column(metric)
     if metric_col is None:
         return None
     rookie_cache: dict[int, set[int]] = {}
-    main_tier = _relegation_main_tier_team_ids(session)
+    if allowed_team_ids is None:
+        allowed_team_ids = _relegation_main_tier_team_ids(session)
     q = (
         select(GameSkaterStat, Game, Player, Team, metric_col)
         .join(Game, GameSkaterStat.game_id == Game.id)
@@ -354,7 +381,7 @@ def _best_from_skater_query(
     for gs, game, pl, tm, raw_val in rows:
         if raw_val is None:
             continue
-        if not _team_on_main_tier(tm, main_tier):
+        if not _team_on_main_tier(tm, allowed_team_ids):
             continue
         val = float(raw_val)
         if scope == "rookie":
@@ -387,12 +414,15 @@ def _best_from_goalie_query(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> GameRecordHolder | None:
     metric_col = _goalie_metric_column(metric)
     if metric_col is None:
         return None
     rookie_cache: dict[int, set[int]] = {}
-    main_tier = _relegation_main_tier_team_ids(session)
+    if allowed_team_ids is None:
+        allowed_team_ids = _relegation_main_tier_team_ids(session)
     min_sa = 1 if metric.key == "save_pct" else 0
     q = (
         select(GameGoalieStat, Game, Player, Team, metric_col)
@@ -412,7 +442,7 @@ def _best_from_goalie_query(
     for gg, game, pl, tm, raw_val in rows:
         if raw_val is None:
             continue
-        if not _team_on_main_tier(tm, main_tier):
+        if not _team_on_main_tier(tm, allowed_team_ids):
             continue
         val = float(raw_val)
         if scope == "rookie":
@@ -447,9 +477,11 @@ def _best_from_scoring(
     scope: str,
     *,
     pp: bool,
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> GameRecordHolder | None:
     strength_fn = _strength_is_pp if pp else _strength_is_sh
-    main_tier = _relegation_main_tier_team_ids(session)
+    if allowed_team_ids is None:
+        allowed_team_ids = _relegation_main_tier_team_ids(session)
     games = session.scalars(
         select(Game).where(Game.status == "final", _game_segment_filter(segment))
     ).all()
@@ -489,7 +521,7 @@ def _best_from_scoring(
             ).limit(1)
         ).first()
         team = session.get(Team, gs_row.team_id) if gs_row and gs_row.team_id else None
-        if not _team_on_main_tier(team, main_tier):
+        if not _team_on_main_tier(team, allowed_team_ids):
             return None
         opp = _opponent_for_game(g, team.id if team else None)
         val = float(counts[gk])
@@ -536,14 +568,29 @@ def _computed_game_record(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    relegation_scope: str = "combined",
+    allowed_team_ids: frozenset[int] | None = None,
 ) -> GameRecordHolder | None:
+    if allowed_team_ids is None:
+        allowed_team_ids = _allowed_team_ids_for_game_records(
+            session, relegation_scope=relegation_scope
+        )
     if metric.source == "scoring_pp":
-        return _best_from_scoring(session, metric, segment, scope, pp=True)
+        return _best_from_scoring(
+            session, metric, segment, scope, pp=True, allowed_team_ids=allowed_team_ids
+        )
     if metric.source == "scoring_sh":
-        return _best_from_scoring(session, metric, segment, scope, pp=False)
+        return _best_from_scoring(
+            session, metric, segment, scope, pp=False, allowed_team_ids=allowed_team_ids
+        )
     if metric.player_kind == "goalie":
-        return _best_from_goalie_query(session, metric, segment, scope)
-    return _best_from_skater_query(session, metric, segment, scope)
+        return _best_from_goalie_query(
+            session, metric, segment, scope, allowed_team_ids=allowed_team_ids
+        )
+    return _best_from_skater_query(
+        session, metric, segment, scope, allowed_team_ids=allowed_team_ids
+    )
 
 
 def resolve_game_record(
@@ -551,9 +598,15 @@ def resolve_game_record(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    relegation_scope: str = "combined",
 ) -> GameRecordHolder | None:
-    baseline = _baseline_row(session, metric, segment, scope)
-    computed = _computed_game_record(session, metric, segment, scope)
+    baseline = _baseline_row(
+        session, metric, segment, scope, relegation_scope=relegation_scope
+    )
+    computed = _computed_game_record(
+        session, metric, segment, scope, relegation_scope=relegation_scope
+    )
     merged = _merge_holders(baseline, computed, metric)
     if merged is None:
         return GameRecordHolder(
@@ -589,6 +642,8 @@ def _baseline_db_row(
     metric: GameRecordMetric,
     segment: str,
     scope: str,
+    *,
+    relegation_scope: str = "combined",
 ) -> GameRecordBaseline | None:
     return session.scalars(
         select(GameRecordBaseline).where(
@@ -596,6 +651,7 @@ def _baseline_db_row(
             GameRecordBaseline.segment == segment,
             GameRecordBaseline.scope == scope,
             GameRecordBaseline.player_kind == metric.player_kind,
+            GameRecordBaseline.relegation_scope == relegation_scope,
         ).limit(1)
     ).first()
 
@@ -606,6 +662,7 @@ def _promote_holder_to_baseline(
     segment: str,
     scope: str,
     *,
+    relegation_scope: str = "combined",
     notes: str | None | object = _NOTES_OMIT,
 ) -> GameRecordBaseline:
     team_id = int(holder.team.id) if holder.team is not None else None
@@ -616,6 +673,7 @@ def _promote_holder_to_baseline(
         segment=segment,
         scope=scope,
         player_kind=holder.metric.player_kind,
+        relegation_scope=relegation_scope,
         value=float(holder.value),
         player_id=int(holder.player.id) if holder.player is not None else None,
         team_id=team_id,
@@ -635,6 +693,7 @@ class GameRecordBreak:
     metric: GameRecordMetric
     segment: str
     scope: str
+    relegation_scope: str
     old_holder: GameRecordHolder
     new_holder: GameRecordHolder
 
@@ -645,8 +704,12 @@ def game_record_snapshot_key(
     scope: str,
     player_kind: str,
     metric_key: str,
+    relegation_scope: str = "combined",
 ) -> str:
-    return f"game:{segment}:{scope}:{player_kind}:{metric_key}"
+    rel = str(relegation_scope or "combined").strip().lower()
+    if rel == "combined":
+        return f"game:{segment}:{scope}:{player_kind}:{metric_key}"
+    return f"game:{rel}:{segment}:{scope}:{player_kind}:{metric_key}"
 
 
 def stash_game_record_break(br: GameRecordBreak) -> None:
@@ -679,60 +742,81 @@ def sync_game_record_baselines(
     because FHM import promotes baselines *before* ``refresh_after_import`` runs; without
     the stash, the later Discord sync sees an already-updated baseline and posts nothing.
     """
+    from app.services.relegation_records import record_rel_scopes_for_league
+
+    try:
+        from flask import current_app
+
+        slug = str(current_app.config.get("LEAGUE_SLUG") or "")
+    except RuntimeError:
+        slug = ""
+    rel_scopes = record_rel_scopes_for_league(slug)
+
     promoted = 0
-    for player_kind in ("skater", "goalie"):
-        for segment in ("rs", "po"):
-            for scope in ("all", "rookie"):
-                for metric in game_record_metrics(player_kind=player_kind):
-                    baseline = _baseline_row(session, metric, segment, scope)
-                    game_log = _computed_game_record(session, metric, segment, scope)
-                    if game_log is None:
-                        continue
-                    if not _should_promote_baseline(baseline, game_log, metric):
-                        continue
-                    existing_row = _baseline_db_row(session, metric, segment, scope)
-                    promote_notes: str | None | object = _NOTES_OMIT
-                    notify_break = (
-                        baseline is not None
-                        and baseline.value is not None
-                        and game_log.value is not None
-                        and _is_better(
-                            game_log.value,
-                            baseline.value,
-                            higher_is_better=metric.higher_is_better,
+    for rel_scope in rel_scopes:
+        for player_kind in ("skater", "goalie"):
+            for segment in ("rs", "po"):
+                for scope in ("all", "rookie"):
+                    for metric in game_record_metrics(player_kind=player_kind):
+                        baseline = _baseline_row(
+                            session, metric, segment, scope, relegation_scope=rel_scope
                         )
-                    )
-                    if (
-                        existing_row is not None
-                        and notify_break
-                    ):
-                        promote_notes = None
-                    if notify_break:
-                        br = GameRecordBreak(
-                            snapshot_key=game_record_snapshot_key(
+                        game_log = _computed_game_record(
+                            session,
+                            metric,
+                            segment,
+                            scope,
+                            relegation_scope=rel_scope,
+                        )
+                        if game_log is None:
+                            continue
+                        if not _should_promote_baseline(baseline, game_log, metric):
+                            continue
+                        existing_row = _baseline_db_row(
+                            session, metric, segment, scope, relegation_scope=rel_scope
+                        )
+                        promote_notes: str | None | object = _NOTES_OMIT
+                        notify_break = (
+                            baseline is not None
+                            and baseline.value is not None
+                            and game_log.value is not None
+                            and _is_better(
+                                game_log.value,
+                                baseline.value,
+                                higher_is_better=metric.higher_is_better,
+                            )
+                        )
+                        if existing_row is not None and notify_break:
+                            promote_notes = None
+                        if notify_break:
+                            br = GameRecordBreak(
+                                snapshot_key=game_record_snapshot_key(
+                                    segment=segment,
+                                    scope=scope,
+                                    player_kind=metric.player_kind,
+                                    metric_key=metric.key,
+                                    relegation_scope=rel_scope,
+                                ),
+                                metric=metric,
                                 segment=segment,
                                 scope=scope,
-                                player_kind=metric.player_kind,
-                                metric_key=metric.key,
-                            ),
-                            metric=metric,
-                            segment=segment,
-                            scope=scope,
-                            old_holder=baseline,
-                            new_holder=game_log,
+                                relegation_scope=rel_scope,
+                                old_holder=baseline,
+                                new_holder=game_log,
+                            )
+                            if breaks_out is not None:
+                                breaks_out.append(br)
+                            stash_game_record_break(br)
+                        _promote_holder_to_baseline(
+                            session,
+                            game_log,
+                            segment,
+                            scope,
+                            relegation_scope=rel_scope,
+                            notes=promote_notes,
                         )
-                        if breaks_out is not None:
-                            breaks_out.append(br)
-                        stash_game_record_break(br)
-                    _promote_holder_to_baseline(
-                        session,
-                        game_log,
-                        segment,
-                        scope,
-                        notes=promote_notes,
-                    )
-                    session.flush()
-                    promoted += 1
+                        session.flush()
+                        promoted += 1
     return promoted
 
 
@@ -742,19 +826,26 @@ def build_game_records_page(
     segment: str = "rs",
     scope: str = "all",
     player_kind: str = "skater",
+    relegation_scope: str = "combined",
 ) -> dict[str, Any]:
     segment = segment if segment in ("rs", "po") else "rs"
     scope = scope if scope in ("all", "rookie") else "all"
     player_kind = player_kind if player_kind in ("skater", "goalie") else "skater"
+    rel_scope = str(relegation_scope or "combined").strip().lower()
+    if rel_scope not in ("combined", "upper", "lower"):
+        rel_scope = "combined"
     metrics = game_record_metrics(player_kind=player_kind)
     cards = [
-        resolve_game_record(session, m, segment, scope).to_template_dict()
+        resolve_game_record(
+            session, m, segment, scope, relegation_scope=rel_scope
+        ).to_template_dict()
         for m in metrics
     ]
     return {
         "segment": segment,
         "scope": scope,
         "player_kind": player_kind,
+        "record_relegation_scope": rel_scope,
         "cards": cards,
         "segment_label": "Playoffs" if segment == "po" else "Regular Season",
         "scope_label": "Rookies" if scope == "rookie" else "All Players",
@@ -842,6 +933,7 @@ def upsert_baseline(
     segment: str,
     scope: str,
     player_kind: str,
+    relegation_scope: str = "combined",
     value: float,
     player_id: int | None = None,
     team_id: int | None = None,
@@ -851,12 +943,14 @@ def upsert_baseline(
     season_label: str | None = None,
     notes: str | None | object = _NOTES_OMIT,
 ) -> GameRecordBaseline:
+    rel_scope = str(relegation_scope or "combined").strip().lower()
     row = session.scalars(
         select(GameRecordBaseline).where(
             GameRecordBaseline.metric_key == metric_key,
             GameRecordBaseline.segment == segment,
             GameRecordBaseline.scope == scope,
             GameRecordBaseline.player_kind == player_kind,
+            GameRecordBaseline.relegation_scope == rel_scope,
         ).limit(1)
     ).first()
     if row is None:
@@ -865,6 +959,7 @@ def upsert_baseline(
             segment=segment,
             scope=scope,
             player_kind=player_kind,
+            relegation_scope=rel_scope,
             value=float(value),
         )
         session.add(row)

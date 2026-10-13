@@ -19979,7 +19979,13 @@ table.draft-hub-history-table--expansion td:nth-child(4) a {
 }
 .trade-tool-chip.trade-tool-player-row {
   align-items: center;
-  cursor: default;
+  cursor: grab;
+}
+.trade-tool-chip.trade-tool-player-row:active {
+  cursor: grabbing;
+}
+.trade-tool-player-row a {
+  cursor: pointer;
 }
 .trade-tool-chip__drag-handle {
   flex-shrink: 0;

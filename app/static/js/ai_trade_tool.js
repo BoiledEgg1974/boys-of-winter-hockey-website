@@ -88,12 +88,12 @@
     return (
       '<div class="' +
       cls +
-      '" data-drag-key="' +
+      '" draggable="true" data-drag-key="' +
       pk +
       '" data-side="' +
       esc(side) +
       '">' +
-      '<span class="trade-tool-chip__drag-handle" draggable="true" data-trade-drag-handle="1" title="Drag into trade ledger" aria-label="Drag into trade ledger">⋮⋮</span>' +
+      '<span class="trade-tool-chip__drag-handle" data-trade-drag-handle="1" title="Drag into trade ledger" aria-label="Drag into trade ledger">⋮⋮</span>' +
       '<span class="stats-player-cell trade-tool-player-row__cell">' +
       '<a class="stats-player-cell__photo" href="' +
       href +
@@ -392,21 +392,17 @@
   root.addEventListener(
     "dragstart",
     function (ev) {
-      var handle =
-        ev.target && ev.target.closest
-          ? ev.target.closest("[data-trade-drag-handle='1'][draggable='true']")
-          : null;
-      var chip =
-        ev.target && ev.target.closest
-          ? ev.target.closest(".trade-tool-chip[draggable='true']")
-          : null;
-      if (handle) {
-        chip = handle.closest(".trade-tool-chip");
-      } else if (chip && chip.classList.contains("trade-tool-player-row")) {
+      if (ev.target && ev.target.closest && ev.target.closest("a")) {
+        ev.preventDefault();
         return;
       }
+      var chip =
+        ev.target && ev.target.closest
+          ? ev.target.closest(".trade-tool-chip[data-drag-key]")
+          : null;
       if (!chip || !root.contains(chip)) return;
       dragKey = chip.getAttribute("data-drag-key");
+      if (!ev.dataTransfer) return;
       ev.dataTransfer.setData("text/plain", dragKey || "");
       ev.dataTransfer.effectAllowed = "move";
     },
@@ -468,11 +464,12 @@
   function setupDrop(zoneName) {
     var body = document.getElementById("zone-" + zoneName);
     if (!body) return;
-    body.addEventListener("dragover", function (e) {
+    var dropTarget = body.closest(".trade-tool-dropbox") || body;
+    dropTarget.addEventListener("dragover", function (e) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
     });
-    body.addEventListener("drop", function (e) {
+    dropTarget.addEventListener("drop", function (e) {
       e.preventDefault();
       var k = (e.dataTransfer.getData("text/plain") || dragKey || "").trim();
       applyDrop(zoneName, k);

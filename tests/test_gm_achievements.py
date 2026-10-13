@@ -426,6 +426,27 @@ class RegularSeasonGateTests(unittest.TestCase):
                     if gid is not None:
                         self.assertNotIn(int(gid), playoff_ids)
 
+    def test_make_playoffs_meta_matches_current_season_only(self) -> None:
+        app = create_app(make_league_config("bowl-cap"))
+        with app.app_context():
+            from app.services.seasons import get_current_season, season_display_label
+
+            season_label = season_display_label(get_current_season())
+            truths = discover_true_achievements(db.session, "bowl-cap", going_forward=True)
+            for _tid, keys in truths.items():
+                meta = keys.get("make_playoffs")
+                if not meta:
+                    continue
+                record_season = str(meta.get("season") or "").strip()
+                if record_season:
+                    self.assertEqual(
+                        record_season,
+                        season_label,
+                        msg=f"make_playoffs must not reuse historical TeamSeasonRecord rows ({record_season=!r})",
+                    )
+                detail = str(meta.get("detail") or "")
+                self.assertNotIn("BOWL CUP CHAMPION", detail.upper())
+
     def test_going_forward_skips_historical_pinnacle_and_dynasty(self) -> None:
         app = create_app(make_league_config("bowl-cap"))
         with app.app_context():

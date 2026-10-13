@@ -2398,6 +2398,7 @@ def discover_true_achievements(
                 )
 
     # --- playoffs / cups ---
+    current_start = int(season.start_year) if season and season.start_year is not None else None
     po_games = [g for g in games if is_playoff_game_type(g.game_type)]
     for g in po_games:
         mark(g.home_team_id, "make_playoffs", {"detail": "Made the playoffs"})
@@ -2405,13 +2406,26 @@ def discover_true_achievements(
 
     for recs in records_by_team.values():
         for rec in recs:
-            if rec.team_id and not _missed_playoffs(rec.result) and rec.result:
-                mark(rec.team_id, "make_playoffs", {"season": rec.season_year_label, "detail": rec.result})
+            if not rec.team_id or _missed_playoffs(rec.result) or not rec.result:
+                continue
+            if not _record_is_current_season(
+                rec, season_label=season_label, start_year=current_start
+            ):
+                continue
+            if _is_champion_result(rec.result):
+                continue
+            mark(
+                rec.team_id,
+                "make_playoffs",
+                {
+                    "season": rec.season_year_label,
+                    "detail": str(rec.result).strip() or "Made the playoffs",
+                },
+            )
 
     series_list = build_playoff_series(po_games, rs_rank)
     playoff_ranks = {tid: rs_rank[tid] for tid in {s.team_a for s in series_list} | {s.team_b for s in series_list} if tid in rs_rank}
     champ_team_ids: set[int] = set()
-    current_start = int(season.start_year) if season and season.start_year is not None else None
     for recs in records_by_team.values():
         for rec in recs:
             if rec.team_id and _is_champion_result(rec.result):
@@ -3591,6 +3605,105 @@ def revoke_gm_achievement_unlocks(
         stats["revoked"],
         stats["watermark_removed"],
     )
+    return stats
+
+
+def _make_playoffs_unlock_is_season_mismatch(unlock: GmAchievementUnlock) -> bool:
+    """True when a repeatable Kiss from a Rose ticket used the wrong season metadata."""
+    if catalog_key_from_storage(unlock.achievement_key) != "make_playoffs":
+        return False
+    raw_key = str(unlock.achievement_key or "")
+    if ":" not in raw_key:
+        return False
+    suffix = raw_key.split(":", 1)[1].strip()
+    meta = unlock.meta_map() or {}
+    meta_season = str(meta.get("season") or unlock.season_label or "").strip()
+    if meta_season and suffix and meta_season != suffix:
+        return True
+    detail = str(meta.get("detail") or "").upper()
+    if _is_champion_result(detail):
+        return True
+    return False
+
+
+def _revoke_invalid_make_playoffs_unlocks(
+    session: Session,
+    *,
+    league_slug: str,
+) -> set[tuple[int, str]]:
+    """Drop Kiss from a Rose tickets whose detail/season came from the wrong year."""
+    dropped: set[tuple[int, str]] = set()
+    deleted_refs: set[str] = set()
+    rows = list(
+        session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == league_slug)
+        ).all()
+    )
+    for unlock in rows:
+        if not _make_playoffs_unlock_is_season_mismatch(unlock):
+            continue
+        pair = (int(unlock.team_id), str(unlock.achievement_key))
+        if unlock.claimed_at is not None or int(unlock.ap_delta or 0) > 0:
+            clawback_achievement_ap(unlock)
+        if unlock.source_ref:
+            deleted_refs.add(str(unlock.source_ref))
+        session.delete(unlock)
+        dropped.add(pair)
+    if deleted_refs:
+        _cancel_pending_achievement_discord(session, league_slug, deleted_refs)
+    watermark = session.scalar(
+        select(GmAchievementWatermark).where(GmAchievementWatermark.league_slug == league_slug).limit(1)
+    )
+    if watermark is not None and dropped:
+        kept = {pair for pair in _already_pairs(watermark) if pair not in dropped}
+        watermark.already_true_json = _pairs_to_json(kept)
+        watermark.evaluated_at = datetime.utcnow()
+    return dropped
+
+
+def clawback_invalid_make_playoffs_unlocks(app) -> dict[str, Any]:
+    """Revoke Kiss from a Rose tickets issued with historical season result text."""
+    slug = str(getattr(app, "config", {}).get("LEAGUE_SLUG") or "").strip()
+    stats: dict[str, Any] = {
+        "league": slug,
+        "revoked": 0,
+        "skipped": 0,
+        "details": [],
+    }
+    if slug not in HOCKEY_SLUGS:
+        stats["skipped"] = 1
+        return stats
+
+    from app.league_db import db
+    from app.sqlite_retry import commit_with_sqlite_retry
+
+    session = db.session
+    before = {
+        (int(row.team_id), str(row.achievement_key)): row
+        for row in session.scalars(
+            select(GmAchievementUnlock).where(GmAchievementUnlock.league_slug == slug)
+        ).all()
+        if _make_playoffs_unlock_is_season_mismatch(row)
+    }
+    dropped = _revoke_invalid_make_playoffs_unlocks(session, league_slug=slug)
+    commit_with_sqlite_retry(session)
+    details: list[dict[str, Any]] = []
+    for pair in sorted(dropped):
+        unlock = before.get(pair)
+        meta = unlock.meta_map() if unlock is not None else {}
+        details.append(
+            {
+                "team_id": pair[0],
+                "achievement_key": pair[1],
+                "season": meta.get("season"),
+                "detail": meta.get("detail"),
+                "claimed": bool(unlock.claimed_at) if unlock is not None else False,
+                "ap_delta": int(unlock.ap_delta or 0) if unlock is not None else 0,
+            }
+        )
+    stats["revoked"] = len(dropped)
+    stats["details"] = details
+    _log.info("GM achievements make_playoffs clawback for %s: %s", slug, stats)
     return stats
 
 

@@ -1816,7 +1816,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1814;260;Phil;Mullen;;1967-11-25;Hayward;CA;United States;;;0
 1815;232;Luther;Stone;;1984-12-5;Savannah;GA;United States;;;0
 1816;176;Reggie;Smiley;;1980-8-28;Johnson City;TN;United States;;;0
-1817;-1;Pablo;Villanueva;;1979-7-12;Ladue;MO;United States;;;0
+1817;9;Pablo;Villanueva;;1979-7-12;Ladue;MO;United States;;;0
 1818;262;Dave;Chappell;;1964-11-6;Menifee;CA;United States;;;0
 1819;-1;Will;Glover;;1979-8-26;Norman;OK;United States;;;0
 1820;382;Henry;Ramieri;;1974-9-17;Glen Rock;NJ;United States;;;0
@@ -2327,7 +2327,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2325;313;Lukas;Hafner;;1959-1-17;Edmonton;AB;Canada;;;0
 2326;314;Dale;Randull;;1963-2-18;Collegedale;TN;United States;;;0
 2327;-1;Roy;Osgood;;1984-5-29;Picton;ON;Canada;;;0
-2328;-1;Érik;Corriveau;;1970-11-15;Gatineau;QC;Canada;;;0
+2328;9;Érik;Corriveau;;1970-11-15;Gatineau;QC;Canada;;;0
 2329;314;Jason;Senecal;;1955-10-8;Amherstburg;ON;Canada;;;0
 2330;314;David;O'Guire;;1962-2-11;Fair Lawn;NJ;United States;;;0
 2331;315;Brent;Roberts;;1962-6-30;Edmonton;AB;Canada;;;0
@@ -2476,7 +2476,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2474;204;Antonio;Sossi;;1979-1-23;Toronto;ON;Canada;;;0
 2475;-1;Samuel;Desrochers;;1969-11-15;Montreal;QC;Canada;;;0
 2476;-1;David;Venuto;;1975-4-25;Sudbury;ON;Canada;;;0
-2477;-1;Shane;Hearn;;1975-1-25;Welland;ON;Canada;;;0
+2477;9;Shane;Hearn;;1975-1-25;Welland;ON;Canada;;;0
 2478;-1;Mitchell;Stewart;;1968-11-16;Delta;BC;Canada;;;0
 2479;-1;Robert;Trevor;;1973-11-18;Toronto;ON;Canada;;;0
 2480;88;Fredrik;Svensson;;1959-2-26;Höganäs;SKå;Sweden;;;0
@@ -2895,7 +2895,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2893;254;Frans;Salomonsson;;1977-4-29;Täby;STO;Sweden;;;0
 2894;-1;Gustav;Nielsen;;1979-2-3;Huddinge;STO;Sweden;;;0
 2895;-1;Johannes;Bäckström;;1966-4-11;Stockholm;STO;Sweden;;;0
-2896;-1;Benjamin;Johansson;;1978-5-31;Malmö;SKå;Sweden;;;0
+2896;9;Benjamin;Johansson;;1978-5-31;Malmö;SKå;Sweden;;;0
 2897;-1;Jack;Andersson;;1977-10-8;Stockholm;STO;Sweden;;;0
 2898;-1;Robin;Forsén;;1964-3-2;Hagfors;VäR;Sweden;;;0
 2899;-1;Erik;Palmqvist;;1981-6-7;Stockholm;STO;Sweden;;;0
@@ -3340,7 +3340,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 3338;-1;Andrey;Troshkin;;1959-8-29;Ust-Labinsk;KRA;Russia;;;0
 3339;-1;Uladzimir;Lyavitski;;1956-8-10;Mogilev;MOG;Belarus;;;0
 3340;-1;Dong;Hengwei;;1969-6-4;Jiangmen;GUA;China;;;0
-3341;-1;Sergey;Tarpischev;;1957-2-20;Yekaterinburg;SVE;Russia;;;0
+3341;9;Sergey;Tarpischev;;1957-2-20;Yekaterinburg;SVE;Russia;;;0
 3342;-1;Grigory;Nazarov;;1965-6-16;Dankov;LIP;Russia;;;0
 3343;-1;Rinat;Khayrullin;;1968-7-8;Shakhty;ROS;Russia;;;0
 3344;-1;Pavel;Khizhnyakov;;1966-8-22;Shchuchye;KUR;Russia;;;0
@@ -3435,7 +3435,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 3433;-1;Andrey;Horbach;;1960-11-11;Kalinkovichi;GOM;Belarus;;;0
 3434;271;Boris;Pivnyuk;;1976-5-22;Moscow;MOS;Russia;;;0
 3435;-1;Lothar;Schmid;;1963-11-6;Urmary;CHU;Russia;;;0
-3436;-1;Aleksey;Varzar;;1971-6-4;Volokonovka;BEL;Russia;;;0
+3436;9;Aleksey;Varzar;;1971-6-4;Volokonovka;BEL;Russia;;;0
 3437;1;Igor;Vladychko;;1967-1-16;Kinel;SAM;Russia;;;0
 3438;-1;Jason;Ricks;;1970-2-19;Cumberland;RI;United States;;;0
 3439;-1;Yevgeny;Gevel;;1959-12-22;Dubovka;TUL;Russia;;;0
@@ -5686,7 +5686,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 5684;-1;Frank;Barns;;1979-6-2;Burbank;IL;United States;;;0
 5685;-1;Jack;Drouin;;1956-7-24;New Braunfels;TX;United States;;;0
 5686;-1;Ronald;Burke;;1969-10-28;Long Beach;CA;United States;;;0
-5687;-1;Joseph;Bullard;;1972-8-27;Calgary;AB;Canada;;;0
+5687;9;Joseph;Bullard;;1972-8-27;Calgary;AB;Canada;;;0
 5688;-1;Henry;Watkins;;1962-9-26;New York;NY;United States;;;0
 5689;-1;Ed;Huxley;;1955-7-6;Jacksonville;FL;United States;;;0
 5690;-1;Dale;Butler;;1972-3-25;Newport News;VA;United States;;;0
@@ -7206,9 +7206,9 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 7204;-1;Davis;Wilson;;1980-11-4;Lakefield;ON;Canada;;;0
 7205;-1;Tony;Turner;;1958-10-22;Vancouver;BC;Canada;;;0
 7206;-1;Mat;Russo;;1984-6-19;Chilliwack;BC;Canada;;;0
-7207;-1;Rico;Pearson;;1981-1-2;Ottawa;ON;Canada;;;0
+7207;9;Rico;Pearson;;1981-1-2;Ottawa;ON;Canada;;;0
 7208;-1;Jarrad;Winther;;1966-4-30;Toronto;ON;Canada;;;0
-7209;-1;Anton;Malmström;;1958-10-10;Göteborg;VäS;Sweden;;;0
+7209;9;Anton;Malmström;;1958-10-10;Göteborg;VäS;Sweden;;;0
 7210;10;Nicolas;Arcand;;1960-3-17;Lac-Beauport;QC;Canada;;;0
 7211;-1;Mitchell;Cowan;;1980-7-1;Saint-Augustin;QC;Canada;;;0
 7212;-1;Lynn;Beardsmore;;1984-9-17;Toronto;ON;Canada;;;0

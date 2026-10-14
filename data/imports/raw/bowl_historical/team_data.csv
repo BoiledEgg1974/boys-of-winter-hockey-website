@@ -7,7 +7,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 10;0;New York;Rangers;NYR;-1;-1;-1;-1;-1;-1;-1;-1;#00205b;#c8102e;#fefef4;-1;0
 19;3;Independent;Team;Ind;0;-1;-1;-1;-1;-1;-1;-1;#c60000;#0031ad;#fefef4;-1;0
 22;3;Independent;Team;Ind;3;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
-24;3;Independent;Team;Ind;5;-1;-1;-1;-1;-1;-1;-1;#000000;#fefef4;#e09d06;-1;0
+24;3;Independent;Team;Ind;5;-1;-1;-1;-1;-1;-1;-1;#c92d1e;#000000;#fefef4;-1;0
 26;3;Independent;Team;Ind;8;-1;-1;-1;-1;-1;-1;-1;#c30110;#000000;#fefef4;-1;0
 27;3;Independent;Team;Ind;9;-1;-1;-1;-1;-1;-1;-1;#e4002b;#e4002b;#fefef4;-1;0
 28;3;Independent;Team;Ind;10;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
@@ -56,7 +56,7 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 121;0;Philadelphia;Flyers;PHI;-1;-1;-1;-1;-1;-1;-1;-1;#ff671f;#000000;#fefef4;-1;1
 122;0;Pittsburgh;Penguins;PIT;-1;-1;-1;-1;-1;-1;-1;-1;#41b6e6;#00205b;#fefef4;-1;1
 123;0;St. Louis;Blues;STL;-1;-1;-1;-1;-1;-1;-1;-1;#003087;#003087;#fedb00;-1;1
-124;3;Independent;Team;Ind;123;-1;-1;-1;-1;-1;-1;-1;#3052b4;#fefef4;#f9b300;-1;0
+124;3;Independent;Team;Ind;123;-1;-1;-1;-1;-1;-1;-1;#ff6633;#000000;#fefef4;-1;0
 125;3;Independent;Team;Ind;118;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
 126;3;Independent;Team;Ind;119;-1;-1;-1;-1;-1;-1;-1;#001489;#418fde;#fefef4;-1;0
 127;3;Independent;Team;Ind;120;-1;-1;-1;-1;-1;-1;-1;#006200;#006200;#ffc620;-1;2
@@ -66,3 +66,31 @@ TeamId;LeagueId;Name;Nickname;Abbr;Parent Team 1;Parent Team 2;Parent Team 3;Par
 131;0;Vancouver;Canucks;VAN;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#216300;#fefef4;-1;0
 132;3;Independent;Team;Ind;130;-1;-1;-1;-1;-1;-1;-1;#000894;#e92318;#fefef4;-1;2
 133;3;Independent;Team;Ind;131;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+134;0;Atlanta;Flames;ATL;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#c8102e;#ffd100;-1;1
+135;0;New York;Islanders;NYI;-1;-1;-1;-1;-1;-1;-1;-1;#0033a0;#fc4c02;#fefef4;-1;0
+136;1;Alberta;Oilers;ALB;-1;-1;-1;-1;-1;-1;-1;-1;#001489;#ff6319;#fefef4;-1;0
+137;1;Winnipeg;Jets;WPG;-1;-1;-1;-1;-1;-1;-1;-1;#000084;#c60000;#fefef4;-1;0
+138;1;New England;Whalers;NEW;-1;-1;-1;-1;-1;-1;-1;-1;#107b31;#000000;#fefef4;-1;1
+139;1;Quebec;Nordiques;QUE;-1;-1;-1;-1;-1;-1;-1;-1;#71a8fb;#d52b1e;#fefef4;-1;1
+140;1;Chicago;Cougars;CHI;-1;-1;-1;-1;-1;-1;-1;-1;#2c5234;#f2c711;#fefef4;-1;0
+141;1;Minnesota;Fighting Saints;MIN;-1;-1;-1;-1;-1;-1;-1;-1;#001489;#ffcd00;#fefef4;-1;0
+142;1;Houston;Aeros;HOU;-1;-1;-1;-1;-1;-1;-1;-1;#012169;#31adce;#fefef4;-1;0
+143;1;Los Angeles;Sharks;LAS;-1;-1;-1;-1;-1;-1;-1;-1;#bd2100;#000000;#fefef4;-1;0
+144;1;Cleveland;Crusaders;CLE;-1;-1;-1;-1;-1;-1;-1;-1;#34027c;#000000;#fefef4;-1;1
+145;1;New York;Raiders;NYR;-1;-1;-1;-1;-1;-1;-1;-1;#ff4a00;#101073;#fefef4;-1;1
+146;1;Ottawa;Nationals;OTT;-1;-1;-1;-1;-1;-1;-1;-1;#d43204;#0c268c;#fefef4;-1;1
+147;1;Philadelphia;Blazers;PHI;-1;-1;-1;-1;-1;-1;-1;-1;#ff2100;#ffc600;#fefef4;-1;1
+148;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#c8102e;#ffd100;#fefef4;-1;0
+149;3;Independent;Team;Ind;-1;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;0
+150;3;Flint;Generals;FLI;136;-1;-1;-1;-1;-1;-1;-1;#3060b9;#1966cf;#eecd58;-1;1
+151;3;Seattle;Totems;SEA;137;-1;-1;-1;-1;-1;-1;-1;#001489;#001489;#fefef4;-1;2
+152;3;New England;Blades;NEB;138;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+153;3;Syracuse;Blazers;SYR;139;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+154;3;Rhode Island;Eagles;RHO;140;-1;-1;-1;-1;-1;-1;-1;#2c4d80;#cf120c;#fefef4;-1;1
+155;3;Charlotte;Checkers;CHA;141;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+156;3;Phoenix;Roadrunners;PHO;142;-1;-1;-1;-1;-1;-1;-1;#517dab;#f7cc7b;#fefef4;-1;2
+157;3;Greensboro;Generals;GRE;143;-1;-1;-1;-1;-1;-1;-1;#0a4c1e;#dd9e01;#fefef4;-1;1
+158;3;Syracuse;Blazers;SYR;144;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+159;3;Long Island;Ducks;LON;145;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+160;3;Clinton;Comets;CLI;146;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1
+161;3;Roanoke Valley;Rebels;ROA;147;-1;-1;-1;-1;-1;-1;-1;#000000;#000000;#fefef4;-1;1

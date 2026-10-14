@@ -1345,7 +1345,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1343;19;Davide;Bonardi;;1939-2-21;Sherbrooke;QC;Canada;;;0
 1344;-1;Richard;Commish;;1957-4-11;Winnipeg;MB;Canada;;;0
 1345;-1;Unlemployed;GM;;1961-4-11;;;Canada;;;0
-1346;5;GM;Tsimikalis;;1961-4-11;Lake Placid;NY;The United States;;;0
+1346;5;GM;Unknown;;1961-4-11;Lake Placid;NY;The United States;;;0
 1347;17;GM;Sabres;;1961-4-11;;;Canada;;;0
 1348;19;GM;Flames;;1961-4-11;;;Canada;;;0
 1349;8;GM;Blackhawks;;1961-4-11;;;Canada;;;0
@@ -2014,7 +2014,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2012;229;Arthur;Trotman;;1950-6-7;Tucson;AZ;The United States;;;0
 2013;-1;Shawn;Morrison;;1950-3-19;East Hartford;CT;The United States;;;0
 2014;-1;Dave;Burton;;1952-7-10;Bronxville;NY;The United States;;;0
-2015;229;Terry;Lester;;1950-7-14;Missouri City;TX;The United States;;;0
+2015;-1;Terry;Lester;;1950-7-14;Missouri City;TX;The United States;;;0
 2016;-1;Brant;Berry;;1959-8-28;Verona;NJ;The United States;;;0
 2017;230;Eric;Thomas;;1957-11-8;Federal Way;WA;The United States;;;0
 2018;230;Michael;William;;1950-9-1;Mason City;IA;The United States;;;0

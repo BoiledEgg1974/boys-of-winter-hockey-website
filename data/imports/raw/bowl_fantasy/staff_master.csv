@@ -4242,7 +4242,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 4240;-1;Parker;Barlow;;1983-1-11;Los Angeles;CA;United States;;;0
 4241;-1;Mirko;Anceschi;;1964-9-5;Varedo;LOM;Italy;;;0
 4242;-1;Mika;Kontturi;;1964-2-14;Artjärvi;PAH;Finland;;;0
-4243;-1;Aki;Salomaa;;1977-2-11;Tampere;PIR;Finland;;;0
+4243;9;Aki;Salomaa;;1977-2-11;Tampere;PIR;Finland;;;0
 4244;-1;Eino;Määttä;;1980-2-5;Paimio;SOU;Finland;;;0
 4245;-1;Onni;Lehtinen;;1967-10-7;Pihtipudas;FIN;Finland;;;0
 4246;-1;Vesa;Välilä;;1974-11-28;Vihti;UUS;Finland;;;0
@@ -4765,7 +4765,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 4763;-1;Valentin;Huguenin;;1974-11-29;Yverdon;VD;Switzerland;;;0
 4764;-1;Erni;Stöckli;;1972-6-12;Zurich;ZH;Switzerland;;;0
 4765;-1;Kenneth;Meier;;1979-1-7;Steffisburg;BE;Switzerland;;;0
-4766;-1;Kagehisa;Samurakami;;1981-6-6;Kaga;ISH;Japan;;;0
+4766;9;Kagehisa;Samurakami;;1981-6-6;Kaga;ISH;Japan;;;0
 4767;-1;Gion;Baldi;;1956-11-10;Biasca;TI;Switzerland;;;0
 4768;-1;René;Widmer;;1963-5-25;Langenthal;BE;Switzerland;;;0
 4769;-1;David;Schneider;;1979-3-4;Winterthur;ZH;Switzerland;;;0
@@ -6151,7 +6151,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6149;-1;Ben;Powe;;1959-11-30;Hamilton;ON;Canada;;;0
 6150;-1;Evan;Marple;;1981-11-22;Saskatoon;SK;Canada;;;0
 6151;-1;Pierre;Limoges;;1964-2-23;Toronto;ON;Canada;;;0
-6152;-1;Justin;Vince;;1957-4-10;Toronto;ON;Canada;;;0
+6152;9;Justin;Vince;;1957-4-10;Toronto;ON;Canada;;;0
 6153;-1;Dallas;Zezel;;1979-11-4;Springfield;MB;Canada;;;0
 6154;-1;Simon;Prince;;1976-7-30;Sherbrooke;QC;Canada;;;0
 6155;-1;Stefan;Nesbitt;;1968-5-9;Ottawa;ON;Canada;;;0
@@ -6171,7 +6171,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6169;-1;Mathis;Marchand;;1976-5-5;Kirkland;QC;Canada;;;0
 6170;243;Matt;Cvetkovic;;1979-9-13;Victoria;BC;Canada;;;0
 6171;-1;Michael;Chvojka;;1957-4-17;Rockwood;ON;Canada;;;0
-6172;-1;Alexandre;Lemieux;;1977-8-23;Châteauguay;QC;Canada;;;0
+6172;9;Alexandre;Lemieux;;1977-8-23;Châteauguay;QC;Canada;;;0
 6173;-1;Elfar;Caron;;1966-6-7;Montreal;QC;Canada;;;0
 6174;-1;Austen;Blandisi;;1984-4-9;Victoria;BC;Canada;;;0
 6175;346;Luke;Audet;;1984-3-15;Laval;QC;Canada;;;0
@@ -6183,7 +6183,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6181;-1;Rudolf;Becker;;1959-4-25;Münster;NOR;Germany;;;0
 6182;-1;Shawn;Payer;;1962-4-14;Terrebonne;QC;Canada;;;0
 6183;-1;Stephen;Lorito;;1969-2-7;Moosomin;SK;Canada;;;0
-6184;-1;Sam;Billington;;1959-12-29;Strathcona;AB;Canada;;;0
+6184;9;Sam;Billington;;1959-12-29;Strathcona;AB;Canada;;;0
 6185;388;Ryan;Iacobellis;;1978-1-12;London;ON;Canada;;;0
 6186;-1;D.J.;Paddock;;1956-11-13;Port Coquitlam;BC;Canada;;;0
 6187;-1;Greg;Therien;;1967-1-11;Winnipeg;MB;Canada;;;0
@@ -8286,7 +8286,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 8284;-1;Alex;Norris;;1956-5-3;North Las Vegas;NV;United States;;;0
 8285;-1;Nick;Crandell;;1957-4-30;Los Angeles;CA;United States;;;0
 8286;-1;Scott;Meade;;1978-1-11;Los Angeles;CA;United States;;;0
-8287;-1;Ross;Greusach;;1970-6-19;Lemoyne;PA;United States;;;0
+8287;9;Ross;Greusach;;1970-6-19;Lemoyne;PA;United States;;;0
 8288;-1;Brit;Dufour;;1982-3-6;Des Moines;IA;United States;;;0
 8289;-1;Jonathan;Knisley;;1964-1-5;Union City;CA;United States;;;0
 8290;-1;Jason;Dayton;;1955-2-27;Santa Clara;CA;United States;;;1
@@ -8824,7 +8824,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 8822;-1;David;Kotoucek;;1984-2-24;Celakovice;STR;Czechia;;;0
 8823;-1;Josef;Kuznik;;1969-11-28;Bela pod Bezdezem;STR;Czechia;;;0
 8824;-1;Tomás;Hajek;;1974-8-14;Karvina;MOR;Czechia;;;0
-8825;-1;Viktor;Benda;;1968-1-21;Jablonec nad Nisou;LIB;Czechia;;;0
+8825;9;Viktor;Benda;;1968-1-21;Jablonec nad Nisou;LIB;Czechia;;;0
 8826;-1;Jakub;Lébl;;1970-4-1;Cvikov;LIB;Czechia;;;0
 8827;-1;Michal;Cilek;;1975-3-4;Hovorany;JHM;Czechia;;;0
 8828;-1;Tomás;Sipek;;1965-10-14;Prague;PRA;Czechia;;;0
@@ -8891,7 +8891,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 8889;-1;Lukas;Hruda;;1963-8-26;Trutnov;KRA;Czechia;;;0
 8890;-1;Ondrej;Hanousek;;1970-9-7;Jindrichuv Hradec;JIH;Czechia;;;0
 8891;-1;Michal;Plihal;;1955-4-4;Pardubice;PAR;Czechia;;;1
-8892;-1;Andrey;Mayasin;;1969-4-12;Vyatskiye Polyany;KIR;Russia;;;0
+8892;9;Andrey;Mayasin;;1969-4-12;Vyatskiye Polyany;KIR;Russia;;;0
 8893;-1;Dinh;Danh;;1968-1-26;Prague;PRA;Czechia;;;0
 8894;14;Martin;Vacha;;1974-3-8;Ostrava;MOR;Czechia;;;0
 8895;-1;Dominik;Cermak;;1982-2-14;Litvínov;UST;Czechia;;;0
@@ -8944,7 +8944,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 8942;-1;Adam;Svoma;;1983-1-22;Litomysl;PAR;Czechia;;;0
 8943;-1;Richard;Marecek;;1965-8-23;Ostrava;MOR;Czechia;;;0
 8944;-1;Edvin;Vencel;;1963-2-11;Frýdek-Místek;MOR;Czechia;;;0
-8945;-1;Jaromir;Buchta;;1981-7-31;Brusperk;MOR;Czechia;;;0
+8945;9;Jaromir;Buchta;;1981-7-31;Brusperk;MOR;Czechia;;;0
 8946;-1;David;Krenek;;1963-5-12;Vrbno pod Pradedem;MOR;Czechia;;;0
 8947;10;Milan;Kotera;;1963-7-13;Police nad Metují;KRA;Czechia;;;0
 8948;-1;Michal;Taraba;;1973-10-6;Kralíky;PAR;Czechia;;;0
@@ -10014,7 +10014,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 10012;10;GM;Sentinels;;1995-6-28;;;Canada;;;0
 10013;387;GM;Blueberry Bulldogs;;1995-6-28;;;Canada;;;0
 10014;7;GM;Battling Bathers;;1995-6-28;;;Canada;;;0
-10015;3;GM;Six;;1995-6-28;;;Canada;;;0
+10015;3;GM;Jokerit;;1995-6-28;;;Finland;;;0
 10016;9;GM;Lions;;1995-6-28;;;Canada;;;0
 10017;1;GM;Canucks;;1995-6-28;;;Canada;;;0
 10018;6;GM;Jets;;1995-6-28;;;Canada;;;0

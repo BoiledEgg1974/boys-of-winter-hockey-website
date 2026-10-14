@@ -37,4 +37,4 @@ if [[ -f /root/.ssh/id_ed25519_pa ]]; then
   echo "Removed /root/.ssh/id_ed25519_pa"
 fi
 
-echo "Cutover stack up. Disable PythonAnywhere always-on Discord task in the PA dashboard."
+echo "Cutover stack up. Ensure only bowl-discord-bot on this VPS is polling Discord events."

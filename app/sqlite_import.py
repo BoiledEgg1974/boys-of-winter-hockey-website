@@ -18,7 +18,7 @@ def configure_sqlite_for_bulk_import(engine: Engine, *, db_path: Path | None = N
     """Checkpoint WAL sidecars and use rollback-journal mode for heavy imports.
 
     WAL mode keeps ``.db-wal`` / ``.db-shm`` siblings that can double peak disk use
-    on small hosts (e.g. PythonAnywhere). Web workers switch back to WAL on reconnect.
+    on small hosts (e.g. production VPS). Web workers switch back to WAL on reconnect.
 
     ``PRAGMA journal_mode=DELETE`` needs an exclusive lock. A local ``python run.py``,
     Discord bot, or leftover pool connection will raise ``database is locked``. Retry,

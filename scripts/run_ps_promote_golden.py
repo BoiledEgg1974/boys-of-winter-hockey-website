@@ -1,4 +1,4 @@
-"""Upload local golden PS DB and promote Historical + Cap catalog on PythonAnywhere."""
+"""Upload local golden PS DB and promote Historical + Cap catalog on production VPS."""
 from __future__ import annotations
 
 import os
@@ -10,8 +10,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from pa_ssh import connect_sftp, sftp_put
-from STEP2_pythonanywhere import run_remote_bash
+from deploy_ssh import connect_sftp, sftp_put
+from STEP2_remote_deploy import run_remote_bash
 
 
 def _default_local_ps_root() -> Path:
@@ -53,7 +53,7 @@ def main() -> None:
         sftp.close()
 
     from scripts.deploy_live_host import uses_vps_deploy
-    from STEP2_pythonanywhere import web_reload_bash_fragments
+    from STEP2_remote_deploy import web_reload_bash_fragments
 
     reload_parts = web_reload_bash_fragments("reload", ssh_user=user) if uses_vps_deploy() else [
         "touch /var/www/www_bowlhockey_com_wsgi.py 2>/dev/null || true"

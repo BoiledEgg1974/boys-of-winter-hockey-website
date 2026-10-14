@@ -1,4 +1,4 @@
-"""PythonAnywhere MySQL URL normalization."""
+"""production VPS MySQL URL normalization."""
 from __future__ import annotations
 
 import unittest

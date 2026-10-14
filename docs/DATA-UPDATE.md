@@ -8,7 +8,7 @@ This site reads **SQLite databases** built from **Franchise Hockey Manager (FHM)
 - Dependencies: `pip install -r requirements.txt`
 - This repo: `app/`, `hub/`, `wsgi.py`, `data/imports/raw/`, `scripts/`, etc.
 
-Optional: `pip install -r requirements-deploy.txt` only if you use the PythonAnywhere helper scripts.
+Optional: `pip install -r requirements-deploy.txt` only if you use the production VPS helper scripts.
 
 ## Where data lives
 
@@ -67,13 +67,13 @@ At the end of `import_data.py` and `reimport_history_sheet_data.py`, the pipelin
 
 FHM career CSVs sometimes contain duplicate `(player, season, team, league)` rows. The importer **dedupes these in memory** (last row wins) before insert, so `UNIQUE constraint failed: player_skater_career_lines` should not recur. Duplicate keys are logged as warnings during import.
 
-If safeguards fail on PythonAnywhere, ensure the `tests/` package is deployed with the app (same as local).
+If safeguards fail on production VPS, ensure the `tests/` package is deployed with the app (same as local).
 
 ### `database is locked` during import
 
-SQLite allows only one writer at a time. On PythonAnywhere (or any host where the site stays up), **live web workers and the Discord bot** can hold read locks on the same `instance/<league>.db` while `import_data.py` runs. The importer retries commits automatically, but if the error persists:
+SQLite allows only one writer at a time. On production VPS (or any host where the site stays up), **live web workers and the Discord bot** can hold read locks on the same `instance/<league>.db` while `import_data.py` runs. The importer retries commits automatically, but if the error persists:
 
-1. **Reload the web app** on PythonAnywhere (Web → your app → Reload) before importing that league.
+1. **Reload the web app** on production VPS (Web → your app → Reload) before importing that league.
 2. **Pause the league Discord bot** if it polls that league while you import.
 3. Run **one league at a time** (`bowl-cap`, then `bowl-historical`, etc.)—each uses a different database file, but step 1 still matters per league.
 4. Optionally raise `SQLITE_BUSY_TIMEOUT_SECONDS` (default 30) in the environment if imports are slow.
@@ -82,7 +82,7 @@ SQLite allows only one writer at a time. On PythonAnywhere (or any host where th
 
 This means a league SQLite file (`instance/bowl-cap.db`, etc.) was corrupted—often from importing while web workers still had the DB open, from copying the file while WAL sidecars (`.db-wal` / `.db-shm`) were active, or from an interrupted import. The `Page … is never used` lines are SQLite freelist damage; treat them the same as a malformed image.
 
-1. **Reload the web app** on PythonAnywhere (Web → Reload).
+1. **Reload the web app** on production VPS (Web → Reload).
 2. **Pause the Discord bot** if it is running.
 3. From the project root on the server:
 
@@ -107,7 +107,7 @@ python scripts/repair_league_sqlite.py --reset-snapshots --league bowl-cap
 
 Then re-run the import for that league. Player development trend charts rebuild from the next import onward; older snapshot history may be lost after a full `--repair`.
 
-### `disk I/O error` during import (PythonAnywhere)
+### `disk I/O error` during import (production VPS)
 
 Repeated `sqlite3.OperationalError: disk I/O error` on commit — especially for **bowl-historical** — usually means the account is **out of disk space** or the import needs more temporary space than the host allows. Failed runs also leave corrupt DB files, WAL sidecars, and backups that consume quota.
 
@@ -127,7 +127,7 @@ python scripts\reimport_history_sheet_data.py bowl-historical
 python scripts\repair_league_sqlite.py --check --league bowl-historical
 ```
 
-Upload `instance\bowl-historical.db` to PythonAnywhere (`instance/bowl-historical.db`), then on the server:
+Upload `instance\bowl-historical.db` to production VPS (`instance/bowl-historical.db`), then on the server:
 
 ```bash
 rm -f instance/bowl-historical.db-wal instance/bowl-historical.db-shm
@@ -146,7 +146,7 @@ python scripts/trade_log_transfer.py restore-candidates --slug bowl-historical -
 python scripts/trade_log_transfer.py restore-candidates --slug bowl-historical
 ```
 
-On PythonAnywhere, also check `instance/league2.db` (legacy BOWL-Historical filename) and `instance/league_backups/bowl-historical/` for backups that may still contain `trade_log_entries`.
+On production VPS, also check `instance/league2.db` (legacy BOWL-Historical filename) and `instance/league_backups/bowl-historical/` for backups that may still contain `trade_log_entries`.
 
 **Game record baselines** (admin single-game records under Admin → Game records) also live only in the league SQLite file. Season imports never downgrade existing baselines, but uploading a local DB that is missing those rows *would* wipe them on the server.
 
@@ -183,9 +183,9 @@ If your exports still live under each game’s `import_export\csv` folder, you c
 python scripts\STEP1_update_from_saved_game.py
 ```
 
-For the **normal nightly update** (local import → git push → upload league SQLite → queue Discord), use **`python scripts\BOWL-Site-Update.py`** (or `python scripts\run_site_update.py bowl`). League DBs are gitignored — a PythonAnywhere `git pull` alone does not refresh live data or Discord. Legacy CSV remote-import path: `python scripts\run_site_update.py to-live` (`python scripts\run_site_update.py --help`).
+For the **normal nightly update** (local import → git push → upload league SQLite → queue Discord), use **`python scripts\BOWL-Site-Update.py`** (or `python scripts\run_site_update.py bowl`). League DBs are gitignored — a production VPS `git pull` alone does not refresh live data or Discord. Legacy CSV remote-import path: `python scripts\run_site_update.py to-live` (`python scripts\run_site_update.py --help`).
 
-**STEP 1** — copy FHM exports into `data/imports/raw/…`, run `import_data.py` locally per league, optional Git push, optional PythonAnywhere deploy (`--pa-deploy` chains **STEP 2**).
+**STEP 1** — copy FHM exports into `data/imports/raw/…`, run `import_data.py` locally per league, optional Git push, optional production VPS deploy (`--remote-deploy` chains **STEP 2**).
 
 The first time, answer **y** when asked if paths changed, and paste each league’s CSV folder. Paths are stored in `scripts/saved_game_csv_paths.json` (local only; listed in `.gitignore`). Or pass a single base folder that contains `bowl_historical`, `bowl_fantasy`, and `bowl_cap` subfolders.
 
@@ -222,7 +222,7 @@ Repeat with each `LEAGUE_SLUG`. **This wipes that league’s database.**
 
 - **League History → Awards** reads the `history_awards` table in that league’s SQLite file, not the CSV on disk. After you change `history_awards.sheet.csv` (or `history_awards.csv`) on the server, run a Cap import (`LEAGUE_SLUG=bowl-cap python scripts/import_data.py`) or only awards: `PYTHONPATH=. python scripts/reimport_history_awards.py bowl-cap`, then restart the web process. Pushing CSVs to Git alone does not refresh production until one of those runs on the host.
 - `scripts/refresh_team_aggregates.py`, `backfill_skater_plus_minus.py`, `import_skater_career_csvs.py` — special fixes; use only if you know you need them.
-- `scripts/STEP2_pythonanywhere.py` / `Deploy-To-PythonAnywhere.bat` — **STEP 2**: SFTP CSVs + `app/static` (newer-only), remote `import_data.py` per league, WSGI reload. Shared importer remains `scripts/import_data.py`.
+- `scripts/STEP2_remote_deploy.py` / `Deploy-To-production VPS.bat` — **STEP 2**: SFTP CSVs + `app/static` (newer-only), remote `import_data.py` per league, WSGI reload. Shared importer remains `scripts/import_data.py`.
 
 For more detail on FHM file names and behavior, see `scripts/import_pipeline/runner.py` and `scripts/import_pipeline/fhm_loader.py`.
 

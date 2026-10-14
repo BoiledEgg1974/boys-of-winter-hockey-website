@@ -103,7 +103,7 @@ def dry_run_operation_plan(*, repo_root: Path, league_slug: str, operation: str)
             "Copy league CSV exports into data/imports/raw/*",
             "Run per-league import pipeline (inside STEP1)",
             "Optional git commit/push prompt (inside STEP1)",
-            "Optional PythonAnywhere deploy prompt (inside STEP1)",
+            "Optional production VPS deploy prompt (inside STEP1)",
         ]
     else:
         return {"operation": op, "ok": False, "steps": [], "message": "Unknown dry-run operation."}

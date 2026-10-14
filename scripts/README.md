@@ -13,7 +13,7 @@ This is the normal nightly path. It:
 
 1. Imports FHM CSVs **locally** (including Historical awards alignment + racing when present).
 2. Commits/pushes CSV + alignment files to GitHub.
-3. Runs **`STEP2_pythonanywhere.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket / Relegation **#injury-list**) and reloads the web app (WSGI touch on PA, **`systemctl restart bowl-web`** on the VPS).
+3. Runs **`STEP2_remote_deploy.py deploy-db`**: uploads league SQLite files (+ `app/static`), then on the server runs **`notify_discord_after_db_deploy.py`** (boxscores / BOWL Six / playoff bracket / Relegation **#injury-list**) and reloads the web app (WSGI touch on PA, **`systemctl restart bowl-web`** on the VPS).
 
 League databases are **gitignored**. GitHub + a server `git pull` alone never refresh live scores, standings, or Discord queues.
 
@@ -40,7 +40,7 @@ After that checklist, the site still serves the **old** `instance/*.db` files, a
 |------|---------|
 | Normal data + Discord update | `python scripts/BOWL-Site-Update.py` (includes `deploy-db`; `--deploy` is an explicit alias) |
 | Data already imported locally; only push DBs + Discord | `python scripts/BOWL-Site-Update.py --deploy-db-only` |
-| Same without the wrapper | `python scripts/STEP2_pythonanywhere.py deploy-db` |
+| Same without the wrapper | `python scripts/STEP2_remote_deploy.py deploy-db` |
 
 ---
 
@@ -48,33 +48,33 @@ After that checklist, the site still serves the **old** `instance/*.db` files, a
 
 | Step | What to run |
 |------|-------------|
-| 1 | `python scripts/STEP1_update_from_saved_game.py --no-pa-deploy` (optional: `--allow-stale`, …) |
+| 1 | `python scripts/STEP1_update_from_saved_game.py --no-remote-deploy` (optional: `--allow-stale`, …) |
 | 2 | Historical awards pass + re-import (or just use `BOWL-Site-Update.py`) |
 | 3 | `git push` (BOWL-Site-Update does this unless `--no-push`) |
-| 4 | **`python scripts/STEP2_pythonanywhere.py deploy-db`** — required for live DBs + Discord |
+| 4 | **`python scripts/STEP2_remote_deploy.py deploy-db`** — required for live DBs + Discord |
 
 Legacy CSV upload + **server-side** import (also queues Discord during remote `import_data.py`):
 
 ```bash
 python scripts/run_site_update.py to-live --yes-push
-# or: python scripts/STEP2_pythonanywhere.py deploy --repo-csv
+# or: python scripts/STEP2_remote_deploy.py deploy --repo-csv
 ```
 
 Prefer **`deploy-db`** for the usual BOWL update.
 
 ---
 
-## Moving live hosting to a VPS
+## Live hosting (DigitalOcean VPS)
 
-PythonAnywhere → nginx + gunicorn cutover (paths, rsync, DNS, Discord bot): **[docs/DEPLOY-VPS-NGINX.md §11](../docs/DEPLOY-VPS-NGINX.md#11-pythonanywhere--vps-cutover-runbook)**.
+Production guide: **[docs/DEPLOY-VPS-NGINX.md](../docs/DEPLOY-VPS-NGINX.md)** (nginx + gunicorn, Discord bot, DNS).
 
-**Nightly deploy to DigitalOcean (production):** copy **`scripts/deploy-live-vps.env.example`** to **`scripts/deploy-live-vps.env`** (gitignored) or set the same variables in your shell. Then run the usual:
+**Nightly deploy:** copy **`scripts/deploy-live-vps.env.example`** to **`scripts/deploy-live-vps.env`** (gitignored), then:
 
 ```bash
 python scripts/BOWL-Site-Update.py
 ```
 
-`BOWL-Site-Update.py` loads `deploy-live-vps.env` when present and STEP2 uses **`BOWL_WEB_RELOAD=systemd`** instead of touching PythonAnywhere WSGI. Override with `BOWL_DEPLOY_TARGET=pa` and `PA_HOST=ssh.pythonanywhere.com` if you ever push to PA again.
+`BOWL-Site-Update.py` loads `deploy-live-vps.env` when present; STEP2 uses **`BOWL_WEB_RELOAD=systemd`** (`systemctl restart bowl-web`).
 
 **Sync Python (GitHub → VPS)** when the droplet is not a git checkout (rsync snapshot). Does **not** upload `instance/*.db` or `.env`:
 
@@ -89,46 +89,9 @@ Nightly **MariaDB + SQLite** backups on the VPS: `deploy/vps/bowl-backup.timer` 
 
 ---
 
-## PythonAnywhere bash (manual recovery only)
-
-### Hard reset + new venv (rare)
-
-Matches **`python scripts/STEP2_pythonanywhere.py deploy --full-remote-rebuild`** (after you `git push` so `origin/master` has what you want). Typical layout: venv at **`/home/BoiledEgg1974/venv`**, so `PA_REMOTE_VENV_BIN` should be **`/home/BoiledEgg1974/venv/bin`**. The script removes only the **`…/venv`** directory (the parent of `bin`), then recreates it — **not** your whole home folder.
-
-Deploy reloads **`/var/www/www_bowlhockey_com_wsgi.py`** by default (and also touches
-`/var/www/<user>_wsgi.py`). Override with **`PA_WSGI_FILE`** / **`--wsgi-file`** if needed.
-
-### Imports only (after code + CSVs are already on the server)
-
-Use this only when you intentionally import **on the server** instead of `deploy-db`. For League History **awards** and **all-stars**, run **`reimport_history_sheet_data.py`** after each league import. Discord boxscores enqueue during remote import; if you skipped import and only uploaded DBs, run **`notify_discord_after_db_deploy.py`** after promote:
-
-```bash
-cd /home/BoiledEgg1974/boys-of-winter-hockey-website
-source /home/BoiledEgg1974/venv/bin/activate
-
-export LEAGUE_SLUG=bowl-historical
-python scripts/import_data.py
-python scripts/reimport_history_sheet_data.py bowl-historical
-
-export LEAGUE_SLUG=bowl-fantasy
-python scripts/import_data.py
-python scripts/reimport_history_sheet_data.py bowl-fantasy
-
-export LEAGUE_SLUG=bowl-cap
-python scripts/import_data.py
-python scripts/reimport_history_sheet_data.py bowl-cap
-
-# If you uploaded SQLite via deploy-db instead of importing here:
-# python scripts/notify_discord_after_db_deploy.py
-
-touch /var/www/www_bowlhockey_com_wsgi.py
-```
-
----
-
 ## DigitalOcean VPS bash (manual recovery)
 
-DigitalOcean has **no** PythonAnywhere-style “run this bash on the server” button. Use:
+Use:
 
 - **Droplet → Access → Launch Droplet Console** (browser shell as root), or  
 - **SSH** from your PC: `ssh -i ~/.ssh/id_ed25519_pa root@159.203.6.136`
@@ -141,10 +104,10 @@ The droplet **may not be a git clone**. If `git status` fails under `/srv/bowl/a
 python scripts/sync_vps_app_code.py --pip --restart
 ```
 
-**Hard reset + venv (rare)** — prefer from your PC (same idea as old PA block):
+**Hard reset + venv (rare)** — from your PC:
 
 ```powershell
-python scripts/STEP2_pythonanywhere.py deploy --full-remote-rebuild
+python scripts/STEP2_remote_deploy.py deploy --full-remote-rebuild
 ```
 
 If you must run on the **droplet** (only when `/srv/bowl/app` is a git checkout):

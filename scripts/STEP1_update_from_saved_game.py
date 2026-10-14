@@ -1,6 +1,6 @@
 """STEP 1 — Interactive updater: copy CSV exports, import all leagues, optionally git push.
 
-Prefer ``scripts/run_site_update.py`` for the full saved-game → PythonAnywhere sequence
+Prefer ``scripts/run_site_update.py`` for the full saved-game → production VPS sequence
 (``to-live``) so STEP1, STEP3 (inside STEP1), and STEP2 always run in order.
 
 After all copies finish, STEP1 runs ``scripts/STEP3_align_history_awards_to_player_master.py``
@@ -8,7 +8,7 @@ once per copied league (before imports). STEP3 aligns what it can from files pre
 folder and always attempts ``team_season_records_template.csv`` when applicable. Use
 ``--no-align-before-import`` to skip entirely.
 
-Optional: after copying, push to PythonAnywhere with ``scripts/STEP2_pythonanywhere.py deploy``.
+Optional: after copying, push to production VPS with ``scripts/STEP2_remote_deploy.py deploy``.
 That upload only replaces remote CSVs when the local copy is newer (mtime check + small
 skew), then runs server-side imports and reloads WSGI. Local copy uses ``shutil.copy2``,
 so mtimes match your game export folders.
@@ -19,9 +19,9 @@ so League History awards and all-stars always match the CSVs on disk.
 Run directly:
     python scripts/STEP1_update_from_saved_game.py
     python scripts/STEP1_update_from_saved_game.py --no-align-before-import
-    python scripts/STEP1_update_from_saved_game.py --pa-deploy
-    python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-csv-only
-    python scripts/STEP1_update_from_saved_game.py --pa-deploy --pa-sync-ap-catalog-local
+    python scripts/STEP1_update_from_saved_game.py --remote-deploy
+    python scripts/STEP1_update_from_saved_game.py --remote-deploy --remote-csv-only
+    python scripts/STEP1_update_from_saved_game.py --remote-deploy --remote-sync-ap-catalog-local
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ IMPORT_SCRIPT = REPO_ROOT / "scripts" / "import_data.py"
 HISTORY_SHEET_EXTRAS_SCRIPT = REPO_ROOT / "scripts" / "reimport_history_sheet_data.py"
 SNAPSHOT_OVR_SCRIPT = REPO_ROOT / "scripts" / "snapshot_ovr_baseline.py"
 STEP3_ALIGN_SCRIPT = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
-PA_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
+REMOTE_DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "STEP2_remote_deploy.py"
 PATHS_FILE = REPO_ROOT / "scripts" / "saved_game_csv_paths.json"
 
 DEFAULT_SOURCES: dict[str, str] = {
@@ -291,14 +291,14 @@ def _git_commit_and_push() -> None:
     print("Git push complete.")
 
 
-def _run_pythonanywhere_deploy(*, csv_only: bool, remote_pip: bool, sync_ap_catalog_local: bool) -> None:
+def _run_production_deploy(*, csv_only: bool, remote_pip: bool, sync_ap_catalog_local: bool) -> None:
     """Upload from repo raw folders to the live server (VPS by default)."""
     from scripts.deploy_live_host import bootstrap_deploy_env
-    if not PA_DEPLOY_SCRIPT.is_file():
-        raise FileNotFoundError(f"Missing {PA_DEPLOY_SCRIPT}")
+    if not REMOTE_DEPLOY_SCRIPT.is_file():
+        raise FileNotFoundError(f"Missing {REMOTE_DEPLOY_SCRIPT}")
     cmd = [
         sys.executable,
-        str(PA_DEPLOY_SCRIPT),
+        str(REMOTE_DEPLOY_SCRIPT),
         "deploy",
         "--repo-csv",
     ]
@@ -325,30 +325,30 @@ def main() -> int:
     parser.add_argument("--yes-push", action="store_true", help="Commit and push automatically (no prompt).")
     parser.add_argument("--no-push", action="store_true", help="Skip commit and push automatically (no prompt).")
     parser.add_argument(
-        "--pa-deploy",
+        "--remote-deploy",
         action="store_true",
-        help="After local imports, run STEP2_pythonanywhere.py deploy --repo-csv (newer files only on server).",
+        help="After local imports, run STEP2_remote_deploy.py deploy --repo-csv (newer files only on server).",
     )
     parser.add_argument(
-        "--no-pa-deploy",
+        "--no-remote-deploy",
         action="store_true",
-        help="Never upload to PythonAnywhere (skip prompt).",
+        help="Never upload to the live VPS (skip prompt).",
     )
     parser.add_argument(
-        "--pa-csv-only",
+        "--remote-csv-only",
         action="store_true",
-        help="With --pa-deploy: only upload data/imports/raw, not app/static.",
+        help="With --remote-deploy: only upload data/imports/raw, not app/static.",
     )
     parser.add_argument(
-        "--pa-remote-pip",
+        "--remote-pip",
         action="store_true",
-        help="With --pa-deploy: ask STEP2 to run remote pip install -r requirements.txt before imports.",
+        help="With --remote-deploy: ask STEP2 to run remote pip install -r requirements.txt before imports.",
     )
     parser.add_argument(
-        "--pa-sync-ap-catalog-local",
+        "--remote-sync-ap-catalog-local",
         action="store_true",
         help=(
-            "With --pa-deploy: after deploy, pull live AP catalog JSON and import/verify "
+            "With --remote-deploy: after deploy, pull live AP catalog JSON and import/verify "
             "it into local site_membership.db."
         ),
     )
@@ -507,8 +507,8 @@ def main() -> int:
     if args.yes_push and args.no_push:
         print("Use only one of --yes-push or --no-push.")
         return 1
-    if args.pa_deploy and args.no_pa_deploy:
-        print("Use only one of --pa-deploy or --no-pa-deploy.")
+    if args.remote_deploy and args.no_remote_deploy:
+        print("Use only one of --remote-deploy or --no-remote-deploy.")
         return 1
     if args.yes_push:
         do_git = True
@@ -525,22 +525,22 @@ def main() -> int:
     else:
         print("Skipped git commit/push.")
 
-    if args.pa_deploy:
-        do_pa = True
-    elif args.no_pa_deploy:
-        do_pa = False
+    if args.remote_deploy:
+        do_remote = True
+    elif args.no_remote_deploy:
+        do_remote = False
     else:
-        do_pa = _ask_yes_no(
+        do_remote = _ask_yes_no(
             "\nUpload to live server (CSV files newer than server only), "
             "run server imports, reload app? [y/N]: "
         )
-    if do_pa:
+    if do_remote:
         print("\n--- Live deploy (repo CSV → VPS, mtime-aware) ---")
         try:
-            _run_pythonanywhere_deploy(
-                csv_only=bool(args.pa_csv_only),
-                remote_pip=bool(args.pa_remote_pip),
-                sync_ap_catalog_local=bool(args.pa_sync_ap_catalog_local),
+            _run_production_deploy(
+                csv_only=bool(args.remote_csv_only),
+                remote_pip=bool(args.remote_pip),
+                sync_ap_catalog_local=bool(args.remote_sync_ap_catalog_local),
             )
         except FileNotFoundError as exc:
             print(f"ERROR: {exc}")
@@ -550,7 +550,7 @@ def main() -> int:
             print("Install deploy deps: py -3 -m pip install -r requirements-deploy.txt")
             print("Check scripts/deploy-live-vps.env (or .example) and PA_SSH_KEY.")
             return int(exc.returncode or 1)
-    elif args.no_pa_deploy:
+    elif args.no_remote_deploy:
         print("Skipped live deploy.")
 
     print("Done.")

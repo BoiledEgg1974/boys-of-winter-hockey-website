@@ -58,7 +58,7 @@ DISCORD_EVENTS_SHARED_SECRET=<long-random-string>
 SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
 ```
 
-Set `SITE_PUBLIC_BASE_URL` in **`boys-of-winter-hockey-website/.env`** on PythonAnywhere and reload the **Web** app (not only the Always-on task). Without it, queued events have no embed link and older builds could send invalid relative URLs to Discord.
+Set `SITE_PUBLIC_BASE_URL` in **`/srv/bowl/app/.env`** on the VPS and restart **`bowl-web`** (and the Discord bot if it reads env from disk). Without it, queued events have no embed link and older builds could send invalid relative URLs to Discord.
 
 Generate a secret, e.g. PowerShell:
 
@@ -90,10 +90,9 @@ From the repo root (venv with project dependencies installed):
 python -m scripts.league_discord_bot
 ```
 
-**PythonAnywhere:** create an **Always-on task** with the same command. The worker loads
-`boys-of-winter-hockey-website/.env` from the repo root (same as the web app). If your web app
-env vars are set only in the **Web** tab (not in `.env` on disk), copy these into the project
-`.env` on the server or the Always-on task will exit with `DISCORD_BOT_TOKEN is required`:
+On the **VPS**, use **`bowl-discord-bot.service`** (see [DEPLOY-VPS-NGINX.md](DEPLOY-VPS-NGINX.md)). The worker loads
+`/srv/bowl/app/.env` (same as gunicorn). Ensure these are set there or the service will exit with
+`DISCORD_BOT_TOKEN is required`:
 
 ```env
 DISCORD_BOT_TOKEN=...
@@ -101,10 +100,10 @@ DISCORD_EVENTS_SHARED_SECRET=...
 SITE_PUBLIC_BASE_URL=https://www.bowlhockey.com
 ```
 
-Always-on command (adjust venv path):
+Manual run on the server:
 
 ```bash
-cd /home/BoiledEgg1974/boys-of-winter-hockey-website && /home/BoiledEgg1974/venv/bin/python -m scripts.league_discord_bot
+cd /srv/bowl/app && .venv/bin/python -m scripts.league_discord_bot
 ```
 
 **Rate limits:** `DISCORD_BOT_DELIVERY_DELAY_SECONDS` (default `1.2`) pauses between posts in a batch.

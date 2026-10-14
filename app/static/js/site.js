@@ -320,7 +320,7 @@
     }
     window.alert(
       "Without HTTPS, your browser will not put images on the clipboard. " +
-        "Enable SSL on your host (e.g. PythonAnywhere: force HTTPS) or open the site with https://."
+        "Enable SSL on your host (e.g. production VPS: force HTTPS) or open the site with https://."
     );
     if (triggerBtn) {
       triggerBtn.textContent = oldTxt;

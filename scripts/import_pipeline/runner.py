@@ -1375,7 +1375,7 @@ def run_import(raw_dir: Path | None = None, *, repair_sqlite: bool = False) -> i
     db_uri = str(getattr(config_cls, "SQLALCHEMY_DATABASE_URI", None) or "")
     if db_uri.startswith("sqlite:///"):
         log.info(
-            "SQLite import: pause or reload the league web app on PythonAnywhere if you see "
+            "SQLite import: pause or reload the league web app on production VPS if you see "
             "'database is locked' (live workers hold read transactions during long writes)."
         )
         from app.db_utils import prepare_sqlite_database

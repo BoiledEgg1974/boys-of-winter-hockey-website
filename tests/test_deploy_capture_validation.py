@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.STEP2_pythonanywhere import (
+from scripts.STEP2_remote_deploy import (
     _EDITORIAL_CAPTURE_LIST_KEYS,
     validate_deploy_capture_json,
 )

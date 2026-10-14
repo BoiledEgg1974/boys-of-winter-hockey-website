@@ -10,8 +10,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from pa_ssh import connect_sftp, sftp_put
-from STEP2_pythonanywhere import run_remote_bash
+from deploy_ssh import connect_sftp, sftp_put
+from STEP2_remote_deploy import run_remote_bash
 
 
 def _default_local_ps_root() -> Path:
@@ -29,7 +29,7 @@ def main() -> None:
     ps = f"/home/{user}/bowl-perfect-squad"
     py = f"/home/{user}/venv/bin/python"
 
-    client, sftp = connect_sftp(os.environ.get("PA_HOST", "ssh.pythonanywhere.com"), user, key_path)
+    client, sftp = connect_sftp(os.environ.get("PA_HOST", "ssh.production.com"), user, key_path)
     try:
         sftp_put(sftp, str(local_ps / "scripts/_check_exclusives.py"), f"{ps}/scripts/_check_exclusives.py")
         for rel in (

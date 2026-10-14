@@ -1,6 +1,6 @@
 """Inspect record-broken Discord queue, deploy sidecars, and where breaks originate.
 
-Run locally or on PythonAnywhere (from repo root):
+Run locally or on production VPS (from repo root):
 
   python scripts/inspect_record_broken_discord.py
   python scripts/inspect_record_broken_discord.py --league bowl-historical --limit 30

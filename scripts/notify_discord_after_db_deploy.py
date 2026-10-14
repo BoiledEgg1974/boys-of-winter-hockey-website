@@ -1,6 +1,6 @@
 """Enqueue Discord boxscores, BOWL Six, playoff bracket, broken records, and Relegation injuries after deploy-db.
 
-Runs on PythonAnywhere (or locally against a site DB with real Discord routes).
+Runs on production VPS (or locally against a site DB with real Discord routes).
 
 Boxscores prefer ``instance/.deploy_discord_finals/<slug>.json`` game ids written
 during local FHM import. When no sidecar exists, falls back to recent undelivered

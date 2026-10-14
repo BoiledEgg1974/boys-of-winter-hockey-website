@@ -32,7 +32,7 @@ mariadb -e "GRANT ALL PRIVILEGES ON bowlsite.* TO 'bowl'@'localhost'; FLUSH PRIV
 mkdir -p "$LOCAL_BACKUP/site"
 RSYNC_RSH="ssh -i /root/.ssh/id_ed25519_pa -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 rsync -avz --progress -e "$RSYNC_RSH" \
-  "BoiledEgg1974@ssh.pythonanywhere.com:${PA_BACKUP}/site/tables/" \
+  "BoiledEgg1974@ssh.production.com:${PA_BACKUP}/site/tables/" \
   "$TABLES/"
 
 ENV_FILE="$APP/.env"
@@ -40,7 +40,7 @@ cp -a "$ENV_FILE" "${ENV_FILE}.bak-before-local-mysql"
 grep -v '^SITE_DATABASE_URL=' "$ENV_FILE" > "${ENV_FILE}.tmp" || true
 mv "${ENV_FILE}.tmp" "$ENV_FILE"
 {
-  echo "# PythonAnywhere MySQL is not reachable from this VPS — use local MariaDB."
+  echo "# production VPS MySQL is not reachable from this VPS — use local MariaDB."
   echo "SITE_DATABASE_URL=mysql+pymysql://bowl:${BOWL_SITE_MYSQL_PASSWORD}@127.0.0.1/bowlsite"
 } >> "$ENV_FILE"
 

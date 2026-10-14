@@ -1,6 +1,6 @@
 """Apply idempotent league SQLite schema migrations (e.g. after backup restore).
 
-Run on PythonAnywhere with the web app reloaded and the Discord bot stopped::
+Run on production VPS with the web app reloaded and the Discord bot stopped::
 
     python scripts/apply_league_migrations.py bowl-historical
 

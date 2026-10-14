@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-STEP 2 — PythonAnywhere push from your PC. If ``paramiko`` is missing, the script prints install
+STEP 2 — SSH/SFTP push to the live VPS from your PC. If ``paramiko`` is missing, the script prints install
 instructions and asks whether to run ``pip install -r requirements-deploy.txt`` for you.
 
 For the usual CSV + import + reload sequence from your machine, prefer
@@ -25,11 +25,11 @@ For the usual CSV + import + reload sequence from your machine, prefer
                    on the server (no league DB upload). Clears local sidecars on success.
 
   deploy — On first run (or after you say locations changed), prompts for each league’s local
-           CSV folder; paths are saved to scripts/pythonanywhere_csv_sources.json (gitignored).
+           CSV folder; paths are saved to scripts/deploy_csv_sources.json (gitignored).
            Next runs ask whether locations changed before uploading.
 
-  python scripts/STEP2_pythonanywhere.py deploy --dry-run
-  python scripts/STEP2_pythonanywhere.py sync --dry-run
+  python scripts/STEP2_remote_deploy.py deploy --dry-run
+  python scripts/STEP2_remote_deploy.py sync --dry-run
 
   With no arguments (e.g. Run / F5 in IDLE on this file), ``deploy`` is assumed.
 
@@ -86,7 +86,7 @@ def _ensure_deploy_dependencies() -> None:
     py_exe = sys.executable
 
     print("\n" + "=" * 72, file=sys.stderr)
-    print("  Missing dependency: paramiko (needed for SFTP/SSH to PythonAnywhere)", file=sys.stderr)
+    print("  Missing dependency: paramiko (needed for SFTP/SSH to the live server)", file=sys.stderr)
     print("=" * 72 + "\n", file=sys.stderr)
     print("  Install deploy requirements from your project root:\n", file=sys.stderr)
     print(f'    cd "{root}"', file=sys.stderr)
@@ -156,9 +156,9 @@ def _ensure_deploy_dependencies() -> None:
 _ensure_deploy_dependencies()
 
 try:
-    from pa_ssh import connect_sftp, ensure_remote_dir, remote_mtime, sftp_get, sftp_put
+    from deploy_ssh import connect_sftp, ensure_remote_dir, remote_mtime, sftp_get, sftp_put
 except ImportError as e:
-    print("Failed to load pa_ssh after installing dependencies.", file=sys.stderr)
+    print("Failed to load deploy_ssh after installing dependencies.", file=sys.stderr)
     raise SystemExit(1) from e
 
 SKIP_DIR_NAMES = frozenset(
@@ -188,7 +188,7 @@ def repo_root() -> Path:
     return _REPO_ROOT
 
 
-_CSV_SOURCES_FILE = _SCRIPT_DIR / "pythonanywhere_csv_sources.json"
+_CSV_SOURCES_FILE = _SCRIPT_DIR / "deploy_csv_sources.json"
 
 
 def _deploy_interactive() -> bool:
@@ -315,8 +315,8 @@ def resolve_csv_sources_for_deploy(
     if loaded:
         return loaded
     raise SystemExit(
-        "No saved CSV paths (scripts/pythonanywhere_csv_sources.json).\n"
-        "Run `python scripts/STEP2_pythonanywhere.py deploy` once in an interactive terminal to set them,\n"
+        "No saved CSV paths (scripts/deploy_csv_sources.json).\n"
+        "Run `python scripts/STEP2_remote_deploy.py deploy` once in an interactive terminal to set them,\n"
         "or pass --repo-csv to use the project's data/imports/raw/<league>/ folders."
     )
 
@@ -764,7 +764,7 @@ def _uses_systemd_web_reload(*, ssh_user: str | None = None) -> bool:
     from scripts.deploy_live_host import uses_vps_deploy
 
     mode = (os.environ.get("BOWL_WEB_RELOAD") or "").strip().lower()
-    if mode in ("wsgi", "pythonanywhere", "pa"):
+    if mode in ("wsgi",):
         return False
     if mode in ("systemd", "vps", "gunicorn"):
         return True
@@ -1141,7 +1141,7 @@ def build_full_remote_rebuild_prep_script(
     *,
     ssh_user: str | None = None,
 ) -> str:
-    """Hard-reset repo + rebuild venv on PythonAnywhere before normal deploy/import flow."""
+    """Hard-reset repo + rebuild venv on production VPS before normal deploy/import flow."""
     rp = shlex.quote(remote_project.rstrip("/"))
     # venv_bin is .../venv/bin — remove and recreate the .../venv directory only (not its grandparent).
     venv_root = shlex.quote(str(PurePosixPath(venv_bin.rstrip("/")).parent))
@@ -1959,7 +1959,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Push to PythonAnywhere: use 'deploy-db' for local SQLite upload, "
+            "Push to production VPS: use 'deploy-db' for local SQLite upload, "
             "'deploy' for CSVs/static+imports, 'sync' for full code tree."
         )
     )
@@ -2088,7 +2088,7 @@ def main() -> int:
 
     p_notify = sub.add_parser(
         "notify-discord",
-        help="Upload boxscore/record sidecars and enqueue Discord events on PythonAnywhere (no DB upload).",
+        help="Upload boxscore/record sidecars and enqueue Discord events on production VPS (no DB upload).",
     )
     add_connection_args(
         p_notify,

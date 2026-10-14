@@ -288,7 +288,7 @@ def resolve_site_sqlite_path() -> Path:
 
 
 def normalize_site_database_url(db_uri: str) -> str:
-    """Fix PythonAnywhere MySQL URLs where ``%24`` must become ``$`` in the DB name."""
+    """Fix production VPS MySQL URLs where ``%24`` must become ``$`` in the DB name."""
     uri = str(db_uri or "").strip()
     if not uri.startswith("mysql"):
         return uri
@@ -306,7 +306,7 @@ def normalize_site_database_url(db_uri: str) -> str:
 
 
 def _mysql_site_pool_options() -> dict[str, object]:
-    """Conservative pool limits for shared hosting (e.g. PythonAnywhere max_user_connections).
+    """Conservative pool limits for shared hosting (e.g. production VPS max_user_connections).
 
     One shared pool per uWSGI worker process (see ``shared_site_mysql_engine``). With ~10
     workers and a MySQL cap of 49 connections, defaults target ~30 web connections so the
@@ -418,7 +418,7 @@ _ENV_LEAGUE_SLUG = os.environ.get("LEAGUE_SLUG", "bowl-fantasy")
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-bow-league-key-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # SQLite: keep the DB busy wait below PythonAnywhere's worker harakiri window.
+    # SQLite: keep the DB busy wait below production VPS's worker harakiri window.
     # Longer waits make lock contention look like a site hang; retries handle backoff.
     _SQLITE_BUSY_SECONDS = float(os.environ.get("SQLITE_BUSY_TIMEOUT_SECONDS", "12"))
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -452,7 +452,7 @@ class Config:
     ROOKIE_RS_GOALIE_MIN_MINUTES_PCT = float(_ROOKIE["rs_goalie_min_minutes_pct"])
     ROOKIE_PSPO_SKATER_MIN_GP = int(_ROOKIE["pspo_skater_min_gp"])
     ROOKIE_PSPO_GOALIE_MIN_MINUTES = int(_ROOKIE["pspo_goalie_min_minutes"])
-    # Off by default on PythonAnywhere (many workers × 3 leagues hammer SQLite on reload).
+    # Off by default on production VPS (many workers × 3 leagues hammer SQLite on reload).
     # On a VPS with gunicorn, set LEAGUE_JSON_CACHE_WARM_ON_STARTUP=1 — see docs/DEPLOY-VPS-NGINX.md.
     _CACHE_WARM_RAW = os.environ.get("LEAGUE_JSON_CACHE_WARM_ON_STARTUP", "0").strip().lower()
     LEAGUE_JSON_CACHE_WARM_ON_STARTUP = _CACHE_WARM_RAW in ("1", "true", "yes", "on")

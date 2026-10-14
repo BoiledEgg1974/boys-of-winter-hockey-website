@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.STEP2_pythonanywhere import (
+from scripts.STEP2_remote_deploy import (
     build_post_db_upload_script,
     resolve_deploy_db_leagues,
 )

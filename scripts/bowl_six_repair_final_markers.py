@@ -11,7 +11,7 @@ After inserting markers, every slate whose real-time scoring window gained a
 game is re-scored. Already-scored slates also re-sync AP podium awards (prior
 payouts are reversed automatically when the podium changes).
 
-Run from the repo root (locally or on PythonAnywhere):
+Run from the repo root (locally or on production VPS):
 
   python scripts/bowl_six_repair_final_markers.py --all
   python scripts/bowl_six_repair_final_markers.py --league bowl-cap --dry-run

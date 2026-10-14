@@ -1,2 +1,2 @@
-# Optional: PythonAnywhere deploy (scripts/STEP2_pythonanywhere.py sync | deploy)
+# Optional: production VPS deploy (scripts/STEP2_remote_deploy.py sync | deploy)
 paramiko>=3.4.0

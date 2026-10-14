@@ -1,4 +1,4 @@
-"""Shared Paramiko SFTP helpers for PythonAnywhere deploy scripts."""
+"""Shared Paramiko SFTP helpers for production VPS deploy scripts."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def _prompt_passphrase_gui(label: str) -> str | None:
         pass
     try:
         value = simpledialog.askstring(
-            "PythonAnywhere SSH",
+            "production VPS SSH",
             f"Passphrase for {label}:",
             show="*",
             parent=root,
@@ -111,7 +111,7 @@ def connect_sftp(
 
     To avoid passphrases entirely: use ``ssh-agent`` and ``ssh-add`` (then omit ``--key``),
     or generate a **new** deploy-only key **without** a passphrase and add its public key
-    on PythonAnywhere (weaker if the PC is shared).
+    on production VPS (weaker if the PC is shared).
     """
     passphrase: str | None = _passphrase_from_env()
     max_passphrase_tries = 4
@@ -183,10 +183,10 @@ def connect_sftp(
                     raise SystemExit(
                         "SSH: no authentication methods (private key not accepted).\n"
                         f"  Key file: {key_path}\n"
-                        "  • Confirm this private key's public half is in PythonAnywhere "
+                        "  • Confirm this private key's public half is in production VPS "
                         "(Account → SSH keys).\n"
                         "  • If the key has a passphrase, set PA_SSH_PASSPHRASE for this session.\n"
-                        '  • Test: ssh -i "PATH" BoiledEgg1974@ssh.pythonanywhere.com'
+                        '  • Test: ssh -i "PATH" BoiledEgg1974@ssh.production.com'
                     ) from err
                 home_ssh = Path.home() / ".ssh"
                 raise SystemExit(

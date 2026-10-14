@@ -1,4 +1,4 @@
-"""Upload BOWL team logos + player art and PS action-shots to PythonAnywhere."""
+"""Upload BOWL team logos + player art and PS action-shots to production VPS."""
 from __future__ import annotations
 
 import argparse
@@ -11,8 +11,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from pa_ssh import connect_sftp, ensure_remote_dir, sftp_put
-from STEP2_pythonanywhere import run_remote_bash, wsgi_files_to_reload
+from deploy_ssh import connect_sftp, ensure_remote_dir, sftp_put
+from STEP2_remote_deploy import run_remote_bash, wsgi_files_to_reload
 
 
 def _upload_tree(sftp, local_dir: Path, remote_dir: str) -> int:

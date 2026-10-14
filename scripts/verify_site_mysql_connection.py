@@ -22,7 +22,7 @@ def main() -> None:
     if not site_url.startswith("mysql"):
         print(
             "SITE_DATABASE_URL must be a mysql+pymysql:// URL. "
-            "Set it in .env or the PythonAnywhere Web tab.",
+            "Set it in .env or the production VPS Web tab.",
             file=sys.stderr,
         )
         sys.exit(1)

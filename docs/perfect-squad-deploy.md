@@ -13,11 +13,11 @@ Implementation: `wsgi.py` wraps each league WSGI app with `DispatcherMiddleware`
 ## Server layout
 
 ```text
-/home/you/Boys-Of-Winter-League/     ← this repo (bowlhockey.com WSGI)
-/home/you/BOWL-Perfect-Squad/       ← Perfect Squad repo (sibling clone)
+/srv/bowl/app/                       ← this repo (bowlhockey.com)
+/srv/bowl/perfect-squad/             ← Perfect Squad repo (sibling clone)
 ```
 
-## Environment (same `.env` / PA web app env as BOWL)
+## Environment (same `/srv/bowl/app/.env` as BOWL)
 
 ```env
 PERFECT_SQUAD_ROOT=/home/you/BOWL-Perfect-Squad
@@ -34,7 +34,7 @@ Install Perfect Squad dependencies on the server:
 pip install -r /home/you/BOWL-Perfect-Squad/requirements.txt
 ```
 
-After deploy, touch WSGI (see `scripts/STEP2_pythonanywhere.py`).
+After deploy, touch WSGI (see `scripts/STEP2_remote_deploy.py`).
 
 ## One-time economy (site DB backup first)
 

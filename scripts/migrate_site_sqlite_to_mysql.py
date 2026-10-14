@@ -1,9 +1,9 @@
 """Copy instance/site_membership.db into the MySQL SITE_DATABASE_URL database.
 
-Run on PythonAnywhere after creating the MySQL database and setting SITE_DATABASE_URL.
+Run on production VPS after creating the MySQL database and setting SITE_DATABASE_URL.
 
 Example:
-  export SITE_DATABASE_URL='mysql+pymysql://BoiledEgg1974:PASSWORD@BoiledEgg1974.mysql.pythonanywhere-services.com/BoiledEgg1974%24bowlsite'
+  export SITE_DATABASE_URL='mysql+pymysql://BoiledEgg1974:PASSWORD@127.0.0.1/BoiledEgg1974%24bowlsite'
   python scripts/verify_site_mysql_connection.py
   python scripts/migrate_site_sqlite_to_mysql.py --dry-run
   python scripts/migrate_site_sqlite_to_mysql.py
@@ -162,7 +162,7 @@ def main() -> None:
             conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
     print(f"Migration complete. Copied {total} rows.")
-    print("Next: reload the PythonAnywhere web app and bot with SITE_DATABASE_URL set.")
+    print("Next: reload the production VPS web app and bot with SITE_DATABASE_URL set.")
 
 
 if __name__ == "__main__":

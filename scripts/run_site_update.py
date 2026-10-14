@@ -25,22 +25,22 @@ Workflows
     arguments are passed through unchanged.
 
 ``to-live`` (default when no workflow name is given; legacy CSV remote-import path)
-    1. ``STEP1_update_from_saved_game.py --no-pa-deploy`` + your STEP1 flags (copy exports,
+    1. ``STEP1_update_from_saved_game.py --no-remote-deploy`` + your STEP1 flags (copy exports,
        STEP3 align per league, local imports + sheet reimport, optional git push).
-    2. ``STEP2_pythonanywhere.py deploy --repo-csv`` + optional STEP2 flags after ``--``.
+    2. ``STEP2_remote_deploy.py deploy --repo-csv`` + optional STEP2 flags after ``--``.
 
     Example with remote pip during deploy::
 
         python scripts/run_site_update.py to-live --yes-push -- --remote-pip
 
 ``local``
-    STEP1 only, always with ``--no-pa-deploy`` (no live deploy in this run).
+    STEP1 only, always with ``--no-remote-deploy`` (no live deploy in this run).
 
 ``deploy``
-    STEP2 deploy only: ``STEP2_pythonanywhere.py deploy --repo-csv`` + any flags you pass
+    STEP2 deploy only: ``STEP2_remote_deploy.py deploy --repo-csv`` + any flags you pass
     (e.g. ``--dry-run``, ``--remote-pip``). Use when CSVs are already in the repo.
     For DB upload + Discord after a local import, prefer
-    ``python scripts/STEP2_pythonanywhere.py deploy-db`` or ``bowl --deploy-db-only``.
+    ``python scripts/STEP2_remote_deploy.py deploy-db`` or ``bowl --deploy-db-only``.
 
 -h, --help
     Show this text.
@@ -55,7 +55,7 @@ WORKFLOWS = frozenset({"to-live", "local", "deploy", "bowl"})
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
-STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
+STEP2 = REPO_ROOT / "scripts" / "STEP2_remote_deploy.py"
 BOWL = REPO_ROOT / "scripts" / "BOWL-Site-Update.py"
 
 
@@ -104,9 +104,9 @@ def main() -> int:
         if not STEP1.is_file():
             print(f"Missing {STEP1}", file=sys.stderr)
             return 1
-        if "--pa-deploy" in tail:
+        if "--remote-deploy" in tail:
             print(
-                "run_site_update: do not pass --pa-deploy for to-live/local — live deploy "
+                "run_site_update: do not pass --remote-deploy for to-live/local — live deploy "
                 "runs after STEP1 in to-live, and is omitted for local.",
                 file=sys.stderr,
             )
@@ -120,7 +120,7 @@ def main() -> int:
             )
             return 1
 
-        code = _run([py, str(STEP1), "--no-pa-deploy", *step1_tail])
+        code = _run([py, str(STEP1), "--no-remote-deploy", *step1_tail])
         if code != 0:
             return code
         if workflow != "to-live":

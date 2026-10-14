@@ -17,7 +17,7 @@ Open `http://127.0.0.1:5000`.
 
 See **[docs/DATA-UPDATE.md](docs/DATA-UPDATE.md)** (copy CSVs → `import_data.py` per league → restart the server).
 
-For a **single ordered command** from saved-game exports through PythonAnywhere (STEP1 → STEP2, with STEP3 inside STEP1), use **`python scripts/run_site_update.py`** (default workflow `to-live`; see `python scripts/run_site_update.py --help`).
+For a **single ordered command** from saved-game exports through live deploy (STEP1 → STEP2, with STEP3 inside STEP1), use **`python scripts/run_site_update.py`** (default workflow `to-live`; see `python scripts/run_site_update.py --help`).
 
 For a **numbered checklist** on a live nested deployment (proxy paths, venv, import order, reload), use **[docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md)**.
 
@@ -31,4 +31,4 @@ Entry draft pages are off on **`/bowl-fantasy`** only. Signing pools and transfe
 
 WSGI entry: **`wsgi.application`**. Configure your host’s Python path and process manager to load this module from the project root.
 
-**nginx + gunicorn on a VPS:** [docs/DEPLOY-VPS-NGINX.md](docs/DEPLOY-VPS-NGINX.md) (§12 first-hour checklist, §13 Namecheap DNS). **Nested / PythonAnywhere updates:** [docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md).
+**nginx + gunicorn on a VPS:** [docs/DEPLOY-VPS-NGINX.md](docs/DEPLOY-VPS-NGINX.md) (§12 first-hour checklist, §13 Namecheap DNS). **Nested server updates:** [docs/UPDATE-NESTED-SERVER.md](docs/UPDATE-NESTED-SERVER.md).

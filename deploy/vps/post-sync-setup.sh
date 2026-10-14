@@ -9,7 +9,7 @@ if [[ ! -f /var/log/bowl-rsync.done ]]; then
   exit 1
 fi
 
-# Paths for Perfect Squad (were PythonAnywhere home dirs in .env).
+# Paths for Perfect Squad (were production VPS home dirs in .env).
 if [[ -f "$APP/.env" ]]; then
   sed -i 's|^PERFECT_SQUAD_ROOT=.*|PERFECT_SQUAD_ROOT=/srv/bowl/perfect-squad|' "$APP/.env"
   sed -i 's|^PERFECT_SQUAD_DATABASE_URL=.*|PERFECT_SQUAD_DATABASE_URL=sqlite:////srv/bowl/perfect-squad/instance/perfect-squad.db|' "$APP/.env"

@@ -1,6 +1,6 @@
 # Updating the site on a nested web server (ordered checklist)
 
-Use this when the app is deployed behind a real web server (nginx, Apache, Caddy, PythonAnywhere, etc.) and URLs are **nested**—either because each league lives under its own path (`/bowl-fantasy/…`) or because the whole project sits under a parent path on your domain.
+Use this when the app is deployed behind a real web server (nginx, Apache, Caddy, production VPS, etc.) and URLs are **nested**—either because each league lives under its own path (`/bowl-fantasy/…`) or because the whole project sits under a parent path on your domain.
 
 For **what the CSVs mean** and **full database reset**, see [DATA-UPDATE.md](DATA-UPDATE.md).
 
@@ -110,7 +110,7 @@ The running workers still hold old code and old DB connections until they restar
 - **systemd:** `sudo systemctl restart your-app.service`
 - **gunicorn** under supervisord: `supervisorctl restart your-app`
 - **Passenger:** `touch tmp/restart.txt` (or the path your host documents)
-- **PythonAnywhere:** Web tab → **Reload** the web app
+- **production VPS:** Web tab → **Reload** the web app
 
 Point the process at `**wsgi.application`** from this project (not a single-league entry) unless you knowingly run one league only.
 
@@ -151,4 +151,4 @@ For a **single ordered flow** (local copy + imports + git + deploy) from your de
 
 For a **from-scratch** server install, start with [DATA-UPDATE.md](DATA-UPDATE.md) “What you need on the server”, then use this checklist for every **update** cycle.
 
-For **nginx + gunicorn on a VPS** (instead of PythonAnywhere), see [DEPLOY-VPS-NGINX.md](DEPLOY-VPS-NGINX.md).
+For **nginx + gunicorn on a VPS** (instead of production VPS), see [DEPLOY-VPS-NGINX.md](DEPLOY-VPS-NGINX.md).

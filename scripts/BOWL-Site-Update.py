@@ -5,7 +5,7 @@ You can run the same flow via ``python scripts/run_site_update.py bowl`` so it s
 ``to-live`` / ``local`` / ``deploy`` in one entry point.
 
 Default flow:
-1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports) with PA deploy and git push skipped.
+1) Run STEP1 (snapshot OVR baselines, copy saved-game CSVs, local imports) with remote deploy and git push skipped.
 2) Align historical awards IDs to player_master (STEP3).
 3) Snapshot bowl-historical OVR baselines, then re-import that league locally (aligned awards).
 4) Copy Formula/Demolition export CSVs when present, then import those racing sites.
@@ -50,7 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 STEP1 = REPO_ROOT / "scripts" / "STEP1_update_from_saved_game.py"
-STEP2 = REPO_ROOT / "scripts" / "STEP2_pythonanywhere.py"
+STEP2 = REPO_ROOT / "scripts" / "STEP2_remote_deploy.py"
 STEP3 = REPO_ROOT / "scripts" / "STEP3_align_history_awards_to_player_master.py"
 IMPORT = REPO_ROOT / "scripts" / "import_data.py"
 IMPORT_RACING = REPO_ROOT / "scripts" / "import_racing_data.py"
@@ -115,8 +115,8 @@ RACING_RAW_DIRS: dict[str, str] = {
 
 # Default deploy SSH key (override with PA_SSH_KEY in the environment).
 _DEFAULT_PA_SSH_KEY = Path.home() / ".ssh" / "id_ed25519_pa"
-def _pa_deploy_env() -> dict[str, str]:
-    """Environment for STEP2 deploy/deploy-db (VPS by default; PA when overridden)."""
+def _live_deploy_env() -> dict[str, str]:
+    """Environment for STEP2 deploy/deploy-db (VPS)."""
     from scripts.deploy_live_host import bootstrap_deploy_env, live_deploy_label
 
     env = bootstrap_deploy_env()
@@ -146,7 +146,7 @@ def _deploy_preflight_note(env: dict[str, str]) -> None:
         )
     else:
         print(
-            "\nDeploy preflight: reload the PythonAnywhere web app (Web tab -> Reload) "
+            "\nDeploy preflight: reload the production VPS web app (Web tab -> Reload) "
             "before upload so no worker is writing to SQLite.\n"
             "This step uploads league SQLite + queues Discord "
             "(notify_discord_after_db_deploy: boxscores / BOWL Six / playoff bracket "
@@ -164,7 +164,7 @@ def _no_deploy_warning() -> None:
         "  Live site scores/standings will NOT change, and Discord will NOT queue,\n"
         "  until you run one of:\n"
         "    python scripts/BOWL-Site-Update.py --deploy-db-only\n"
-        "    python scripts/STEP2_pythonanywhere.py deploy-db\n"
+        "    python scripts/STEP2_remote_deploy.py deploy-db\n"
         "  Do NOT replace that with git pull + pip + touch WSGI on the server.\n"
         + "=" * 72
         + "\n",
@@ -315,7 +315,7 @@ def main() -> int:
         "--mode",
         choices=("regular", "fullremoterebuild"),
         default="regular",
-        help="regular (default) or fullremoterebuild recovery mode on PythonAnywhere.",
+        help="regular (default) or fullremoterebuild recovery mode on production VPS.",
     )
     ap.add_argument("--allow-stale", action="store_true", help="Pass through to STEP1 stale-source override.")
     ap.add_argument(
@@ -332,11 +332,11 @@ def main() -> int:
         "--deploy",
         action="store_true",
         help=(
-            "Run PythonAnywhere deploy-db after local imports. This is already the "
+            "Run production VPS deploy-db after local imports. This is already the "
             "default; pass it to be explicit. Cannot be combined with --no-deploy."
         ),
     )
-    ap.add_argument("--no-deploy", action="store_true", help="Skip PythonAnywhere deploy step.")
+    ap.add_argument("--no-deploy", action="store_true", help="Skip production VPS deploy step.")
     ap.add_argument(
         "--deploy-db-only",
         action="store_true",
@@ -394,7 +394,7 @@ def main() -> int:
         print("BOWL-Site-Update (deploy-db only)...")
         if league:
             print(f"Single-league mode: {league}")
-        deploy_env = _pa_deploy_env()
+        deploy_env = _live_deploy_env()
         _deploy_preflight_note(deploy_env)
         _verify_local_league_databases(verify_slugs)
         step2_cmd = [sys.executable, str(STEP2), "deploy-db", *league_args]
@@ -410,7 +410,7 @@ def main() -> int:
         print(f"Single-league mode: {league}")
 
     # 1) STEP1: copy CSVs + local imports; defer git push until after the historical re-import below.
-    step1_cmd = [sys.executable, str(STEP1), "--no-pa-deploy", "--no-push", *league_args]
+    step1_cmd = [sys.executable, str(STEP1), "--no-remote-deploy", "--no-push", *league_args]
     if args.allow_stale:
         step1_cmd.append("--allow-stale")
     if args.skip_step1:
@@ -456,7 +456,7 @@ def main() -> int:
             print(str(exc), file=sys.stderr)
             return 1
 
-    # 5) Commit + push once all local imports are done (before PythonAnywhere deploy).
+    # 5) Commit + push once all local imports are done (before production VPS deploy).
     if not args.no_push:
         try:
             _commit_and_push_local_changes()
@@ -466,9 +466,9 @@ def main() -> int:
     else:
         print("Skipping git commit/push (--no-push).")
 
-    # 6) Deploy to PythonAnywhere.
+    # 6) Deploy to production VPS.
     if not args.no_deploy:
-        deploy_env = _pa_deploy_env()
+        deploy_env = _live_deploy_env()
         _deploy_preflight_note(deploy_env)
         _verify_local_league_databases(verify_slugs)
         if args.remote_import:

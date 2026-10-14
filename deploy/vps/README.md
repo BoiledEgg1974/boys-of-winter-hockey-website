@@ -16,13 +16,13 @@ Droplet **159.203.6.136** (Toronto). Full guide: [docs/DEPLOY-VPS-NGINX.md](../.
 
 Also check **Networking → Firewalls** in DO — allow inbound **22**, **80**, **443**.
 
-## Start data transfer (PA → Droplet)
+## One-time data transfer (legacy host → droplet)
 
 On the droplet as **root** (after `id_ed25519_pa` is in `/root/.ssh/` with mode 600):
 
 ```bash
-sed -i 's/\r$//' /root/pull-from-pythonanywhere.sh
-nohup bash /root/pull-from-pythonanywhere.sh &
+sed -i 's/\r$//' /root/pull-legacy-site-data.sh
+nohup bash /root/pull-legacy-site-data.sh &
 tail -f /var/log/bowl-rsync.log
 ```
 
@@ -90,18 +90,18 @@ VPS timer **`bowl-backup-offsite.timer`** runs daily **08:45 UTC** (after local 
 
 ## Site MySQL (502 fix)
 
-PythonAnywhere MySQL **does not accept connections from the droplet** (timeout). League SQLite + Perfect Squad on disk are fine; **gunicorn exits** until `SITE_DATABASE_URL` points at a DB the VPS can reach.
+Use **local MariaDB** on the droplet for `SITE_DATABASE_URL`. League SQLite + Perfect Squad on disk are fine; **gunicorn exits** until the site DB URL points at a database the VPS can reach.
 
-1. On **PA** (already done once):  
+1. Export site tables JSON once (from any machine that had live site data):  
    `python scripts/backup_all_live_data.py --out ~/site-migration-backup --no-prune`  
-   → live rows in `~/site-migration-backup/site/tables/*.json`.
+   → rows in `~/site-migration-backup/site/tables/*.json`.
 
 2. On the **droplet** (needs `import_site_tables_json_to_mysql.py` in `/srv/bowl/app` — scp from PC if missing):
 
    ```bash
    export BOWL_SITE_MYSQL_PASSWORD='your-long-random-password'
-   sed -i 's/\r$//' /root/setup-site-mysql-from-pa-backup.sh
-   bash /root/setup-site-mysql-from-pa-backup.sh
+   sed -i 's/\r$//' /root/setup-site-mysql-from-site-backup.sh
+   bash /root/setup-site-mysql-from-site-backup.sh
    ```
 
    Or DO Managed MySQL: create DB, set `SITE_DATABASE_URL`, rsync `site/tables/` from PA, run import with `--force`.

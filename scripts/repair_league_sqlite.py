@@ -1,6 +1,6 @@
 """Diagnose and repair corrupted league SQLite databases.
 
-Run on PythonAnywhere **after reloading the web app** (and pausing the Discord bot)
+Run on production VPS **after reloading the web app** (and pausing the Discord bot)
 so no worker holds the DB open during repair.
 
 Examples::

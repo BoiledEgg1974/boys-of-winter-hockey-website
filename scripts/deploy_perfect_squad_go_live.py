@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy Perfect Squad mount to PythonAnywhere and optional economy rebase.
+"""Deploy Perfect Squad mount to production VPS and optional economy rebase.
 
 Requires SSH access (``PA_SSH_KEY`` or agent). Does not print ``.env`` secrets.
 
@@ -24,8 +24,8 @@ if str(_SCRIPT_DIR) not in sys.path:
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from pa_ssh import connect_sftp, ensure_remote_dir, sftp_put  # noqa: E402
-from STEP2_pythonanywhere import iter_local_files, run_remote_bash, wsgi_files_to_reload  # noqa: E402
+from deploy_ssh import connect_sftp, ensure_remote_dir, sftp_put  # noqa: E402
+from STEP2_remote_deploy import iter_local_files, run_remote_bash, wsgi_files_to_reload  # noqa: E402
 
 
 def _default_local_ps_root() -> Path | None:
@@ -248,7 +248,7 @@ print("env patched (no secrets printed)")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Deploy Perfect Squad to PythonAnywhere.")
+    parser = argparse.ArgumentParser(description="Deploy Perfect Squad to production VPS.")
     parser.add_argument("--code", action="store_true", help="Pull repos, pip install, patch env, reload WSGI.")
     parser.add_argument("--backup", action="store_true", help="Site backup before economy apply.")
     parser.add_argument(

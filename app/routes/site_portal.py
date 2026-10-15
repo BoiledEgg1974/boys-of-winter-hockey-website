@@ -10908,6 +10908,7 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         abort(404)
 
     from app.services.expansion_draft_state import (
+        apply_live_expansion_order,
         end_expansion_draft_early,
         exempt_team_ids,
         expansion_franchise_ids_sorted,
@@ -10915,7 +10916,9 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         EXPANSION_ORDER_SERPENTINE,
         EXPANSION_ORDER_STRAIGHT,
         go_live,
+        picked_overalls,
         player_excluded_from_expansion_pool,
+        reassign_unpicked_expansion_slots,
         regenerate_slots,
         replace_eligible_players,
         resolve_admin_pick,
@@ -11136,6 +11139,80 @@ def admin_expansion_draft_hub_edit(draft_id: int):
                     )
                     flash("Pick recorded.", "ok")
             commit_with_sqlite_retry(db.session)
+        elif act == "apply_live_order" and row.status == "live":
+            g_first_raw = (request.form.get("goalie_phase_first_team_id") or "").strip()
+            s_first_raw = (request.form.get("skater_phase_first_team_id") or "").strip()
+            g_first: int | None = int(g_first_raw) if g_first_raw.isdigit() else None
+            s_first: int | None = int(s_first_raw) if s_first_raw.isdigit() else None
+            fmt_raw = (request.form.get("phase_order_format") or EXPANSION_ORDER_STRAIGHT).strip().lower()
+            order_fmt = fmt_raw if fmt_raw in EXPANSION_ORDER_FORMAT_VALUES else EXPANSION_ORDER_STRAIGHT
+            serp_cont = (
+                request.form.get("serpentine_continuous") == "1"
+                and order_fmt == EXPANSION_ORDER_SERPENTINE
+            )
+            changed, err = apply_live_expansion_order(
+                db.session,
+                row,
+                order_fmt=order_fmt,
+                serp_cont=serp_cont,
+                goalie_first=g_first,
+                skater_first=s_first,
+            )
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_apply_live_order",
+                        detail_json=json.dumps(
+                            {
+                                "draft_id": row.id,
+                                "changed": changed,
+                                "phase_order_format": order_fmt,
+                                "serpentine_continuous": serp_cont,
+                                "goalie_phase_first_team_id": g_first,
+                                "skater_phase_first_team_id": s_first,
+                            }
+                        ),
+                    )
+                )
+                if changed:
+                    flash(
+                        f"Remaining pick order updated ({changed} slot(s) reassigned). "
+                        "Already-made and skipped picks were left unchanged.",
+                        "ok",
+                    )
+                else:
+                    flash("Remaining pick order already matched those settings.", "ok")
+            commit_with_sqlite_retry(db.session)
+        elif act == "save_live_slot_teams" and row.status == "live":
+            team_by_overall: dict[int, int] = {}
+            for key, val in request.form.items():
+                if not str(key).startswith("slot_team_"):
+                    continue
+                ov_raw = str(key)[len("slot_team_") :]
+                tid_raw = str(val or "").strip()
+                if ov_raw.isdigit() and tid_raw.isdigit():
+                    team_by_overall[int(ov_raw)] = int(tid_raw)
+            changed, err = reassign_unpicked_expansion_slots(db.session, row, team_by_overall)
+            if err:
+                flash(err, "err")
+            else:
+                db.session.add(
+                    AdminAuditLog(
+                        admin_user_id=int(current_user.id),
+                        league_slug=slug,
+                        action="expansion_draft_save_live_slot_teams",
+                        detail_json=json.dumps({"draft_id": row.id, "changed": changed}),
+                    )
+                )
+                if changed:
+                    flash(f"Remaining pick order saved ({changed} team change(s)).", "ok")
+                else:
+                    flash("No remaining picks needed a team change.", "ok")
+            commit_with_sqlite_retry(db.session)
         return redirect(url_for("site_admin.admin_expansion_draft_hub_edit", draft_id=draft_id))
 
     teams = list(db.session.scalars(select(Team).order_by(Team.name)).all())
@@ -11254,6 +11331,10 @@ def admin_expansion_draft_hub_edit(draft_id: int):
             .order_by(LeagueExpansionDraftSlot.overall_pick)
         ).all()
     )
+    franchise_id_set = {int(x) for x in expansion_franchise_ids}
+    expansion_franchise_teams = [t for t in main_teams if int(t.id) in franchise_id_set]
+    expansion_team_label_by_id = {int(t.id): t.full_display_name() for t in expansion_franchise_teams}
+    picked_ovs = picked_overalls(db.session, row.id) if row.status == "live" else set()
     sched = ""
     if row.scheduled_start_at:
         sched = row.scheduled_start_at.strftime("%Y-%m-%dT%H:%M")
@@ -11267,6 +11348,9 @@ def admin_expansion_draft_hub_edit(draft_id: int):
         eligible_ids=elig_ids,
         expansion_org_players=expansion_org_players,
         expansion_franchise_ids=expansion_franchise_ids,
+        expansion_franchise_teams=expansion_franchise_teams,
+        expansion_team_label_by_id=expansion_team_label_by_id,
+        picked_overalls=picked_ovs,
         slots=slots,
         sched_value=sched,
     )

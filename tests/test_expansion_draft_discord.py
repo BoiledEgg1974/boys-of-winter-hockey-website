@@ -43,7 +43,7 @@ class ExpansionDraftDiscordTests(unittest.TestCase):
         self.assertEqual(len(enqueue.call_args_list), 1)
         self.assertEqual(enqueue.call_args_list[0].kwargs["event_key"], "expansion_draft_on_clock")
         self.assertEqual(enqueue.call_args_list[0].kwargs["source_type"], "expansion_draft_on_clock")
-        self.assertEqual(enqueue.call_args_list[0].kwargs["source_id"], "9:1")
+        self.assertEqual(enqueue.call_args_list[0].kwargs["source_id"], "9:1:10")
         payload = enqueue.call_args_list[0].kwargs["payload"]
         self.assertEqual(payload["phase"], "Goalie")
         self.assertEqual(payload["overall_pick"], 1)

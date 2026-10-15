@@ -129,6 +129,108 @@
   {% endif %}
   {% endif %}
 
+  {% if draft.status == 'live' %}
+  <h2>Draft order</h2>
+  <p class="muted">Change who picks when without restarting the draft. Already-made and skipped picks stay locked. If a pick was already recorded in the wrong order, undo it first, then apply the corrected remaining order.</p>
+  {% if expansion_franchise_teams|length > 1 %}
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;" id="expLiveOrderSettingsForm"
+        onsubmit="return confirm('Rewrite remaining unpicked slots from these settings? Made and skipped picks stay with their current team.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="apply_live_order">
+    <fieldset id="expLivePhaseOrderFieldset" class="exp-phase-order" style="margin:0 0 0.75rem;padding:0.75rem;border:1px solid rgb(255 255 255 / 0.12);border-radius:6px;">
+      <legend style="padding:0 0.35rem;">Remaining expansion pick order</legend>
+      <fieldset style="margin:0 0 0.75rem;padding:0.65rem 0.75rem;border:1px solid rgb(255 255 255 / 0.1);border-radius:6px;">
+        <legend style="padding:0 0.35rem;font-size:0.9rem;">Multi-team order within each phase</legend>
+        <label style="display:block;margin-bottom:0.35rem;">
+          <input type="radio" name="phase_order_format" value="straight"{% if (draft.phase_order_format or 'straight') == 'straight' %} checked{% endif %}>
+          Straight — same order every round (e.g. A, B, A, B…)
+        </label>
+        <label style="display:block;">
+          <input type="radio" name="phase_order_format" value="serpentine"{% if draft.phase_order_format == 'serpentine' %} checked{% endif %}>
+          Serpentine — order reverses each round (e.g. A, B, then B, A…)
+        </label>
+        <label id="expLiveSerpContinuousWrap" class="small" style="display:block;margin-top:0.5rem;{% if draft.phase_order_format != 'serpentine' %}opacity:0.55;{% endif %}">
+          <input type="checkbox" name="serpentine_continuous" id="expLiveSerpContinuous" value="1"{% if draft.serpentine_continuous %} checked{% endif %}{% if draft.phase_order_format != 'serpentine' %} disabled{% endif %}>
+          Continue serpentine into skater phase (FHM style). When unchecked, the snake resets at the first skater round and <strong>Skater phase — picks first</strong> applies.
+        </label>
+      </fieldset>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:0.75rem;">
+        <label>Goalie phase — picks first<br>
+          <select name="goalie_phase_first_team_id" id="selLiveGoalieFirst" style="width:100%;max-width:20rem;">
+            <option value="">—</option>
+            {% for t in expansion_franchise_teams %}
+              <option value="{{ t.id }}"{% if draft.goalie_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Skater phase — picks first<br>
+          <select name="skater_phase_first_team_id" id="selLiveSkaterFirst" style="width:100%;max-width:20rem;"{% if draft.phase_order_format == 'serpentine' and draft.serpentine_continuous %} disabled{% endif %}>
+            <option value="">—</option>
+            {% for t in expansion_franchise_teams %}
+              <option value="{{ t.id }}"{% if draft.skater_phase_first_team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+    </fieldset>
+    <button type="submit" class="button">Apply remaining order</button>
+  </form>
+  {% endif %}
+
+  {% if slots %}
+  <form method="post" class="card" style="padding:1rem;margin-bottom:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_live_slot_teams">
+    <p class="muted small" style="margin:0 0 0.75rem;">Or assign each remaining pick directly. Overall pick numbers stay the same; only the expansion franchise on that slot changes.</p>
+    <div style="overflow:auto;">
+      <table class="exp-live-order-table" style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:0.35rem 0.5rem;border-bottom:1px solid rgb(255 255 255 / 0.12);">Overall</th>
+            <th style="text-align:left;padding:0.35rem 0.5rem;border-bottom:1px solid rgb(255 255 255 / 0.12);">Round</th>
+            <th style="text-align:left;padding:0.35rem 0.5rem;border-bottom:1px solid rgb(255 255 255 / 0.12);">Phase</th>
+            <th style="text-align:left;padding:0.35rem 0.5rem;border-bottom:1px solid rgb(255 255 255 / 0.12);">Team</th>
+            <th style="text-align:left;padding:0.35rem 0.5rem;border-bottom:1px solid rgb(255 255 255 / 0.12);">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for slot in slots %}
+            {% set locked = slot.forfeited or (slot.overall_pick in picked_overalls) %}
+            {% set on_clock = (not locked) and (loop.index0 == draft.current_slot_index) %}
+            <tr{% if on_clock %} style="background:rgb(34 197 94 / 0.12);"{% elif locked %} style="opacity:0.72;"{% endif %}>
+              <td style="padding:0.4rem 0.5rem;vertical-align:middle;">#{{ slot.overall_pick }}</td>
+              <td style="padding:0.4rem 0.5rem;vertical-align:middle;">{{ slot.round }}</td>
+              <td style="padding:0.4rem 0.5rem;vertical-align:middle;">{{ slot.phase }}</td>
+              <td style="padding:0.4rem 0.5rem;vertical-align:middle;">
+                {% if locked %}
+                  {{ expansion_team_label_by_id.get(slot.team_id, slot.team_id) }}
+                {% else %}
+                  <select name="slot_team_{{ slot.overall_pick }}" style="width:100%;max-width:18rem;">
+                    {% for t in expansion_franchise_teams %}
+                      <option value="{{ t.id }}"{% if slot.team_id == t.id %} selected{% endif %}>{{ t.full_display_name() }}</option>
+                    {% endfor %}
+                  </select>
+                {% endif %}
+              </td>
+              <td style="padding:0.4rem 0.5rem;vertical-align:middle;">
+                {% if slot.forfeited %}Skipped
+                {% elif slot.overall_pick in picked_overalls %}Picked
+                {% elif on_clock %}On the clock
+                {% else %}Upcoming
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="button" style="margin-top:0.75rem;">Save remaining pick order</button>
+  </form>
+  {% else %}
+  <p class="muted">No pick slots on file for this draft.</p>
+  {% endif %}
+  {% endif %}
+
   {% if draft.status in ('setup', 'live') %}
   <h2>Eligible players (unprotected pool)</h2>
   <p class="muted">Check every player who should appear on the Expansion Draft Hub board (age <strong>21+</strong> as of the league timeline — same reference date as player ages on the site, usually July&nbsp;1 of the current season). Players who are unrestricted free agents <em>and</em> no longer tied to any BOWL club are omitted. FHM often marks expansion-exposed skaters as UFA while they remain on a club’s unprotected list — those players appear here. Each club lists: <strong>BOWL roster</strong> (assigned to the big club), <strong>minors / affiliates</strong> (under contract but not on the BOWL roster), and <strong>org / export rights</strong> (from <code>player_rights.csv</code> in this league’s raw import folder, plus prospect-only rows when there is no contract line).{% if draft.status == 'setup' %} Save before going live.{% else %} During a live draft you can add missing players here (for example after using <strong>Skip pick</strong> on the hub), then return to the hub to draft them.{% endif %}</p>
@@ -409,6 +511,41 @@
       });
     });
   });
+})();
+
+(function () {
+  var form = document.getElementById("expLiveOrderSettingsForm");
+  if (!form) return;
+  var wrap = document.getElementById("expLiveSerpContinuousWrap");
+  var cb = document.getElementById("expLiveSerpContinuous");
+  var skaterFirst = document.getElementById("selLiveSkaterFirst");
+
+  function isSerpentine() {
+    var picked = form.querySelector('input[name="phase_order_format"]:checked');
+    return !!(picked && picked.value === "serpentine");
+  }
+
+  function syncLiveSerpentine() {
+    var serp = isSerpentine();
+    if (!serp && cb) cb.checked = false;
+    if (wrap) wrap.style.opacity = serp ? "1" : "0.55";
+    if (cb) cb.disabled = !serp;
+    var continuous = !!(cb && cb.checked && serp);
+    if (skaterFirst) {
+      skaterFirst.disabled = continuous;
+      skaterFirst.style.opacity = continuous ? "0.55" : "1";
+    }
+  }
+
+  form.querySelectorAll('input[name="phase_order_format"]').forEach(function (rb) {
+    rb.addEventListener("change", syncLiveSerpentine);
+  });
+  if (cb) cb.addEventListener("change", syncLiveSerpentine);
+  form.addEventListener("submit", function () {
+    if (skaterFirst) skaterFirst.disabled = false;
+    if (cb) cb.disabled = false;
+  });
+  syncLiveSerpentine();
 })();
 </script>
 {% endblock %}

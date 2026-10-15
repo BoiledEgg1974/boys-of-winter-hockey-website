@@ -288,27 +288,20 @@ def gm_user_ids_for_team(session: Session, league_slug: str, team_id: int) -> li
     return [int(u) for u in rows]
 
 
-def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | None:
-    if draft.status != "setup":
-        return "Can only regenerate slots while draft is in setup."
+def planned_expansion_slot_rows(draft: LeagueExpansionDraft) -> list[tuple[int, int, str, int]]:
+    """``(overall_pick, round, phase, team_id)`` from current order settings."""
     franchises = expansion_franchise_ids_sorted(draft)
     if not franchises:
-        return "Select at least one expansion franchise before generating slots."
+        return []
     gr = max(0, int(draft.goalie_rounds))
     sr = max(0, int(draft.skater_rounds))
-    if gr == 0 and sr == 0:
-        return "Set at least one goalie round or skater round."
     g_first = getattr(draft, "goalie_phase_first_team_id", None)
     s_first = getattr(draft, "skater_phase_first_team_id", None)
     order_goalie = phase_pick_order(franchises, g_first)
     order_skater = phase_pick_order(franchises, s_first)
     order_fmt = expansion_order_format(draft)
     continuous_serp = order_fmt == EXPANSION_ORDER_SERPENTINE and serpentine_continuous_across_phases(draft)
-    session.execute(
-        delete(LeagueExpansionDraftSlot).where(
-            LeagueExpansionDraftSlot.league_expansion_draft_id == draft.id
-        )
-    )
+    rows: list[tuple[int, int, str, int]] = []
     overall = 0
     global_round = 0
     for r in range(1, gr + 1):
@@ -316,15 +309,7 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
         serp_round = global_round if continuous_serp else r
         for tid in round_team_order(order_goalie, serp_round, order_fmt):
             overall += 1
-            session.add(
-                LeagueExpansionDraftSlot(
-                    league_expansion_draft_id=draft.id,
-                    overall_pick=overall,
-                    round=r,
-                    phase="goalie",
-                    team_id=int(tid),
-                )
-            )
+            rows.append((overall, r, "goalie", int(tid)))
     for r in range(1, sr + 1):
         global_round += 1
         if continuous_serp:
@@ -335,18 +320,204 @@ def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | Non
             base_order = order_skater
         for tid in round_team_order(base_order, serp_round, order_fmt):
             overall += 1
-            session.add(
-                LeagueExpansionDraftSlot(
-                    league_expansion_draft_id=draft.id,
-                    overall_pick=overall,
-                    round=r,
-                    phase="skater",
-                    team_id=int(tid),
-                )
+            rows.append((overall, r, "skater", int(tid)))
+    return rows
+
+
+def regenerate_slots(session: Session, draft: LeagueExpansionDraft) -> str | None:
+    if draft.status != "setup":
+        return "Can only regenerate slots while draft is in setup."
+    franchises = expansion_franchise_ids_sorted(draft)
+    if not franchises:
+        return "Select at least one expansion franchise before generating slots."
+    gr = max(0, int(draft.goalie_rounds))
+    sr = max(0, int(draft.skater_rounds))
+    if gr == 0 and sr == 0:
+        return "Set at least one goalie round or skater round."
+    planned = planned_expansion_slot_rows(draft)
+    if not planned:
+        return "Could not build a pick order from the current settings."
+    session.execute(
+        delete(LeagueExpansionDraftSlot).where(
+            LeagueExpansionDraftSlot.league_expansion_draft_id == draft.id
+        )
+    )
+    for overall, rnd, phase, tid in planned:
+        session.add(
+            LeagueExpansionDraftSlot(
+                league_expansion_draft_id=draft.id,
+                overall_pick=overall,
+                round=rnd,
+                phase=phase,
+                team_id=int(tid),
             )
+        )
     draft.current_slot_index = 0
     invalidate_expansion_eligible_cache(draft.id)
     return None
+
+
+def picked_overalls(session: Session, draft_id: int) -> set[int]:
+    rows = session.scalars(
+        select(LeagueExpansionDraftPick.overall_pick).where(
+            LeagueExpansionDraftPick.league_expansion_draft_id == draft_id
+        )
+    ).all()
+    return {int(x) for x in rows}
+
+
+def _slot_locked_from_order_change(slot: LeagueExpansionDraftSlot, picked: set[int]) -> bool:
+    if bool(getattr(slot, "forfeited", False)):
+        return True
+    return int(slot.overall_pick) in picked
+
+
+def _current_on_clock_team_id(session: Session, draft: LeagueExpansionDraft) -> int | None:
+    if draft.status != "live":
+        return None
+    slots = slots_ordered(session, draft.id)
+    idx = int(draft.current_slot_index or 0)
+    if idx < 0 or idx >= len(slots):
+        return None
+    slot = slots[idx]
+    if bool(getattr(slot, "forfeited", False)):
+        return None
+    return int(slot.team_id)
+
+
+def _resync_clock_if_on_clock_team_changed(
+    session: Session, draft: LeagueExpansionDraft, previous_team_id: int | None
+) -> None:
+    """Restart the live clock (and Discord on-clock ping) when the current pick changes teams."""
+    if draft.status != "live":
+        return
+    now_id = _current_on_clock_team_id(session, draft)
+    if previous_team_id is None or now_id is None or int(now_id) == int(previous_team_id):
+        return
+    draft.pick_started_at = None
+    draft.pick_deadline_at = None
+    draft.awaiting_admin_resolution = False
+    draft.deadline_extended_for_slot = False
+    draft.expansion_pick_cooldown_active = False
+    draft.timer_paused = False
+    draft.timer_paused_remaining_seconds = None
+    sync_current_slot_and_clock(session, draft)
+
+
+def _validate_live_order_settings(
+    draft: LeagueExpansionDraft,
+    *,
+    order_fmt: str,
+    serp_cont: bool,
+    goalie_first: int | None,
+    skater_first: int | None,
+) -> str | None:
+    franchises = expansion_franchise_ids_sorted(draft)
+    if len(franchises) < 2:
+        return "Need at least two expansion franchises to change pick order."
+    fmt = str(order_fmt or EXPANSION_ORDER_STRAIGHT).strip().lower()
+    if fmt not in EXPANSION_ORDER_FORMAT_VALUES:
+        return "Choose straight or serpentine pick order."
+    if goalie_first is None or int(goalie_first) not in franchises:
+        return "Choose which expansion franchise picks first in the goalie phase."
+    if not serp_cont and (skater_first is None or int(skater_first) not in franchises):
+        return "Choose which expansion franchise picks first in the skater phase."
+    return None
+
+
+def apply_live_expansion_order(
+    session: Session,
+    draft: LeagueExpansionDraft,
+    *,
+    order_fmt: str,
+    serp_cont: bool,
+    goalie_first: int | None,
+    skater_first: int | None,
+) -> tuple[int, str | None]:
+    """Rewrite remaining unpicked slots from order settings. Locked picks/skips stay put."""
+    if draft.status != "live":
+        return 0, "Can only change remaining pick order while the draft is live."
+    err = _validate_live_order_settings(
+        draft,
+        order_fmt=order_fmt,
+        serp_cont=serp_cont,
+        goalie_first=goalie_first,
+        skater_first=skater_first,
+    )
+    if err:
+        return 0, err
+    fmt = str(order_fmt).strip().lower()
+    continuous = bool(serp_cont) and fmt == EXPANSION_ORDER_SERPENTINE
+    g_first = int(goalie_first) if goalie_first is not None else None
+    s_first = g_first if continuous else (int(skater_first) if skater_first is not None else None)
+    orig_fmt = draft.phase_order_format
+    orig_cont = bool(getattr(draft, "serpentine_continuous", False))
+    orig_g = getattr(draft, "goalie_phase_first_team_id", None)
+    orig_s = getattr(draft, "skater_phase_first_team_id", None)
+    draft.phase_order_format = fmt
+    draft.serpentine_continuous = continuous
+    draft.goalie_phase_first_team_id = g_first
+    draft.skater_phase_first_team_id = s_first
+    planned = planned_expansion_slot_rows(draft)
+    slots = slots_ordered(session, draft.id)
+    if not slots or len(planned) != len(slots):
+        draft.phase_order_format = orig_fmt
+        draft.serpentine_continuous = orig_cont
+        draft.goalie_phase_first_team_id = orig_g
+        draft.skater_phase_first_team_id = orig_s
+        if not slots:
+            return 0, "This draft has no pick slots."
+        return 0, "Remaining order does not match the existing slot list. Round counts cannot change mid-draft."
+    previous_team_id = _current_on_clock_team_id(session, draft)
+    planned_by_overall = {int(ov): int(tid) for ov, _rnd, _ph, tid in planned}
+    picked = picked_overalls(session, draft.id)
+    changed = 0
+    for slot in slots:
+        if _slot_locked_from_order_change(slot, picked):
+            continue
+        new_tid = planned_by_overall.get(int(slot.overall_pick))
+        if new_tid is None or int(slot.team_id) == new_tid:
+            continue
+        slot.team_id = new_tid
+        changed += 1
+    _resync_clock_if_on_clock_team_changed(session, draft, previous_team_id)
+    invalidate_expansion_eligible_cache(draft.id)
+    return changed, None
+
+
+def reassign_unpicked_expansion_slots(
+    session: Session,
+    draft: LeagueExpansionDraft,
+    team_by_overall: dict[int, int],
+) -> tuple[int, str | None]:
+    """Assign remaining unpicked slots to expansion franchises from a per-pick map."""
+    if draft.status != "live":
+        return 0, "Can only change remaining pick order while the draft is live."
+    franchises = set(expansion_franchise_ids_sorted(draft))
+    if not franchises:
+        return 0, "This draft has no expansion franchises."
+    previous_team_id = _current_on_clock_team_id(session, draft)
+    slots = slots_ordered(session, draft.id)
+    picked = picked_overalls(session, draft.id)
+    updates: list[tuple[LeagueExpansionDraftSlot, int]] = []
+    for slot in slots:
+        overall = int(slot.overall_pick)
+        if overall not in team_by_overall:
+            continue
+        if _slot_locked_from_order_change(slot, picked):
+            continue
+        new_tid = int(team_by_overall[overall])
+        if new_tid not in franchises:
+            return 0, "Each remaining pick must belong to one of this draft's expansion franchises."
+        if int(slot.team_id) == new_tid:
+            continue
+        updates.append((slot, new_tid))
+    for slot, new_tid in updates:
+        slot.team_id = new_tid
+    changed = len(updates)
+    _resync_clock_if_on_clock_team_changed(session, draft, previous_team_id)
+    invalidate_expansion_eligible_cache(draft.id)
+    return changed, None
 
 
 def _pick_row_for_overall(session: Session, draft_id: int, overall: int) -> bool:

@@ -121,7 +121,7 @@ def enqueue_expansion_draft_discord_alerts(
         payload=expansion_draft_on_clock_payload(session, draft, current_slot),
         created_by_user_id=None,
         source_type="expansion_draft_on_clock",
-        source_id=f"{int(draft.id)}:{ov}",
+        source_id=f"{int(draft.id)}:{ov}:{int(current_slot.team_id)}",
     )
 
 

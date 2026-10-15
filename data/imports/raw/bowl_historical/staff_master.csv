@@ -842,7 +842,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 840;96;Fredrik;Abrahamsson;;1917-4-18;Malmö;SKå;Sweden;;;0
 841;157;Carl;Tell;;1917-2-25;Nacka;STO;Sweden;;;0
 842;161;Dan;Waller;;1924-12-8;;;The United States;;;0
-843;5;Sherman;Crawford;;1917-2-21;Tucson;AZ;The United States;;;0
+843;-1;Sherman;Crawford;;1917-2-21;Tucson;AZ;The United States;;;0
 844;95;Choe;Yeong-cheol;;1917-2-22;Vansbro;DAL;South Korea;;;0
 845;68;Lasse;Paananen;;1917-2-27;Helsinki;UUS;Finland;;;0
 846;158;Norbert;Bogdan;;1917-1-30;Prievidza;TRE;Slovakia;;;0
@@ -1117,7 +1117,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1115;64;Whit;McKimmie;;1919-10-20;Les Îles de la Madeleine;QC;Canada;;;0
 1116;160;Danny;Spitler;;1927-7-12;Mitchell;ON;Canada;;;0
 1117;-1;Edwin;Hobart;;1920-10-30;Honolulu;HI;The United States;;;0
-1118;130;Mike;Browning;;1921-11-2;Eastpointe;MI;The United States;;;0
+1118;-1;Mike;Browning;;1921-11-2;Eastpointe;MI;The United States;;;0
 1119;130;Doug;Pittman;;1920-12-17;St. Cloud;MN;The United States;;;0
 1120;130;Ronnie;Chamberlain;;1924-1-4;Chicago;IL;The United States;;;0
 1121;130;Paul;Edgar;;1920-6-15;Suffield;OH;The United States;;;0

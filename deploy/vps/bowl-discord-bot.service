@@ -9,7 +9,7 @@ WorkingDirectory=/srv/bowl/app
 EnvironmentFile=/srv/bowl/app/.env
 Environment=PYTHONPATH=/srv/bowl/app
 ExecStart=/srv/bowl/app/.venv/bin/python -m scripts.league_discord_bot
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 [Install]

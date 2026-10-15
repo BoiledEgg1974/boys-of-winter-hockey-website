@@ -210,8 +210,8 @@ def main() -> int:
         )
 
     if args.restart:
-        _remote_shell(env, "systemctl restart bowl-web", dry_run=False)
-        print("bowl-web restarted (bowl-cache-warm should run via ExecStartPost).")
+        _remote_shell(env, "systemctl restart bowl-web bowl-discord-bot", dry_run=False)
+        print("bowl-web and bowl-discord-bot restarted (bowl-cache-warm should run via ExecStartPost).")
 
     if args.perfect_squad:
         ps_remote = (env.get("PERFECT_SQUAD_REMOTE") or env.get("PERFECT_SQUAD_ROOT") or "").strip()

@@ -14,7 +14,10 @@ from app.config import HOCKEY_LEAGUE_SLUGS
 _MOUNT_PREFIX = "/perfect-squad"
 # Per league: Flask app, snapshot of Perfect Squad ``app.*`` modules, repo root path.
 _ps_runtime: dict[str, tuple[Any, dict[str, Any], str]] = {}
-_ps_locks: dict[str, threading.Lock] = {}
+# ``sys.modules`` is process-global; BOWL and Perfect Squad both use the top-level
+# ``app`` package. Gunicorn serves concurrent requests in the same worker, so every
+# league mount that swaps modules must serialize against all others in this process.
+_ps_mount_lock: threading.Lock | None = None
 _ps_lock_guard = threading.Lock()
 
 
@@ -54,13 +57,25 @@ def perfect_squad_home_href(league_slug: str) -> str | None:
     return f"/{league_slug}{_MOUNT_PREFIX}/{league_slug}/"
 
 
-def _lock_for(slug: str) -> threading.Lock:
+def _mount_swap_lock() -> threading.Lock:
+    global _ps_mount_lock
+    if _ps_mount_lock is not None:
+        return _ps_mount_lock
     with _ps_lock_guard:
-        lock = _ps_locks.get(slug)
-        if lock is None:
-            lock = threading.Lock()
-            _ps_locks[slug] = lock
-        return lock
+        if _ps_mount_lock is None:
+            _ps_mount_lock = threading.Lock()
+        return _ps_mount_lock
+
+
+def _serial_wsgi_app(inner: Callable, league_slug: str) -> Callable:
+    """Run league + Perfect Squad WSGI without concurrent ``app.*`` module swaps."""
+
+    def application(environ, start_response):
+        with _mount_swap_lock():
+            return inner(environ, start_response)
+
+    application._bowl_ps_mount_slug = league_slug  # type: ignore[attr-defined]
+    return application
 
 
 def _snapshot_app_modules() -> dict[str, Any]:
@@ -168,10 +183,8 @@ def _invoke_ps_wsgi(
 
 def _lazy_perfect_squad_wsgi(league_slug: str) -> Callable:
     def application(environ, start_response):
-        lock = _lock_for(league_slug)
-        with lock:
-            app, ps_modules, ps_root = _get_or_build_ps_runtime(league_slug)
-            return _invoke_ps_wsgi(league_slug, app, ps_modules, ps_root, environ, start_response)
+        app, ps_modules, ps_root = _get_or_build_ps_runtime(league_slug)
+        return _invoke_ps_wsgi(league_slug, app, ps_modules, ps_root, environ, start_response)
 
     return application
 
@@ -180,4 +193,8 @@ def wrap_league_wsgi_with_perfect_squad(league_wsgi_app: Callable, league_slug: 
     """Nest Perfect Squad under ``/perfect-squad`` for hockey league mounts."""
     if not perfect_squad_league_enabled(league_slug) or not perfect_squad_enabled():
         return league_wsgi_app
-    return DispatcherMiddleware(league_wsgi_app, {_MOUNT_PREFIX: _lazy_perfect_squad_wsgi(league_slug)})
+    mount = DispatcherMiddleware(
+        league_wsgi_app,
+        {_MOUNT_PREFIX: _lazy_perfect_squad_wsgi(league_slug)},
+    )
+    return _serial_wsgi_app(mount, league_slug)

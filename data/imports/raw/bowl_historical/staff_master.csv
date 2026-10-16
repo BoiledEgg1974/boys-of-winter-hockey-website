@@ -134,7 +134,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 132;122;Billy;Reay;;1918-8-21;Oakbank;MB;Canada;;;0
 133;-1;Ralph;Mudd;;1914-8-17;Los Angeles;CA;The United States;;;0
 134;-1;Nick;Martin;;1906-10-25;Marion;OH;The United States;;;0
-135;-1;Christian;Truss;;1910-11-29;Prince Rupert;BC;Canada;;;0
+135;5;Christian;Truss;;1910-11-29;Prince Rupert;BC;Canada;;;0
 136;92;Chris;Stitt;;1913-3-28;Mississauga;ON;Canada;;;0
 137;76;Allen;Dobson;;1907-2-18;Moncton;NB;Canada;;;0
 138;19;Jasdeep;Singh;;1906-7-25;Montreal;QC;Canada;;;0
@@ -161,7 +161,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 159;-1;Brad;O'Esmond;;1914-1-7;Omaha;NE;The United States;;;0
 160;-1;Bob;Roberts;;1915-6-18;Montreal;QC;Canada;;;0
 161;9;Tyler;Ward;;1911-11-7;Quebec City;QC;Canada;;;0
-162;-1;Allen;O'Neill;;1911-9-10;Guelph;ON;Canada;;;0
+162;3;Allen;O'Neill;;1911-9-10;Guelph;ON;Canada;;;0
 163;8;Steffen;Trapp;;1913-4-9;Toronto;ON;Canada;;;0
 164;-1;Pat;Bower;;1907-8-31;Montreal;QC;Canada;;;0
 165;-1;Tanner;Ollershaw;;1911-7-1;Winnipeg;MB;Canada;;;0
@@ -559,7 +559,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 557;75;Tommy;Short;;1913-6-22;Toronto;ON;Canada;;;0
 558;96;William;Lindsay;;1913-10-24;Severna Park;MD;The United States;;;0
 559;26;Cory;Yeo;;1913-9-7;Palmetto;FL;The United States;;;0
-560;-1;Jon;Perris;;1917-6-17;Columbus;GA;The United States;;;0
+560;5;Jon;Perris;;1917-6-17;Columbus;GA;The United States;;;0
 561;94;Dustin;Henrich;;1913-10-14;Sudbury;ON;Canada;;;0
 562;77;Dan;Merrill;;1913-12-29;Calgary;AB;Canada;;;0
 563;82;Vic;Burtynsky;;1913-7-14;Calgary;AB;Canada;;;0
@@ -640,7 +640,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 638;62;Jan;Mikula;;1915-2-3;Prague;PRA;Czech Republic;;;0
 639;67;Sergiu;Vianu;;1922-6-5;Bollnäs;GäV;Romania;;;0
 640;87;Zhang;Fuyu;;1915-6-14;Lidköping;VäS;China;;;0
-641;-1;Harry;Sinden;;1932-9-24;Kingston;ON;Canada;;;0
+641;130;Harry;Sinden;;1932-9-24;Kingston;ON;Canada;;;0
 642;8;Bill;Wirtz;;1929-10-5;Elk Rapids;MI;The United States;;;0
 643;-1;Eddy;Palchak;;1940-1-1;Murdochville;QC;Canada;;;0
 644;-1;Dave;Teague;;1915-5-29;Burlington;ON;Canada;;;0
@@ -738,14 +738,14 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 736;84;Jared;Groves;;1916-9-25;Toronto;ON;Canada;;;0
 737;129;Robert;Carpenter;;1921-9-3;Saint-Damase;QC;Canada;;;0
 738;128;Norm;DeCamp;;1916-6-15;Holt;MI;The United States;;;0
-739;-1;Ben;McKinney;;1923-7-17;Memphis;TN;The United States;;;0
+739;5;Ben;McKinney;;1923-7-17;Memphis;TN;The United States;;;0
 740;118;Jayson;von Wartensleben;;1922-2-10;Mount Pleasant;SC;The United States;;;0
 741;-1;Michael;Wong;;1926-7-9;Fort Worth;TX;The United States;;;0
 742;-1;Brandon;Hicks;;1917-6-12;Clovis;NM;The United States;;;0
 743;118;John;Murphy;;1920-3-23;New York;NY;The United States;;;0
 744;119;Chris;DeLisle;;1917-5-3;Florissant;MO;The United States;;;0
 745;119;Mike;Murphy;;1923-9-21;Lafayette;CA;The United States;;;0
-746;-1;Jeffrey;Nash;;1922-9-19;Nesbit;MS;The United States;;;0
+746;3;Jeffrey;Nash;;1922-9-19;Nesbit;MS;The United States;;;0
 747;119;Ken;Stuermer;;1921-12-11;East Freehold;NJ;The United States;;;0
 748;142;Ralph;O'Keefe;;1917-2-15;Parkland;WA;The United States;;;0
 749;120;Bryan;Sheals;;1917-1-29;Nashville;NC;The United States;;;0
@@ -938,7 +938,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 936;141;José;Estrada;;1917-3-18;Indian Harbour Beach;FL;The United States;;;0
 937;139;Ryan;Sims;;1917-4-20;Silver Spring;MD;The United States;;;0
 938;130;Brad;Spencer;;1917-11-12;Peterborough;ON;Canada;;;0
-939;-1;Damian;Murray;;1917-10-25;Chicago;IL;The United States;;;0
+939;118;Damian;Murray;;1917-10-25;Chicago;IL;The United States;;;0
 940;62;Bob;Miller;;1917-8-9;Mississauga;ON;Canada;;;0
 941;5;Ron;Welch;;1926-7-18;Warrenton;GA;The United States;;;0
 942;118;Dave;Christian;;1917-4-2;Sherbrooke;QC;Canada;;;0
@@ -967,7 +967,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 965;24;Larry;Roy;;1917-3-17;Orion;IL;The United States;;;0
 966;82;Warren;Nguyen;;1922-7-15;Ottawa;ON;Canada;;;0
 967;120;Alex;Silver;;1917-11-26;Richmond;VA;The United States;;;0
-968;-1;Mike;Baty;;1917-7-27;Langford;BC;Canada;;;0
+968;121;Mike;Baty;;1917-7-27;Langford;BC;Canada;;;0
 969;155;Bud;Griffin;;1917-8-8;Saint-Jacques;QC;Canada;;;0
 970;-1;Mitch;Love;;1917-9-10;Alhambra;CA;The United States;;;0
 971;88;Pat;Mullins;;1920-8-8;Indianapolis;IN;The United States;;;0
@@ -1663,7 +1663,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1661;-1;David;McAllister;;1922-2-22;Oklahoma City;OK;The United States;;;0
 1662;-1;Jason;McQuaine;;1922-3-23;American Fork;UT;The United States;;;0
 1663;-1;George;Laing;;1922-2-21;Oakbank;MB;Canada;;;0
-1664;-1;Joe;Rucker;;1922-8-17;New Providence;NJ;The United States;;;0
+1664;121;Joe;Rucker;;1922-8-17;New Providence;NJ;The United States;;;0
 1665;-1;Riley;Forrester;;1922-4-21;New Westminster;BC;Canada;;;0
 1666;-1;Edmond;Paul;;1925-11-9;Halifax;NS;Canada;;;0
 1667;-1;David;McGaw;;1922-4-15;Santa Ana;CA;The United States;;;0
@@ -1680,7 +1680,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1678;-1;Tom;MacGillegowie;;1922-9-7;Winnipeg;MB;Canada;;;0
 1679;-1;Bob;Elliott;;1926-10-27;Kingston;ON;Canada;;;0
 1680;-1;Artie;Washington;;1922-3-6;Ottawa;ON;Canada;;;0
-1681;-1;Juan;Miranda;;1927-8-27;Mason;MI;The United States;;;0
+1681;118;Juan;Miranda;;1927-8-27;Mason;MI;The United States;;;0
 1682;-1;Scott;Carder;;1922-2-27;Toronto;ON;Canada;;;0
 1683;-1;Allen;Schroeder;;1922-3-21;Hanover Park;IL;The United States;;;0
 1684;-1;Art;Ward;;1922-5-25;Sarnia;ON;Canada;;;0
@@ -1714,7 +1714,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1712;-1;Tim;Koster;;1922-11-29;Batavia;NY;The United States;;;0
 1713;-1;Ron;Bartley;;1922-12-31;Santa Ana;CA;The United States;;;0
 1714;-1;Paul;Hillis;;1922-5-31;Fort Hood;TX;The United States;;;0
-1715;-1;Francisco;Rivera;;1922-3-9;Escondido;CA;The United States;;;0
+1715;3;Francisco;Rivera;;1922-3-9;Escondido;CA;The United States;;;0
 1716;-1;Randolph;Covellski;;1922-9-18;Markham;ON;Canada;;;0
 1717;-1;Kayden;Vienneau;;1927-3-8;South Riding;VA;The United States;;;0
 1718;-1;Bob;Scranton;;1922-12-23;Longueuil;QC;Canada;;;0
@@ -1722,7 +1722,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1720;-1;Romain;Lenoir;;1922-8-18;Yorba Linda;CA;The United States;;;0
 1721;-1;Joe;Jones;;1923-4-30;Chesterton;IN;The United States;;;0
 1722;-1;Nick;Glasspool;;1922-2-22;Houston;TX;The United States;;;0
-1723;-1;Gabe;Foley;;1922-2-4;Newton;MA;The United States;;;0
+1723;121;Gabe;Foley;;1922-2-4;Newton;MA;The United States;;;0
 1724;-1;Jason;Nykwist;;1922-4-25;Burlington;ON;Canada;;;0
 1725;-1;Richard;Robertson;;1923-9-19;Barrie;ON;Canada;;;0
 1726;-1;Jesse;Lee;;1922-12-30;Courtice;ON;Canada;;;0
@@ -1731,7 +1731,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1729;-1;Graeme;Blencowe;;1927-4-5;Davie;FL;The United States;;;0
 1730;-1;Mike;Butler;;1922-9-24;Riverside;CA;The United States;;;0
 1731;-1;Charlie;Spence;;1927-9-17;Midland;TX;The United States;;;0
-1732;-1;Matt;Norton;;1922-4-5;Chicago;IL;The United States;;;0
+1732;118;Matt;Norton;;1922-4-5;Chicago;IL;The United States;;;0
 1733;-1;Jared;Pokulok;;1922-9-7;Abbotsford;BC;Canada;;;0
 1734;-1;Mike;O'Herlihy;;1923-9-17;Thunder Bay;ON;Canada;;;0
 1735;-1;Brett;Luhning;;1928-12-11;Strathcona;AB;Canada;;;0
@@ -1774,7 +1774,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1772;-1;Michael;Roberson;;1922-12-15;Rose City;TX;The United States;;;0
 1773;-1;Harvey;Amsden;;1922-10-30;Montreal;QC;Canada;;;0
 1774;-1;Justin;Todd;;1922-9-21;Saskatoon;SK;Canada;;;0
-1775;-1;Mike;Batten;;1922-7-31;Lévis;QC;Canada;;;0
+1775;130;Mike;Batten;;1922-7-31;Lévis;QC;Canada;;;0
 1776;135;GM;Islanders;;1912-6-28;;;Canada;;;0
 1777;134;GM;Flames;;1912-6-28;;;Canada;;;0
 0;-1;Conn;Smythe;;1895-2-1;Toronto;ON;Canada;;;1

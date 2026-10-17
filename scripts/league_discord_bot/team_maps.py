@@ -121,7 +121,7 @@ _HISTORICAL_SPECS: Dict[int, TeamSpec] = {
     # FHM/Discord use CAL (California); site roster still uses OAK (Oakland).
     120: team("CAL", "1527136600721719487", "OAK"),
     121: team("PHI", "1469123032009146589"),
-    122: team("PIT", "1495575341354455111"),
+    122: team("PIT", "1559740697005920267"),
     123: team("STL", "1469123043769974915"),
     130: team("BUF", "1523803268244049930"),
     131: team("VAN", "1523803266784301056"),

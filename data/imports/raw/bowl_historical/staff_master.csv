@@ -870,7 +870,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 868;118;Bud;Poile;;1924-2-10;Thunder Bay;ON;Canada;;;0
 869;122;Larry;Regan;;1930-8-9;North Bay;ON;Canada;;;0
 870;122;Fred;Glover;;1928-1-5;Toronto;ON;Canada;;;0
-871;-1;Rudy;Migay;;1928-11-18;Thunder Bay;ON;Canada;;;0
+871;134;Rudy;Migay;;1928-11-18;Thunder Bay;ON;Canada;;;0
 872;122;Wren;Blair;;1925-10-2;Lindsay;ON;Canada;;;0
 873;122;Ted;O'Connor;;1930-11-15;Oshawa;ON;Canada;;;0
 874;118;Keith;Allen;;1923-8-21;Swift Current;SK;Canada;;;0
@@ -928,7 +928,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 926;-1;Tom;Welsh;;1917-7-14;Calgary;AB;Canada;;;0
 927;118;Enrico;Artenga;;1920-1-4;Oshawa;ON;Canada;;;0
 928;130;Keith;Porter;;1925-6-20;Brampton;ON;Canada;;;0
-929;-1;Arthur;Howard;;1924-3-15;Terrace;BC;Canada;;;0
+929;121;Arthur;Howard;;1924-3-15;Terrace;BC;Canada;;;0
 930;119;Mitchell;Akers;;1917-2-25;Des Moines;WA;The United States;;;0
 931;122;Steffen;Kero;;1924-11-16;Firestone;CO;The United States;;;0
 932;118;Mark;Hale;;1917-10-23;Winnipeg;MB;Canada;;;0
@@ -1580,7 +1580,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1578;161;Jeremy;Meegan;;1922-2-23;;;The United States;;;0
 1579;152;Ronald;Griffith;;1922-8-12;;;The United States;;;0
 1580;92;Viktor;Goranov;;1928-7-17;Gabrovo;GAB;Bulgaria;;;0
-1581;24;Robby;Isenberg;;1922-10-27;Salem;MA;The United States;;;0
+1581;5;Robby;Isenberg;;1922-10-27;Salem;MA;The United States;;;0
 1582;79;Risto;Ränk;;1922-12-10;Tartu;TAR;Estonia;;;0
 1583;84;Sam;Sydor;;1922-12-26;Vaughan;ON;Canada;;;0
 1584;22;Stephen;Page;;1922-9-20;Murrieta;CA;The United States;;;0
@@ -1673,12 +1673,12 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1671;-1;Carl;McCabe;;1927-12-31;Vancouver;BC;Canada;;;0
 1672;-1;Tony;Lawson;;1926-2-7;Kuna;ID;The United States;;;0
 1673;-1;Brett;McDowell;;1930-12-24;Saanich;BC;Canada;;;0
-1674;-1;Bob;Norfleet;;1922-9-23;Drummondville;QC;Canada;;;0
+1674;3;Bob;Norfleet;;1922-9-23;Drummondville;QC;Canada;;;0
 1675;-1;Larry;Fallows;;1924-6-24;Barrie;ON;Canada;;;0
 1676;-1;Cole;Hanson;;1931-6-12;East Hartford;CT;The United States;;;0
 1677;-1;Luke;Leduc;;1922-6-15;Vancouver;BC;Canada;;;0
 1678;-1;Tom;MacGillegowie;;1922-9-7;Winnipeg;MB;Canada;;;0
-1679;-1;Bob;Elliott;;1926-10-27;Kingston;ON;Canada;;;0
+1679;3;Bob;Elliott;;1926-10-27;Kingston;ON;Canada;;;0
 1680;-1;Artie;Washington;;1922-3-6;Ottawa;ON;Canada;;;0
 1681;118;Juan;Miranda;;1927-8-27;Mason;MI;The United States;;;0
 1682;-1;Scott;Carder;;1922-2-27;Toronto;ON;Canada;;;0
@@ -1705,7 +1705,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1703;-1;Paul;Scrivner;;1922-1-18;Modesto;CA;The United States;;;0
 1704;-1;Matt;Earles;;1922-10-4;Wayne;NJ;The United States;;;0
 1705;-1;Chris;Kocher;;1931-7-17;Peterborough;ON;Canada;;;0
-1706;-1;Duane;Palmer;;1922-6-3;Markham;ON;Canada;;;0
+1706;121;Duane;Palmer;;1922-6-3;Markham;ON;Canada;;;0
 1707;-1;Joe;McDonagh;;1924-3-7;Sherwood Park;AB;Canada;;;0
 1708;-1;Jeff;Turman;;1922-9-14;Coquitlam;BC;Canada;;;0
 1709;-1;Jason;O'Manning;;1922-6-12;Rosedale;MD;The United States;;;0
@@ -1725,7 +1725,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1723;121;Gabe;Foley;;1922-2-4;Newton;MA;The United States;;;0
 1724;-1;Jason;Nykwist;;1922-4-25;Burlington;ON;Canada;;;0
 1725;-1;Richard;Robertson;;1923-9-19;Barrie;ON;Canada;;;0
-1726;-1;Jesse;Lee;;1922-12-30;Courtice;ON;Canada;;;0
+1726;3;Jesse;Lee;;1922-12-30;Courtice;ON;Canada;;;0
 1727;-1;Benn;Montgomery;;1922-5-30;Halton Hills;ON;Canada;;;0
 1728;-1;Clement;Oleson;;1922-2-23;Timmins;ON;Canada;;;0
 1729;-1;Graeme;Blencowe;;1927-4-5;Davie;FL;The United States;;;0

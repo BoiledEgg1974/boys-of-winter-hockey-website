@@ -1,19 +1,19 @@
 [
   {
-    "id": 4,
-    "trade_date": "2026-10-12",
+    "id": 5,
+    "trade_date": "2026-10-14",
     "team_a_id": 26,
-    "team_b_id": 25,
+    "team_b_id": 2,
     "team_a_fhm": "221",
-    "team_b_fhm": "220",
+    "team_b_fhm": "3",
     "team_a_abbr": "FLA",
-    "team_b_abbr": "ANA",
-    "summary": "Florida Panthers sends:\nNolan Baumgartner\nAnson Carter\n\nAnaheim Mighty Ducks sends:\nJeff Woywitka\n2002 3rd Round (ANA)",
+    "team_b_abbr": "TOR",
+    "summary": "Florida Panthers sends:\nMorten Green\n\nToronto Maple Leafs (1982-2015) sends:\n2003 3rd Round (TBL)",
     "external_id": null,
     "source": "manual"
   },
   {
-    "id": 3,
+    "id": 2,
     "trade_date": "2026-10-12",
     "team_a_id": 10,
     "team_b_id": 3,
@@ -26,20 +26,20 @@
     "source": "manual"
   },
   {
-    "id": 2,
-    "trade_date": "2026-10-01",
-    "team_a_id": 21,
-    "team_b_id": 17,
-    "team_a_fhm": "26",
-    "team_b_fhm": "22",
-    "team_a_abbr": "PHX",
-    "team_b_abbr": "WAS",
-    "summary": "Phoenix Coyotes (1996-2002) sends:\nPeter Bondra\n\nWashington Capitals (1997-2006) sends:\n2002 3rd Round (WSH)\n2002 5th Round (WSH)",
+    "id": 1,
+    "trade_date": "2026-10-12",
+    "team_a_id": 26,
+    "team_b_id": 25,
+    "team_a_fhm": "221",
+    "team_b_fhm": "220",
+    "team_a_abbr": "FLA",
+    "team_b_abbr": "ANA",
+    "summary": "Florida Panthers sends:\nNolan Baumgartner\nAnson Carter\n\nAnaheim Mighty Ducks sends:\nJeff Woywitka\n2002 3rd Round (ANA)",
     "external_id": null,
     "source": "manual"
   },
   {
-    "id": 1,
+    "id": 4,
     "trade_date": "2026-10-01",
     "team_a_id": 21,
     "team_b_id": 6,
@@ -48,6 +48,19 @@
     "team_a_abbr": "PHX",
     "team_b_abbr": "NYR",
     "summary": "Phoenix Coyotes (1996-2002) sends:\nAlexander Svitov\n\nNew York Rangers sends:\nTomi Kallio",
+    "external_id": null,
+    "source": "manual"
+  },
+  {
+    "id": 3,
+    "trade_date": "2026-10-01",
+    "team_a_id": 21,
+    "team_b_id": 17,
+    "team_a_fhm": "26",
+    "team_b_fhm": "22",
+    "team_a_abbr": "PHX",
+    "team_b_abbr": "WAS",
+    "summary": "Phoenix Coyotes (1996-2002) sends:\nPeter Bondra\n\nWashington Capitals (1997-2006) sends:\n2002 3rd Round (WSH)\n2002 5th Round (WSH)",
     "external_id": null,
     "source": "manual"
   }

@@ -610,10 +610,39 @@ class LeagueDiscordBot:
             except Exception:
                 log.exception("sim cycle tracker refresh failed for %s", slug)
 
+    def _safe_heartbeat(
+        self,
+        site_client: httpx.Client,
+        *,
+        league_slug: str,
+        guild_id: str = "",
+        pending_count: int = 0,
+        last_error: str = "",
+    ) -> None:
+        try:
+            self.heartbeat(
+                site_client,
+                league_slug=league_slug,
+                guild_id=guild_id,
+                pending_count=pending_count,
+                last_error=last_error,
+            )
+        except Exception:
+            log.exception("heartbeat failed for %s", league_slug)
+
     def run_cycle(self, site_client: httpx.Client, discord_client: httpx.Client) -> str | None:
         last_error: str | None = None
         delay = float(self.settings.delivery_delay_seconds)
         for slug in sorted(self.settings.league_base_urls):
+            guild_id = ""
+            events: list[dict[str, Any]] = []
+            # Heartbeat before pending so a slow/locked league DB does not
+            # make the admin page look like the worker is down.
+            self._safe_heartbeat(
+                site_client,
+                league_slug=slug,
+                last_error=last_error or "",
+            )
             try:
                 events, league_guild_id = self.poll_pending(site_client, slug)
                 guild_id = league_guild_id
@@ -645,19 +674,23 @@ class LeagueDiscordBot:
                             self.fail_dm(site_client, slug, int(ev["id"]), last_error)
                         except Exception:
                             log.exception("DM fail report failed for event %s", ev.get("id"))
-                try:
-                    self.heartbeat(
-                        site_client,
-                        league_slug=slug,
-                        guild_id=guild_id,
-                        pending_count=len(events),
-                        last_error=last_error or "",
-                    )
-                except Exception:
-                    log.exception("heartbeat failed for %s", slug)
+                self._safe_heartbeat(
+                    site_client,
+                    league_slug=slug,
+                    guild_id=guild_id,
+                    pending_count=len(events),
+                    last_error=last_error or "",
+                )
             except Exception as exc:
                 last_error = str(exc)
                 log.exception("poll cycle failed for %s", slug)
+                self._safe_heartbeat(
+                    site_client,
+                    league_slug=slug,
+                    guild_id=guild_id,
+                    pending_count=len(events),
+                    last_error=last_error,
+                )
         return last_error
 
     def run_forever(self) -> None:

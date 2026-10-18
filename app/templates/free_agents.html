@@ -138,7 +138,7 @@
       </section>
       {% endfor %}
     </div>
-    {% if fa_total > fa_page_limit %}
+    {% if fa_total > fa_page_limit and current_user.is_authenticated %}
     <p class="stats-list-foot muted prospects-rankings-page__foot">
       {% if fa_expanded %}
       Showing all {{ fa_total }} players. <a href="{{ url_for('main.free_agents', role=fa_role, view=fa_view, sort=fa_sort, order=fa_order) }}">Show top {{ fa_page_limit }} only</a>

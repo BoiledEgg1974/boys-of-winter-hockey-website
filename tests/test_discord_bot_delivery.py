@@ -139,6 +139,20 @@ class DiscordBotDeliveryTest(unittest.TestCase):
         post_discord.assert_called_once()
         ack.assert_called_once()
 
+    def test_run_cycle_heartbeats_when_pending_times_out(self) -> None:
+        bot = _bot()
+        site_client = MagicMock()
+        discord_client = MagicMock()
+        with patch.object(bot, "poll_pending", side_effect=TimeoutError("timed out")), patch.object(
+            bot, "heartbeat"
+        ) as heartbeat:
+            bot.run_cycle(site_client, discord_client)
+        slugs = [c.kwargs["league_slug"] for c in heartbeat.call_args_list]
+        self.assertIn("bowl-historical", slugs)
+        self.assertTrue(
+            any("timed out" in str(c.kwargs.get("last_error") or "") for c in heartbeat.call_args_list)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

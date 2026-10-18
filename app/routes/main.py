@@ -198,6 +198,16 @@ from app.services.trade_log import trade_log_rows as build_trade_log_rows
 main_bp = Blueprint("main", __name__)
 
 
+def _honor_expanded_query() -> bool:
+    """Full ``?expanded=1`` lists are for signed-in users only.
+
+    Public scrapers were requesting every sort of records / statistics /
+    free-agent table with ``expanded=1``, which rendered multi-MB HTML and
+    pinned gunicorn. Anonymous visitors still get the default top-N page.
+    """
+    return bool(getattr(current_user, "is_authenticated", False))
+
+
 def _relegation_template_context(endpoint: str, **route_args: object) -> dict[str, object]:
     """Scope tabs and labels for bowl-fantasy public pages."""
     from app.services.relegation import (
@@ -1415,7 +1425,7 @@ def _build_statistics_view_vars(
     pos_filter = request.args.get("pos", "all") or "all"
     if pos_filter not in ("all", "fwd", "def", "c", "lw", "rw"):
         pos_filter = "all"
-    stats_expanded = request.args.get("expanded") == "1"
+    stats_expanded = request.args.get("expanded") == "1" and _honor_expanded_query()
     stats_page_limit = 100
     stats_full_limit = 8000
 
@@ -2764,8 +2774,9 @@ def all_time_records():
     if roster not in ("all", "active", "retired"):
         roster = "all"
     show_goalies = request.args.get("goalies") == "1"
-    expanded = request.args.get("expanded") == "1"
+    expanded = request.args.get("expanded") == "1" and _honor_expanded_query()
     records_page_limit = 100
+    records_fetch_limit = None if expanded else records_page_limit
     sort = request.args.get("sort", "points")
     order = request.args.get("order")
     g_sort = request.args.get("g_sort", "wins")
@@ -2799,10 +2810,21 @@ def all_time_records():
         }
     if show_goalies:
         goalie_rows_all, g_sort_used, g_order_used = fetch_goalie_all_time(
-            db.session, split, g_sort, g_order or "", roster, **scope_rec_kwargs
+            db.session,
+            split,
+            g_sort,
+            g_order or "",
+            roster,
+            limit=records_fetch_limit,
+            **scope_rec_kwargs,
         )
-        total_goalies = len(goalie_rows_all)
         goalie_rows = goalie_rows_all if expanded else goalie_rows_all[:records_page_limit]
+        if expanded:
+            total_goalies = len(goalie_rows_all)
+        elif len(goalie_rows_all) >= records_page_limit:
+            total_goalies = records_page_limit + 1
+        else:
+            total_goalies = len(goalie_rows_all)
         skater_rows = []
         total_skaters = 0
         sort_used = sort
@@ -2813,10 +2835,21 @@ def all_time_records():
         )
     else:
         skater_rows_all, sort_used, sk_order_used = fetch_skater_all_time(
-            db.session, split, sort, order or "", roster, **scope_rec_kwargs
+            db.session,
+            split,
+            sort,
+            order or "",
+            roster,
+            limit=records_fetch_limit,
+            **scope_rec_kwargs,
         )
-        total_skaters = len(skater_rows_all)
         skater_rows = skater_rows_all if expanded else skater_rows_all[:records_page_limit]
+        if expanded:
+            total_skaters = len(skater_rows_all)
+        elif len(skater_rows_all) >= records_page_limit:
+            total_skaters = records_page_limit + 1
+        else:
+            total_skaters = len(skater_rows_all)
         goalie_rows = []
         total_goalies = 0
         g_sort_used = g_sort
@@ -4064,7 +4097,7 @@ def free_agents():
     if order not in ("asc", "desc"):
         order = "desc"
 
-    fa_expanded = request.args.get("expanded") == "1"
+    fa_expanded = request.args.get("expanded") == "1" and _honor_expanded_query()
     page_limit = 80
 
     league_slug = str(current_app.config.get("LEAGUE_SLUG") or "")

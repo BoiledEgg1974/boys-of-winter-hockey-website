@@ -5,6 +5,7 @@
 #   Name|#7           → same (fixed number 7)
 # Names must match a PNG in Formula BOWL/Cars/ (or assets/cars/custom/),
 # case/spacing insensitive — e.g. "BoiledEgg" ↔ BoiledEgg.png.
+# Numbers are integers: 007 and 7 are the same seat number (first claim wins).
 # Lines starting with # are ignored. Seats beyond this list get "Driver N".
 92|Blazed
 32|BoiledEgg
@@ -18,13 +19,13 @@
 33|Joey
 4|GreedyFish
 7|Lilboiloui
-6|MachoMike
+6|Toomuchtuna
 9|Mcdoublehero
 12|Min
-14|Mrmuffn
+14|Mitusha
 66|Nick
 36|Oilempire
-5|Parchie
+5|henrir
 67|Randy
 31|RJ
 22|Scubasteve

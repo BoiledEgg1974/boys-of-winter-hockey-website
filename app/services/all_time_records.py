@@ -184,6 +184,7 @@ def fetch_skater_all_time(
     *,
     league_ids: tuple[int, ...] | None = None,
     team_fhm_ids: frozenset[str] | None = None,
+    limit: int | None = None,
 ) -> tuple[list[SkaterAllTimeRow], str, SortOrder]:
     ids = league_ids if league_ids is not None else bowl_nhl_league_ids(session)
     line = PlayerSkaterCareerLine
@@ -345,6 +346,8 @@ def fetch_skater_all_time(
         )
     )
     stmt = _apply_player_roster_filter(stmt, roster)
+    if limit is not None:
+        stmt = stmt.limit(int(limit))
     rows_out: list[SkaterAllTimeRow] = []
     for row in session.execute(stmt).unique():
         (
@@ -411,6 +414,7 @@ def fetch_goalie_all_time(
     *,
     league_ids: tuple[int, ...] | None = None,
     team_fhm_ids: frozenset[str] | None = None,
+    limit: int | None = None,
 ) -> tuple[list[GoalieAllTimeRow], str, SortOrder]:
     """Totals from goalie career lines (active + retired) in BOWL/NHL leagues only."""
     ids = league_ids if league_ids is not None else bowl_nhl_league_ids(session)
@@ -540,6 +544,8 @@ def fetch_goalie_all_time(
         )
     )
     stmt = _apply_player_roster_filter(stmt, roster)
+    if limit is not None:
+        stmt = stmt.limit(int(limit))
     rows_out: list[GoalieAllTimeRow] = []
     for row in session.execute(stmt).unique():
         (

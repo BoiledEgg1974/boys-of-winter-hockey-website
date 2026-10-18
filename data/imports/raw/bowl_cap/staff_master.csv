@@ -275,7 +275,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 273;-1;Mel;Bridgman;;1955-4-28;Quinte West;ON;Canada;;;0
 274;26;Jerry;Moyes;;1945-1-1;Phoenix;NY;The United States;;;0
 275;-1;Dan;Maloney;;1950-9-24;Barrie;ON;Canada;;;0
-276;-1;Barry;Long;;1949-1-3;Brantford;ON;Canada;;;0
+276;214;Barry;Long;;1949-1-3;Brantford;ON;Canada;;;0
 277;11;Ken;Dryden;;1947-8-8;Hamilton;ON;Canada;;;0
 278;-1;Doug;Carpenter;;1942-7-1;Cornwall;ON;Canada;;;0
 279;5;Jeremy;Jacobs;;1940-1-21;Buffalo;NY;The United States;;;0
@@ -451,7 +451,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 449;220;Hannu;Jortikka;;1956-12-16;Vantaa;UUS;Finland;;;0
 450;-1;Juhani;Tamminen;;1950-5-26;Lapinlahti;NSA;Finland;Switzerland;;0
 451;214;Erkka;Westerlund;;1957-3-30;Helsinki;UUS;Finland;;;0
-452;-1;Jari;Kaarela;;1958-8-8;Hyvinkää;UUS;Finland;;;0
+452;214;Jari;Kaarela;;1958-8-8;Hyvinkää;UUS;Finland;;;0
 453;-1;Bryan;Lefley;;1948-10-18;Windsor;ON;Canada;Switzerland;;0
 454;-1;Peter;Lee;;1956-1-2;Chilliwack;BC;Canada;Switzerland;;0
 455;-1;Jakob;Kölliker;;1953-7-21;Köniz;BE;Switzerland;;;0

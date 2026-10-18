@@ -18,7 +18,7 @@ Cloudflare speeds up **static assets** worldwide and shields the droplet. Dynami
 ## 3. API token + automated settings (optional)
 
 1. Copy `scripts/cloudflare.env.example` → **`scripts/cloudflare.env`** (gitignored).
-2. Cloudflare → **My Profile** → **API Tokens** → create token with **Edit zone DNS** + **Zone Settings** for `bowlhockey.com`.
+2. Cloudflare → **My Profile** → **API Tokens** → create token for `bowlhockey.com` with **Zone Settings**, **DNS**, **Cache Rules**, and **WAF** edit.
 3. Run:
 
 ```powershell
@@ -26,7 +26,9 @@ python scripts/apply_cloudflare_bowl.py --dry-run
 python scripts/apply_cloudflare_bowl.py
 ```
 
-This sets **SSL Full**, **Always Use HTTPS**, proxied **A** records for `@` and `www`, and **Cache Rules** (cache `/static/` for 7 days; bypass `/login` and `/api/`).
+This sets **SSL Full**, **Always Use HTTPS**, proxied **A** records for `@` and `www`, **Cache Rules** (cache `/static/` for 7 days; bypass `/login` and `/api/`), **Bot Fight Mode**, security level **High**, and a **managed challenge** on `/records`, `/statistics`, and `/free-agents`.
+
+During a scraper storm you can also flip **Security → Settings → Under Attack** in the dashboard. Turn it off once origin load is normal.
 
 You can still add or tweak rules under **Caching** → **Cache Rules** in the dashboard.
 

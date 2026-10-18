@@ -260,7 +260,7 @@
         </tbody>
       </table>
     </div>
-    {% if total_goalies > stats_page_limit %}
+    {% if total_goalies > stats_page_limit and current_user.is_authenticated %}
     <p class="stats-list-foot muted">
       {% if stats_expanded %}
       Showing all {{ total_goalies }} goalies. <a href="{{ statistics_collapsed_url }}">Show top {{ stats_page_limit }} only</a>
@@ -371,7 +371,7 @@
         </tbody>
       </table>
     </div>
-    {% if total_skaters > stats_page_limit %}
+    {% if total_skaters > stats_page_limit and current_user.is_authenticated %}
     <p class="stats-list-foot muted">
       {% if stats_expanded %}
       Showing all {{ total_skaters }} skaters. <a href="{{ statistics_collapsed_url }}">Show top {{ stats_page_limit }} only</a>

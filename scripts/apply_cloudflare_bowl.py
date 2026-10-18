@@ -221,6 +221,83 @@ def _patch_ssl(token: str, zone_id: str, *, dry_run: bool) -> None:
         print(f"Setting {setting}={value}")
 
 
+def _patch_bot_shield(token: str, zone_id: str, *, dry_run: bool) -> None:
+    """Turn on free-plan bot controls. Token needs Zone Settings Edit."""
+    for setting, value in (
+        ("bot_fight_mode", "on"),
+        ("browser_check", "on"),
+        ("security_level", "high"),
+    ):
+        _request(
+            token,
+            "PATCH",
+            f"/zones/{zone_id}/settings/{setting}",
+            body={"value": value},
+            dry_run=dry_run,
+        )
+        print(f"Setting {setting}={value}")
+
+
+def _ensure_waf_challenge(token: str, zone_id: str, *, dry_run: bool) -> None:
+    """Managed challenge on records / statistics / free-agent list pages."""
+    description = "BOWL challenge heavy list pages"
+    expression = (
+        '(http.request.uri.path contains "/records") or '
+        '(http.request.uri.path contains "/statistics") or '
+        '(http.request.uri.path contains "/free-agents")'
+    )
+    desired = {
+        "description": description,
+        "expression": expression,
+        "action": "managed_challenge",
+    }
+    if dry_run:
+        print(f"[dry-run] would upsert WAF rule {description!r}")
+        return
+
+    payload = _request(
+        token,
+        "GET",
+        f"/zones/{zone_id}/rulesets/phases/http_request_firewall_custom/entrypoint",
+    )
+    entry = payload.get("result") or {}
+    ruleset_id = entry.get("id")
+    rules = list(entry.get("rules") or [])
+    replaced = False
+    next_rules = []
+    for rule in rules:
+        if rule.get("description") == description:
+            next_rules.append({**rule, **desired})
+            replaced = True
+        else:
+            next_rules.append(rule)
+    if not replaced:
+        next_rules.append(desired)
+
+    if ruleset_id:
+        _request(
+            token,
+            "PUT",
+            f"/zones/{zone_id}/rulesets/{ruleset_id}",
+            body={"rules": next_rules},
+        )
+        print("WAF custom rule updated (challenge records/statistics/free-agents)")
+        return
+
+    _request(
+        token,
+        "POST",
+        f"/zones/{zone_id}/rulesets",
+        body={
+            "name": "BOWL custom firewall",
+            "kind": "zone",
+            "phase": "http_request_firewall_custom",
+            "rules": next_rules,
+        },
+    )
+    print("WAF custom rule created (challenge records/statistics/free-agents)")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -233,8 +310,10 @@ def main() -> int:
 
     zid, nameservers = _zone_id(token, zone_name, dry_run=args.dry_run)
     _patch_ssl(token, zid, dry_run=args.dry_run)
+    _patch_bot_shield(token, zid, dry_run=args.dry_run)
     _ensure_dns(token, zid, origin, zone_name, dry_run=args.dry_run)
     _ensure_cache_rules(token, zid, dry_run=args.dry_run)
+    _ensure_waf_challenge(token, zid, dry_run=args.dry_run)
 
     if nameservers:
         print("\nNamecheap → Custom DNS nameservers:")

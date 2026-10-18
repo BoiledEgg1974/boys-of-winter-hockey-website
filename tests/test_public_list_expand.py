@@ -34,10 +34,9 @@ class PublicListExpandTest(unittest.TestCase):
         self.assertIn("bowl_heavy_conn", limits)
         self.assertIn("bowl-cloudflare.conf", site)
         self.assertIn("bowl_fa_global", site)
-        self.assertIn("bowl_team_global", limits)
-        self.assertIn("limit_conn bowl_app_conn", site)
-        self.assertIn("return 429", site)
-        self.assertIn("team-reports", site)
+        self.assertIn("free-agents", site)
+        self.assertNotIn("limit_conn bowl_app_conn", site)
+        self.assertNotIn("return 429;", site)
 
 
 class RecordsFetchLimitTest(unittest.TestCase):

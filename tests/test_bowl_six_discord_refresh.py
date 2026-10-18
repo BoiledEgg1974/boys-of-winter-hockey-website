@@ -56,6 +56,16 @@ class BowlSixDiscordRefreshTests(unittest.TestCase):
             ["bowl-cap", "bowl-fantasy", "bowl-historical"],
         )
 
+    def test_pending_endpoint_does_not_refresh_bowl_six_inline(self) -> None:
+        from pathlib import Path
+
+        text = (Path(__file__).resolve().parents[1] / "app" / "routes" / "api.py").read_text(
+            encoding="utf-8"
+        )
+        pending = text.split("def discord_events_pending()", 1)[1].split("def discord_events_ack", 1)[0]
+        self.assertIn("_schedule_bowl_six_discord_refresh", pending)
+        self.assertNotIn("_refresh_bowl_six_discord_triggers(slug)", pending)
+
 
 if __name__ == "__main__":
     unittest.main()

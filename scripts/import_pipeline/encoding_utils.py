@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import io
 import re
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
-from charset_normalizer import from_path
+
+# Unused in Windows-1252; FHM occasionally emits them (e.g. Jüri as J + 0x81 + ü).
+_CP1252_UNUSED = frozenset({0x81, 0x8D, 0x8F, 0x90, 0x9D})
 
 
 def detect_delimiter(sample_text: str) -> str:
@@ -13,17 +16,36 @@ def detect_delimiter(sample_text: str) -> str:
     return ";" if first_line.count(";") > first_line.count(",") else ","
 
 
+def decode_fhm_csv_bytes(raw: bytes) -> tuple[str, str]:
+    """Decode FHM export bytes. Prefer UTF-8, then Windows-1252.
+
+    Auto-sniffers often label these files cp1250 or cp775, which turns ``Åke`` into
+    ``Ĺke``, ``Trois-Rivières`` into ``Trois-Rivičres``, and ``Bründl`` into ``Br³ndl``.
+    """
+    if not raw:
+        return "", "utf-8"
+    if raw.startswith(b"\xff\xfe"):
+        return raw.decode("utf-16-le"), "utf-16-le"
+    if raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16-be"), "utf-16-be"
+    for enc in ("utf-8-sig", "utf-8"):
+        try:
+            return raw.decode(enc), enc
+        except UnicodeDecodeError:
+            continue
+    cleaned = bytes(b for b in raw if b not in _CP1252_UNUSED)
+    try:
+        return cleaned.decode("cp1252"), "cp1252"
+    except UnicodeDecodeError:
+        return raw.decode("latin-1"), "latin-1"
+
+
 def read_csv_normalized(path: Path, sep: str | None = None) -> pd.DataFrame:
     """Detect encoding, read CSV (FHM often uses ';'), normalize headers."""
     raw = path.read_bytes()
-    result = from_path(str(path)).best()
-    encoding = result.encoding if result else "utf-8"
-    try:
-        sample = raw.decode(encoding)
-    except Exception:
-        sample = raw.decode("utf-8", errors="replace")
+    sample, _encoding = decode_fhm_csv_bytes(raw)
     delimiter = sep or detect_delimiter(sample)
-    df = pd.read_csv(path, encoding=encoding, sep=delimiter, dtype=str, keep_default_na=False)
+    df = pd.read_csv(io.StringIO(sample), sep=delimiter, dtype=str, keep_default_na=False)
     df.columns = [normalize_header(c) for c in df.columns]
     return df
 
@@ -122,12 +144,13 @@ def parse_fhm_date(raw) -> date | None:
 _CP1250_MOJIBAKE_HINTS = ("ĺ", "Ĺ", "ľ", "Ľ", "ř", "Ř", "č", "Č", "ď", "Ď", "ť", "Ť")
 
 
-def repair_likely_cp1250_mojibake(text: str | None) -> str | None:
-    """Repair common cp1250-vs-cp1252 mojibake in legacy FHM text fields.
+def clean_fhm_text(text: str | None) -> str | None:
+    """Repair cp1250-vs-cp1252 mojibake left in already-imported FHM text.
 
     Example fixes:
     - ``Pĺhlsson`` -> ``Påhlsson``
     - ``Bjřrn`` -> ``Bjørn``
+    - ``Trois-Rivičres`` -> ``Trois-Rivières``
     """
     if text is None:
         return None
@@ -143,3 +166,8 @@ def repair_likely_cp1250_mojibake(text: str | None) -> str | None:
     before = sum(s.count(ch) for ch in _CP1250_MOJIBAKE_HINTS)
     after = sum(candidate.count(ch) for ch in _CP1250_MOJIBAKE_HINTS)
     return candidate if after < before else s
+
+
+def repair_likely_cp1250_mojibake(text: str | None) -> str | None:
+    """Backward-compatible alias for :func:`clean_fhm_text`."""
+    return clean_fhm_text(text)

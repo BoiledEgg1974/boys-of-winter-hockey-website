@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from collections import defaultdict
 from datetime import date, timedelta
@@ -2314,6 +2315,34 @@ def _refresh_bowl_six_discord_triggers(slug: str) -> None:
         current_app.logger.exception("BOWL Six Discord trigger refresh failed for %s", key)
 
 
+def _schedule_bowl_six_discord_refresh(slug: str) -> None:
+    """Queue BOWL Six / bracket side effects without blocking pending delivery.
+
+    The sync refresh walks league SQLite (week stats, lineups). On Relegation
+    that regularly exceeds the bot's 90s pending timeout, so the queue stalls
+    even though heartbeats stay green.
+    """
+    key = str(slug or "").strip()
+    if not key:
+        return
+    now = time.monotonic()
+    interval = float(
+        current_app.config.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", 60) or 60
+    )
+    last = _BOWL_SIX_DISCORD_REFRESH_LAST.get(key, 0.0)
+    if interval > 0 and now - last < interval:
+        return
+    app = current_app._get_current_object()
+
+    def _run() -> None:
+        with app.app_context():
+            _refresh_bowl_six_discord_triggers(key)
+
+    threading.Thread(
+        target=_run, name=f"bowl-six-discord-{key}", daemon=True
+    ).start()
+
+
 @api_bp.get("/bowl-six/leaders")
 def bowl_six_leaders_payload():
     """Public BOWL Six leaderboard payload for the stats bot."""
@@ -2361,8 +2390,6 @@ def discord_events_pending():
         serialize_pending_events_for_bot,
     )
 
-    _refresh_bowl_six_discord_triggers(slug)
-
     rows = fetch_pending_events_for_bot(
         db.session, league_slug=slug, limit=limit, event_key=event_key
     )
@@ -2370,6 +2397,7 @@ def discord_events_pending():
     out = serialize_pending_events_for_bot(
         db.session, league_slug=slug, rows=rows
     )
+    _schedule_bowl_six_discord_refresh(slug)
     return jsonify(
         {
             "ok": True,

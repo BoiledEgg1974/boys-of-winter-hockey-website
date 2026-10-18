@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from scripts.import_pipeline.encoding_utils import clean_fhm_text
 from scripts.league_discord_bot.team_maps import (
     emoji_for_abbrev,
     entry_for_fhm_team_id,
@@ -117,6 +118,16 @@ def _injury_player_label(league_slug: str, row: dict[str, Any]) -> str:
     return f"{player}{team_bit}"
 
 
+def _repair_fhm_discord_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return clean_fhm_text(value) or value
+    if isinstance(value, dict):
+        return {k: _repair_fhm_discord_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_repair_fhm_discord_value(v) for v in value]
+    return value
+
+
 def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
     """Last-line cleanup before Discord REST POST (strips invalid embed URLs)."""
     out: dict[str, Any] = {}
@@ -138,7 +149,8 @@ def sanitize_discord_message_body(body: dict[str, Any]) -> dict[str, Any]:
     mentions = _allowed_mentions_from_content(content)
     if mentions:
         out["allowed_mentions"] = mentions
-    return out or {"content": str(body.get("content") or "Notification")}
+    cleaned = _repair_fhm_discord_value(out) if out else {}
+    return cleaned or {"content": str(body.get("content") or "Notification")}
 
 
 def format_direct_message(event: dict[str, Any]) -> dict[str, Any]:

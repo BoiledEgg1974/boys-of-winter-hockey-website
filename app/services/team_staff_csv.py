@@ -5,12 +5,12 @@ import csv
 import io
 from pathlib import Path
 
-from charset_normalizer import from_path
 from flask import current_app, has_app_context
 
 from app.config import Config
 from scripts.import_pipeline.encoding_utils import (
     cell_val,
+    decode_fhm_csv_bytes,
     detect_delimiter,
     normalize_header,
     read_csv_normalized,
@@ -86,12 +86,7 @@ def _read_staff_ratings_by_id(path: Path) -> dict[str, dict[str, str]]:
     match the in-game staff screen.
     """
     raw = path.read_bytes()
-    result = from_path(str(path)).best()
-    encoding = result.encoding if result else "utf-8"
-    try:
-        text = raw.decode(encoding)
-    except Exception:
-        text = raw.decode("utf-8", errors="replace")
+    text, _encoding = decode_fhm_csv_bytes(raw)
     delimiter = detect_delimiter(text[:8192] if len(text) > 8192 else text)
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
     try:

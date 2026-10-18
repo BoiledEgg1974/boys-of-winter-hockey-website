@@ -36,7 +36,7 @@ from scripts.import_pipeline.encoding_utils import (
     cell_val,
     fhm_scoring_period_to_int,
     parse_fhm_date,
-    repair_likely_cp1250_mojibake,
+    clean_fhm_text,
     read_csv_normalized,
     to_bool,
     to_float,
@@ -132,7 +132,7 @@ def _slug(abbr: str, team_fhm_id: int) -> str:
 
 
 def _clean_text(raw: str | None) -> str | None:
-    return repair_likely_cp1250_mojibake(raw)
+    return clean_fhm_text(raw)
 
 
 def _parse_date(y, m, d) -> date | None:

@@ -2,23 +2,11 @@
 from __future__ import annotations
 
 import csv
+import io
 from pathlib import Path
 
 from app.config import Config
-
-
-def _detect_delimiter(sample_line: str) -> str:
-    return ";" if sample_line.count(";") > sample_line.count(",") else ","
-
-
-def _encoding_for_path(path: Path) -> str:
-    try:
-        from charset_normalizer import from_path
-
-        result = from_path(str(path)).best()
-        return result.encoding if result else "utf-8"
-    except Exception:
-        return "utf-8"
+from scripts.import_pipeline.encoding_utils import decode_fhm_csv_bytes, detect_delimiter
 
 
 def distinct_years_from_career_csvs(raw_dir: Path | None = None) -> list[int]:
@@ -31,34 +19,31 @@ def distinct_years_from_career_csvs(raw_dir: Path | None = None) -> list[int]:
         if not path.is_file():
             continue
         try:
-            enc = _encoding_for_path(path)
-            with path.open(encoding=enc, errors="replace", newline="") as f:
-                first = f.readline()
-                if not first:
-                    continue
-                delim = _detect_delimiter(first)
-                f.seek(0)
-                reader = csv.DictReader(f, delimiter=delim)
-                if not reader.fieldnames:
-                    continue
-                year_key = next(
-                    (k for k in reader.fieldnames if k and str(k).strip().lower() == "year"),
-                    None,
-                )
-                if not year_key:
-                    continue
-                for row in reader:
-                    v = row.get(year_key)
-                    if v is None or str(v).strip() == "":
-                        continue
-                    try:
-                        y = int(float(str(v).strip()))
-                    except (TypeError, ValueError):
-                        continue
-                    if 1800 <= y <= 2200:
-                        years.add(y)
+            text, _enc = decode_fhm_csv_bytes(path.read_bytes())
         except OSError:
             continue
+        if not text:
+            continue
+        delim = detect_delimiter(text)
+        reader = csv.DictReader(io.StringIO(text), delimiter=delim)
+        if not reader.fieldnames:
+            continue
+        year_key = next(
+            (k for k in reader.fieldnames if k and str(k).strip().lower() == "year"),
+            None,
+        )
+        if not year_key:
+            continue
+        for row in reader:
+            v = row.get(year_key)
+            if v is None or str(v).strip() == "":
+                continue
+            try:
+                y = int(float(str(v).strip()))
+            except (TypeError, ValueError):
+                continue
+            if 1800 <= y <= 2200:
+                years.add(y)
     return sorted(years)
 
 

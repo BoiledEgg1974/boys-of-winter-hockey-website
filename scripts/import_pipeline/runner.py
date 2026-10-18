@@ -47,6 +47,7 @@ from app.services.rebuild import refresh_after_import, snapshot_overall_baseline
 from scripts.import_pipeline.sqlite_session import commit_with_sqlite_retry  # noqa: E402
 from scripts.import_pipeline.encoding_utils import (  # noqa: E402
     cell_val,
+    clean_fhm_text,
     fhm_scoring_period_to_int,
     parse_fhm_date,
     read_csv_normalized,
@@ -319,9 +320,9 @@ def import_players(raw_dir: Path, app) -> int:
     newly_final_game_ids: set[int] = set()
     for _, row in df.iterrows():
         r = row.to_dict()
-        fn = cell_val(r, "first_name", "firstname", "fname")
-        ln = cell_val(r, "last_name", "lastname", "lname")
-        full = cell_val(r, "full_name", "name", "player_name")
+        fn = clean_fhm_text(cell_val(r, "first_name", "firstname", "fname"))
+        ln = clean_fhm_text(cell_val(r, "last_name", "lastname", "lname"))
+        full = clean_fhm_text(cell_val(r, "full_name", "name", "player_name"))
         if not full and fn and ln:
             full = f"{fn} {ln}"
         if not full:
@@ -355,7 +356,7 @@ def import_players(raw_dir: Path, app) -> int:
         p.fhm_player_id = fhm
         p.position = cell_val(r, "position", "pos")
         p.shoots_catches = cell_val(r, "shoots_catches", "shoots", "catches")
-        p.nationality = cell_val(r, "nationality", "nation")
+        p.nationality = clean_fhm_text(cell_val(r, "nationality", "nation"))
         bd = cell_val(r, "birth_date", "dob", "born")
         if bd:
             try:

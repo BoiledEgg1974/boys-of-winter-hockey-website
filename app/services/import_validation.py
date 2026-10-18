@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -8,27 +9,25 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.models import Team
+from scripts.import_pipeline.encoding_utils import decode_fhm_csv_bytes, detect_delimiter
 
 
 def _csv_delimiter_for(path: Path) -> str:
     try:
-        sample = path.read_text(encoding="utf-8-sig", errors="ignore")[:2048]
+        sample, _enc = decode_fhm_csv_bytes(path.read_bytes())
     except OSError:
         return ","
-    return ";" if sample.count(";") >= sample.count(",") else ","
+    return detect_delimiter(sample)
 
 
 def _read_csv_dict_rows(path: Path, *, delimiter: str) -> list[dict[str, str]]:
     if not path.is_file():
         return []
-    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
-        try:
-            with path.open("r", encoding=encoding, newline="") as fh:
-                return list(csv.DictReader(fh, delimiter=delimiter))
-        except UnicodeDecodeError:
-            continue
-    with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
-        return list(csv.DictReader(fh, delimiter=delimiter))
+    try:
+        text, _enc = decode_fhm_csv_bytes(path.read_bytes())
+    except OSError:
+        return []
+    return list(csv.DictReader(io.StringIO(text), delimiter=delimiter))
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

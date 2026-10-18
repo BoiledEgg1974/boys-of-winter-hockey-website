@@ -76,16 +76,11 @@ class LeagueDiscordBot:
             )
         except httpx.ReadTimeout:
             log.warning(
-                "pending fetch timed out for %s after %.0fs; retrying once",
+                "pending fetch timed out for %s after %.0fs",
                 league_slug,
                 float(timeout),
             )
-            resp = client.get(
-                url,
-                params=params,
-                headers=self._headers,
-                timeout=timeout,
-            )
+            raise
         resp.raise_for_status()
         data = resp.json()
         if not data.get("ok"):

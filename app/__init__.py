@@ -75,6 +75,7 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, Team, db
+from app.services import fhm_text as _fhm_text  # noqa: F401  registers name repairs on load
 from app.sqlite_bootstrap import bootstrap_league_sqlite, bootstrap_site_database
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 

@@ -75,7 +75,6 @@ from app.db_utils import (
     repair_fhm_team_city_from_name,
 )
 from app.models import Player, Team, db
-from app.services import fhm_text as _fhm_text  # noqa: F401  registers name repairs on load
 from app.sqlite_bootstrap import bootstrap_league_sqlite, bootstrap_site_database
 from app.sqlite_pragmas import install_sqlite_connect_pragmas
 
@@ -126,6 +125,7 @@ def create_app(config_class: type = Config) -> Flask:
     login_manager.init_app(app)
 
     importlib.import_module("app.site_models")
+    importlib.import_module("app.services.fhm_text")  # Player/Team name repair on load
     from app.config import is_racing_league as _is_racing_league_cfg
 
     if _is_racing_league_cfg(str(app.config.get("LEAGUE_SLUG") or "")):

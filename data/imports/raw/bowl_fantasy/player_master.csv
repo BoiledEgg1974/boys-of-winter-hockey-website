@@ -10932,7 +10932,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 10930;-1;-1;Ilya;Sorokin;;75;190;1995-8-4;Mezhdurechensk;SAM;Russia;;;1;Left;0
 10931;2;2;Calle;Clang;;74;194;2002-5-20;Olofström;BLE;Sweden;;;0;Left;0
 10932;-1;-1;Igor;Shesterkin;;73;194;1995-12-30;Moscow;MOS;Russia;;;1;Left;0
-10933;-1;-1;Luke;Tuch;;74;203;2002-3-7;Baldwinsville;NY;United States;;;0;Left;0
+10933;9;9;Luke;Tuch;;74;203;2002-3-7;Baldwinsville;NY;United States;;;0;Left;1
 10934;13;13;Sean;Farrell;;70;174;2001-11-2;Hopkinton;MA;United States;;;0;Left;1
 10935;6;6;Jérémie;Poirier;;73;190;2002-6-2;Salaberry-de-Valleyfield;QC;Canada;;;0;Left;1
 10936;387;387;Jan;Myšák;;71;201;2002-6-24;Litvínov;UST;Czechia;;;0;Left;1
@@ -11619,7 +11619,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 11617;-1;-1;Cooper;Flinton;;74;210;2003-8-16;Auburn;NH;United States;;;0;Left;0
 11618;-1;-1;Justin;Robidas;;68;182;2003-3-13;Moncton;NB;Canada;United States;;0;Right;0
 11619;-1;-1;Zach;Dean;;72;179;2003-1-4;Mount Pearl;NL;Canada;;;0;Left;0
-11620;-1;-1;Olivier;Nadeau;;74;205;2003-1-15;Lac-Etchemin;QC;Canada;;;0;Right;0
+11620;9;9;Olivier;Nadeau;;74;205;2003-1-15;Lac-Etchemin;QC;Canada;;;0;Right;1
 11621;13;13;Evan;Nause;;74;192;2003-1-20;Montreal;QC;Canada;;;0;Left;1
 11622;-1;-1;Guillaume;Richard;;74;193;2003-2-10;Portneuf;QC;Canada;;;0;Left;0
 11623;4;4;Nathan;Gaucher;;75;227;2003-11-6;Richelieu;QC;Canada;;;0;Right;1
@@ -11904,7 +11904,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 11902;5;5;Callum;Tung;;75;198;2003-11-23;Port Moody;BC;Canada;;;0;Left;0
 11903;12;12;Florian;Xhekaj;;76;205;2004-6-27;Hamilton;ON;Canada;Czechia;;0;Left;1
 11904;-1;-1;Nikita;Susuyev;;72;192;2005-2-6;Moscow;MOS;Russia;;;0;Left;0
-11905;-1;-1;Tyler;Thorpe;;77;220;2005-8-11;Richmond;BC;Canada;;;0;Right;0
+11905;9;9;Tyler;Thorpe;;77;220;2005-8-11;Richmond;BC;Canada;;;0;Right;1
 11906;6;6;Milton;Gästrin;;73;194;2007-6-2;Örnsköldsvik;VäS;Sweden;;;0;Left;1
 11907;388;388;Ilya;Protas;;77;201;2006-7-18;Vitebsk;VIT;Belarus;;;0;Left;1
 11908;7;7;Matt;Schaefer;;74;185;2007-9-5;Brampton;ON;Canada;;;0;Left;1
@@ -19051,7 +19051,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 19049;-1;-1;Ondrej;Jelinek;;72;191;2008-6-23;Pribram;STR;Czechia;;;0;Left;0
 19050;87;87;Spencer;Lawson;;70;177;2007-9-15;Mississauga;ON;Canada;;;0;Right;1
 19051;-1;-1;Ken;Buchanan;;73;172;2008-4-6;Lovosice;UST;Czechia;United States;;0;Right;0
-19052;-1;-1;Tommy;Brière;;70;177;2008-1-22;Boischatel;QC;Canada;;;0;Left;0
+19052;9;9;Tommy;Brière;;70;177;2008-1-22;Boischatel;QC;Canada;;;0;Left;1
 19053;-1;-1;Mark;Lavorato;;75;176;2007-11-11;Edmonton;AB;Canada;;;0;Right;0
 19054;-1;-1;Ladislav;Melicher;;69;172;2008-1-27;Ruzomberok;ZIL;Slovakia;;;0;Left;0
 19055;-1;-1;Jeremy;Vachon;;70;161;2008-3-5;Cornelius;NC;United States;;;0;Left;0
@@ -19251,7 +19251,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 19249;47;47;Jesper;Andersson;;71;200;2008-5-18;Lund;SKå;Sweden;;;0;Left;1
 19250;-1;-1;Mason;Coulis;;73;212;2008-5-2;Winnipeg;MB;Canada;;;0;Left;0
 19251;-1;-1;George;Ray;;73;213;2007-10-15;Lancaster;OH;United States;;;0;Right;0
-19252;-1;-1;Kris;King;;71;180;2008-2-24;Edmonton;AB;Canada;;;0;Left;0
+19252;40;40;Kris;King;;71;180;2008-2-24;Edmonton;AB;Canada;;;0;Left;1
 19253;-1;-1;Lee;Worley;;71;160;2008-6-17;Pittsburgh;PA;United States;;;0;Left;0
 19254;-1;-1;Colby;Dryden;;72;175;2007-9-11;Winnipeg;MB;Canada;;;0;Left;0
 19255;-1;-1;Rylan;Vickers;;74;199;2008-3-14;Edmonton;AB;Canada;;;0;Right;0
@@ -19601,7 +19601,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 19599;-1;-1;Clark;Bussell;;68;172;2008-2-26;Bella Vista;AR;United States;;;0;Right;0
 19600;-1;-1;Timur;Gizatullin;;72;173;2007-9-10;Poprad;PRE;Slovakia;Russia;;0;Right;0
 19601;-1;-1;Ernest;Averill;;73;210;2007-7-5;San Francisco;CA;United States;;;0;Left;0
-19602;-1;-1;Walt;Rouse;;75;176;2008-6-10;St. Matthews;KY;United States;;;0;Left;0
+19602;16;16;Walt;Rouse;;75;176;2008-6-10;St. Matthews;KY;United States;;;0;Left;1
 19603;-1;-1;Jason;Wyatt;;68;152;2007-7-26;Pearl City;HI;United States;;;0;Right;0
 19604;-1;-1;Daniel;Odom;;69;168;2007-10-12;East Meadow;NY;United States;;;0;Left;0
 19605;-1;-1;Sal;Bushey;;69;168;2008-2-28;Dayton;KY;United States;;;0;Left;0

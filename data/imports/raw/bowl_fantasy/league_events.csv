@@ -1,6 +1,4 @@
 LeagueId;Date;Event
-0;2025-12-22;All-Star Announcement
-0;2025-12-23;All-Star Game
 0;2026-1-1;Assign Scouts
 0;2026-1-1;Set Monthly Budget
 0;2026-3-1;Trading Deadline
@@ -15,7 +13,6 @@ LeagueId;Date;Event
 0;2026-8-1;HOF Induction
 0;2026-9-20;Preseason Start
 0;2026-10-4;Opening Night
-1;2025-12-23;All-Star Announcement
 1;2025-12-24;All-Star Game
 1;2026-1-1;Assign Scouts
 1;2026-1-1;Set Monthly Budget
@@ -161,8 +158,6 @@ LeagueId;Date;Event
 9;2026-8-1;HOF Induction
 9;2026-8-26;Preseason Start
 9;2026-9-9;Opening Night
-10;2025-12-22;All-Star Announcement
-10;2025-12-23;All-Star Game
 10;2026-1-1;Assign Scouts
 10;2026-1-1;Set Monthly Budget
 10;2026-2-1;Trading Deadline
@@ -285,8 +280,6 @@ LeagueId;Date;Event
 16;2026-8-1;HOF Induction
 16;2026-8-26;Preseason Start
 16;2026-9-9;Opening Night
-17;2025-12-19;All-Star Announcement
-17;2025-12-20;All-Star Game
 17;2026-1-1;Assign Scouts
 17;2026-1-1;Set Monthly Budget
 17;2026-2-1;Trading Deadline

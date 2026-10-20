@@ -913,7 +913,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 911;59;Brad;Willis;;1922-4-12;Vaughan;ON;Canada;;;0
 912;130;Dylan;Hancock;;1917-7-20;Bonavista;NL;Canada;;;0
 913;60;Frank;McKeown;;1924-11-25;Niagara Falls;ON;Canada;;;0
-914;-1;Tim;Sewell;;1925-1-23;Montreal;QC;Canada;;;0
+914;5;Tim;Sewell;;1925-1-23;Montreal;QC;Canada;;;0
 915;139;Jack;Wilder;;1922-10-31;Montreal;QC;Canada;;;0
 916;8;Burton;Benson;;1917-9-18;Calgary;AB;Canada;;;0
 917;119;Jim;Kostolansky;;1917-5-19;Calgary;AB;Canada;;;0
@@ -1688,7 +1688,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1686;-1;Justin;Moore;;1928-8-13;Salmon Creek;WA;The United States;;;0
 1687;-1;Ryan;Woods;;1922-12-13;Willmar;MN;The United States;;;0
 1688;-1;Tom;Ray;;1922-11-18;Halifax;NS;Canada;;;0
-1689;-1;Tim;Nelson;;1931-7-27;Brantford;ON;Canada;;;0
+1689;5;Tim;Nelson;;1931-7-27;Brantford;ON;Canada;;;0
 1690;-1;Mark;Kiddler;;1925-6-14;Grand Centre;AB;Canada;;;0
 1691;-1;Woodrow;Snyder;;1928-3-11;Zion;IL;The United States;;;0
 1692;-1;Issac;Furey;;1922-7-7;West Orange;NJ;The United States;;;0
@@ -1700,7 +1700,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1698;-1;Dylan;McLeod;;1922-7-7;Wichita;KS;The United States;;;0
 1699;-1;Quinn;Neal;;1922-5-17;Martha Lake;WA;The United States;;;0
 1700;-1;Joe;Sierra;;1925-9-20;Kitimat;BC;Canada;;;0
-1701;-1;Bruno;Desgagné;;1922-11-10;North Cowichan;BC;Canada;;;0
+1701;135;Bruno;Desgagné;;1922-11-10;North Cowichan;BC;Canada;;;0
 1702;-1;Mark;Sheedy;;1922-11-17;White Rock;BC;Canada;;;0
 1703;-1;Paul;Scrivner;;1922-1-18;Modesto;CA;The United States;;;0
 1704;-1;Matt;Earles;;1922-10-4;Wayne;NJ;The United States;;;0

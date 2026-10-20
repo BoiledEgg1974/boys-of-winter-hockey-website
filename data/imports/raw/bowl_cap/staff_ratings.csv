@@ -338,7 +338,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 336;20;15;1;1;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;17;0;11;17;11;0;0;1;;13;13
 337;10;15;15;20;1;Standard;Balanced;Balanced;Balanced;Prefers Prospects;Balanced;Balanced;4;5;5;15;5;5;5;5;6;5;10;5;3;5;0;;14;16
 338;1;10;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;;14;15
-339;1;10;18;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;1;3;1;1;1;3;3;0;;13;12
+339;1;10;17;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;3;3;3;3;3;3;1;3;1;1;1;3;3;0;;13;12
 340;1;5;18;20;1;Defensive;Balanced;Balanced;Conservative;Balanced;Balanced;Balanced;5;2;2;2;3;2;2;0;2;0;0;0;2;3;0;;13;12
 341;1;10;20;20;1;Standard;Physical;Balanced;Balanced;Balanced;Balanced;Balanced;6;14;8;7;9;7;8;4;7;4;4;4;6;9;0;;13;12
 342;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;2;0;2;2;2;0;0;0;;10;10
@@ -1389,7 +1389,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1387;19;19;10;17;1;Defensive;Non-physical;Passive;Balanced;Prefers Prospects;Balanced;Ruthless;14;2;1;7;14;4;7;5;11;11;5;14;9;8;0;;14;15
 1388;18;20;10;17;1;Offensive;Very Non-Physical;Balanced;Conservative;Balanced;Conservative;Ruthless;1;2;14;10;9;4;3;6;6;13;9;9;13;4;0;;10;2
 1389;19;19;10;17;1;Offensive;Very Non-Physical;Aggressive;Aggressive;Balanced;Innovative;Balanced;14;11;10;7;13;3;2;7;4;8;9;7;7;9;0;;11;11
-1390;16;20;10;20;1;Offensive;Very Non-Physical;Aggressive;Balanced;Prefers Veterans;Innovative;Loyal;3;15;3;5;5;14;2;5;17;11;6;16;10;10;0;;15;16
+1390;15;20;10;20;1;Offensive;Very Non-Physical;Aggressive;Balanced;Prefers Veterans;Innovative;Loyal;3;15;3;5;5;14;2;5;17;11;6;16;10;10;0;;15;16
 1391;19;19;10;17;1;Very Offensive;Very Non-Physical;Balanced;Balanced;Prefers Veterans;Balanced;Balanced;6;12;8;12;14;11;15;1;13;2;7;12;17;4;0;;11;3
 1392;18;20;10;17;1;Defensive;Very Non-Physical;Balanced;Aggressive;Prefers Prospects;Balanced;Very Ruthless;2;12;9;13;5;3;8;1;14;9;7;3;5;2;0;;4;6
 1393;20;19;10;16;1;Offensive;Non-physical;Balanced;Conservative;Balanced;Conservative;Balanced;8;6;14;15;15;6;2;6;8;6;2;14;10;2;0;;6;3
@@ -1745,7 +1745,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1743;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;14;8;7;9;7;8;2;7;2;2;2;6;9;0;;13;12
 1744;10;15;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;3;4;7;3;4;5;5;6;3;6;6;6;3;5;0;;14;14
 1745;1;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;12;12;12;12;12;12;12;9;12;9;9;9;12;12;0;;13;12
-1746;1;15;20;17;1;Offensive;Non-physical;Very Aggressive;Conservative;Balanced;Very Innovative;Balanced;17;8;7;9;12;7;7;7;9;7;7;7;14;13;0;;13;13
+1746;1;15;20;16;1;Offensive;Non-physical;Very Aggressive;Conservative;Balanced;Very Innovative;Balanced;17;8;7;9;12;7;7;7;9;7;7;7;14;13;0;;13;13
 1747;1;5;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;8;8;8;8;8;8;8;2;8;2;2;2;8;8;0;;13;12
 1748;10;15;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;4;4;4;4;4;4;7;4;7;7;7;4;4;0;;14;14
 1749;1;10;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;4;6;10;4;6;7;7;4;5;4;4;4;4;7;0;;15;15
@@ -1868,7 +1868,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 1866;1;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;5;7;5;5;5;7;7;0;;13;12
 1867;20;5;1;1;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;;10;10
 1868;15;20;20;20;1;Standard;Physical;Balanced;Balanced;Prefers Prospects;Balanced;Balanced;6;7;7;11;7;7;7;7;8;7;7;7;4;7;0;;13;12
-1869;1;10;20;17;1;Offensive;Very Non-Physical;Balanced;Balanced;Balanced;Balanced;Balanced;5;7;11;7;5;15;6;4;7;4;4;4;9;11;0;;13;13
+1869;1;10;20;16;1;Offensive;Very Non-Physical;Balanced;Balanced;Balanced;Balanced;Balanced;5;7;11;7;5;15;6;4;7;4;4;4;9;11;0;;13;13
 1870;1;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;7;11;5;7;8;8;5;6;5;5;5;5;8;0;;14;14
 1871;1;15;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;6;9;14;6;9;10;10;6;7;6;6;6;6;10;0;;13;12
 1872;1;10;20;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;9;9;9;9;9;9;9;4;9;4;4;4;9;9;0;;13;12

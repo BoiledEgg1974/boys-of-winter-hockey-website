@@ -1562,7 +1562,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1560;217;GM;Lightning;;1961-4-11;;;Canada;;;0
 1561;-1;Jeff;Wolf;;1943-8-8;Phoenix;AZ;The United States;;;0
 1562;-1;Jonah;James;;1949-10-29;Cadiz;OH;The United States;;;0
-1563;-1;Lou;MacDonald;;1943-6-17;Ives Estates;FL;The United States;;;0
+1563;12;Lou;MacDonald;;1943-6-17;Ives Estates;FL;The United States;;;0
 1564;-1;Jerome;Chambers;;1943-1-23;Cambridge;MA;The United States;;;0
 1565;-1;Thomas;Lafond;;1943-2-21;Mississauga;ON;The United States;;;0
 1566;-1;Brian;Joyner;;1943-10-6;Los Angeles;CA;The United States;;;0
@@ -1991,7 +1991,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1989;-1;Dan;Stuchal;;1965-1-1;Villa Rica;GA;The United States;;;0
 1990;227;Mark;Yannetti;;1971-6-7;Charlemont;MA;The United States;;;0
 1991;9;Vadim;Podrezov;;1965-9-29;Omsk;OMS;Russia;;;0
-1992;-1;Michel;Boucher;;1951-8-13;Richmond;QC;Canada;;;0
+1992;220;Michel;Boucher;;1951-8-13;Richmond;QC;Canada;;;0
 1993;-1;Mike;Rooney;;1965-1-1;Warman;SK;Canada;;;0
 1994;217;Vaclav;Slansky;;1949-1-1;Kladno;STR;Czech Republic;;;0
 1995;-1;Daniel;Hedin;;1965-1-1;Stockholm;STO;Sweden;;;0
@@ -2100,7 +2100,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2098;-1;Dan;Singleton;;1965-1-1;Castlewood;CO;The United States;;;0
 2099;-1;Milan;Tichy;;1969-9-22;Plzen;PLZ;Czech Republic;;;0
 2100;220;Marc;Chamard;;1964-6-11;Saint-Jean-sur-Richelieu;QC;Canada;;;0
-2101;-1;Paul;Charles;;1957-7-8;Hearst;ON;Canada;;;0
+2101;12;Paul;Charles;;1957-7-8;Hearst;ON;Canada;;;0
 2102;-1;Brian;Putnam;;1973-4-19;Maple Ridge;BC;Canada;;;0
 2103;229;Darwin;Bennett;;1950-3-27;Whistler;BC;The United States;;;0
 2104;-1;Tim;Sweeney;;1967-4-12;Canton;MA;The United States;;;0

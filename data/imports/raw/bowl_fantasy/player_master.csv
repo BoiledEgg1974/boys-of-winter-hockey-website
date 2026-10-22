@@ -3292,7 +3292,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3290;166;166;Alain;Birbaum;;68;181;1985-10-11;Fribourg;FR;Switzerland;;;0;Left;0
 3291;159;159;Romain;Loeffel;;70;187;1991-3-10;Colombier;NE;Switzerland;;;0;Right;0
 3292;159;159;Julien;Sprunger;;76;198;1986-1-4;Fribourg;FR;Switzerland;;;0;Right;0
-3293;165;165;Simon;Bodenmann;;70;181;1988-3-2;Urnäsch;AR;Switzerland;;;0;Left;0
+3293;155;155;Simon;Bodenmann;;70;181;1988-3-2;Urnäsch;AR;Switzerland;;;0;Left;0
 3294;165;165;Denis;Hollenstein;;72;195;1989-10-15;Mosnang;SG;Switzerland;;;0;Left;0
 3295;161;161;Steve;Kellenberger;;68;181;1987-2-6;Bülach;ZH;Switzerland;Austria;;0;Left;0
 3296;160;160;Mirco;Müller;;76;207;1995-3-21;Winterthur;ZH;Switzerland;;;0;Left;0
@@ -8001,7 +8001,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7999;292;292;Hunter;Johannes;;76;225;1998-7-24;Downey;CA;United States;;;0;Left;0
 8000;317;317;Jonathan;Sorenson;;73;185;1999-9-21;Eldersburg;MD;United States;;;0;Left;1
 8001;306;306;Jimmy;Glynn;;71;174;2000-2-24;Lemont;IL;United States;;;0;Right;1
-8002;297;297;Ryan;Naumovski;;73;165;1999-7-28;Elk Plain;WA;United States;;;0;Right;0
+8002;-1;-1;Ryan;Naumovski;;73;165;1999-7-28;Elk Plain;WA;United States;;;0;Right;0
 8003;310;310;Kyle;Jeffers;;70;165;1999-1-6;Hollywood;FL;United States;;;0;Right;0
 8004;302;302;Lincoln;Hatten;;75;192;2000-3-1;Allen;TX;United States;;;0;Left;1
 8005;317;317;Matt;Koethe;;70;190;1999-9-28;Minnetonka;MN;United States;;;0;Right;1
@@ -18934,7 +18934,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 18932;-1;-1;Dan;Mills;;71;201;2007-11-29;Brooklyn;NY;United States;;;0;Left;0
 18933;-1;-1;Cooper;Funk;;72;175;2007-7-14;Zephyrhills;FL;United States;;;0;Right;0
 18934;-1;-1;Tom;Herman;;73;200;2007-10-8;Cascade-Fairwood;WA;United States;;;0;Right;0
-18935;-1;-1;Matt;McDougal;;72;188;2007-9-3;Redwood City;CA;United States;;;0;Left;0
+18935;297;297;Matt;McDougal;;72;188;2007-9-3;Redwood City;CA;United States;;;0;Left;1
 18936;-1;-1;Romain;Malherbe;;69;192;2007-9-23;Cagnes-sur-Mer;PRO;France;;;0;Left;0
 18937;-1;-1;Kimmo;Piisilä;;70;190;2007-11-3;Längelmäki;PIR;Finland;;;0;Right;0
 18938;-1;-1;Eric;Moyer;;73;170;2007-9-26;Ringwood;NJ;United States;;;0;Left;0

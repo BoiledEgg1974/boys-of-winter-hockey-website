@@ -1529,7 +1529,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1527;56;Ron;Burkey;;1976-9-7;North Berwick;ME;United States;;;0
 1528;56;Doug;von Lueder;;1965-1-16;Paw Paw;MI;United States;;;0
 1529;56;Paul;Keedwell;;1975-12-13;Acton;MA;United States;;;0
-1530;57;Ed;Hall;;1969-9-16;El Paso;TX;United States;;;0
+1530;-1;Ed;Hall;;1969-9-16;El Paso;TX;United States;;;0
 1531;57;Bill;Wallace;;1966-5-11;Farmington;NH;United States;;;0
 1532;57;Rob;Gentry;;1969-2-16;Smithville-Sanders;IN;United States;;;0
 1533;57;Jeff;Monteith;;1979-9-19;Chicago;IL;United States;;;0
@@ -6299,7 +6299,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 6297;-1;Zach;Brown;;1981-5-25;Edmonton;AB;Canada;;;0
 6298;-1;Shea;Palmieri;;1957-10-30;Toronto;ON;Canada;;;0
 6299;-1;Jimmy;Loftsgard;;1981-4-21;Sydney;NS;Canada;;;0
-6300;-1;Harold;Sheffield;;1974-1-2;McHenry;IL;United States;;;0
+6300;57;Harold;Sheffield;;1974-1-2;McHenry;IL;United States;;;0
 6301;-1;Rajan;MacDonald;;1961-10-27;Surrey;BC;Canada;;;0
 6302;-1;Guillaume;Couture;;1984-8-3;Repentigny;QC;Canada;;;0
 6303;-1;Scott;Gogol;;1957-6-15;Langford;BC;Canada;;;0

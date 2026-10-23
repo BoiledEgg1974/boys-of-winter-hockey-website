@@ -14,6 +14,9 @@
       <span class="home-dashboard__league-pill" title="Current league site">{{ _home_league_label }}</span>
     </div>
     <p class="home-dashboard__deck">League home — leaders, schedule, and storylines for this universe.</p>
+    {% if perfect_squad_public_href %}
+    <p class="home-dashboard__deck"><a href="{{ perfect_squad_public_href }}">Public Perfect Squad</a> — live NHL cards, separate login, not tied to this BOWL league.</p>
+    {% endif %}
   </header>
 
   <p id="home-dashboard-season-note" class="muted home-dashboard__banner-msg" hidden></p>

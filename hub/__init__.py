@@ -146,10 +146,13 @@ def create_hub_app() -> Flask:
     def splash():
         audio_dir = Path(hub_app.static_folder or "") / "audio"
         splash_mp3 = audio_dir / "splash.mp3"
+        from app.perfect_squad_mount import perfect_squad_public_href
+
         return render_template(
             "index.html",
             leagues=LEAGUES,
             splash_audio_available=splash_mp3.is_file(),
+            perfect_squad_public_href=perfect_squad_public_href(),
         )
 
     @hub_app.get("/favicon.ico")

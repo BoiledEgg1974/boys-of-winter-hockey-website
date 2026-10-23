@@ -655,7 +655,7 @@ def create_app(config_class: type = Config) -> Flask:
 
         from app.config import league_discord_invite_url
         from app.services.relegation import entry_draft_enabled_for_league, relegation_under_construction
-        from app.perfect_squad_mount import perfect_squad_home_href
+        from app.perfect_squad_mount import perfect_squad_home_href, perfect_squad_public_href
 
         return dict(
             nav_teams=teams,
@@ -697,6 +697,7 @@ def create_app(config_class: type = Config) -> Flask:
             if getattr(current_user, "is_authenticated", False)
             else False,
             perfect_squad_home_href=perfect_squad_home_href(slug_layout) if slug_layout else None,
+            perfect_squad_public_href=perfect_squad_public_href(),
         )
 
     @app.cli.command("init-db")

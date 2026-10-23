@@ -12,6 +12,8 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from app.config import HOCKEY_LEAGUE_SLUGS
 
 _MOUNT_PREFIX = "/perfect-squad"
+PUBLIC_LEAGUE_SLUG = "ps-public"
+PUBLIC_MOUNT_PREFIX = "/perfect-squad"
 # Per league: Flask app, snapshot of Perfect Squad ``app.*`` modules, repo root path.
 _ps_runtime: dict[str, tuple[Any, dict[str, Any], str]] = {}
 # ``sys.modules`` is process-global; BOWL and Perfect Squad both use the top-level
@@ -55,6 +57,18 @@ def perfect_squad_home_href(league_slug: str) -> str | None:
     if not perfect_squad_league_enabled(league_slug) or not perfect_squad_enabled():
         return None
     return f"/{league_slug}{_MOUNT_PREFIX}/{league_slug}/"
+
+
+def public_perfect_squad_open() -> bool:
+    """Public Perfect Squad stays unmounted until licensing is cleared."""
+    return os.environ.get("PS_PUBLIC_OPEN", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def perfect_squad_public_href() -> str | None:
+    """Site-root public Perfect Squad (not tied to a BOWL league)."""
+    if not public_perfect_squad_open() or not perfect_squad_enabled():
+        return None
+    return f"{PUBLIC_MOUNT_PREFIX}/"
 
 
 def _mount_swap_lock() -> threading.Lock:
@@ -118,11 +132,13 @@ def _build_perfect_squad_app(league_slug: str):
                 site_uri = _norm_site_db(site_uri)
             except ImportError:
                 pass
+        cookie_name = "ps_public_session" if league_slug == PUBLIC_LEAGUE_SLUG else os.environ.get("SESSION_COOKIE_NAME", "session")
+        cookie_path = PUBLIC_MOUNT_PREFIX if league_slug == PUBLIC_LEAGUE_SLUG else "/"
         ps_config: dict[str, Any] = {
             "PS_MOUNT_LEAGUE_SLUG": league_slug,
             "SECRET_KEY": os.environ.get("SECRET_KEY"),
-            "SESSION_COOKIE_NAME": os.environ.get("SESSION_COOKIE_NAME", "session"),
-            "SESSION_COOKIE_PATH": "/",
+            "SESSION_COOKIE_NAME": cookie_name,
+            "SESSION_COOKIE_PATH": cookie_path,
             "BOWL_ROOT": str(bowl_repo),
         }
         if site_uri:
@@ -187,6 +203,16 @@ def _lazy_perfect_squad_wsgi(league_slug: str) -> Callable:
         return _invoke_ps_wsgi(league_slug, app, ps_modules, ps_root, environ, start_response)
 
     return application
+
+
+def wrap_combined_with_public_perfect_squad(wsgi_app: Callable) -> Callable:
+    """Mount public Perfect Squad at ``/perfect-squad`` on the BOWL hub."""
+    if not public_perfect_squad_open() or not perfect_squad_enabled():
+        return wsgi_app
+    return DispatcherMiddleware(
+        wsgi_app,
+        {PUBLIC_MOUNT_PREFIX: _lazy_perfect_squad_wsgi(PUBLIC_LEAGUE_SLUG)},
+    )
 
 
 def wrap_league_wsgi_with_perfect_squad(league_wsgi_app: Callable, league_slug: str) -> Callable:

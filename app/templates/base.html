@@ -194,6 +194,9 @@
             {% endif %}
             <a href="{{ url_for('main.league_headlines') }}">Headlines</a>
             <a href="{{ url_for('main.trade_log_page') }}">Trade Log</a>
+            {% if perfect_squad_public_href %}
+            <a href="{{ perfect_squad_public_href }}">Public Perfect Squad</a>
+            {% endif %}
           </div>
           {% endif %}
         </section>

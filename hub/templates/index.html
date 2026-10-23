@@ -92,6 +92,24 @@
     .league-card--demolition:focus-visible .league-card__logo {
       box-shadow: 0 0 28px rgb(251 146 60 / 0.85), 0 10px 30px rgb(0 0 0 / 0.55);
     }
+    .league-card--public:hover .league-card__logo,
+    .league-card--public:focus-visible .league-card__logo {
+      box-shadow: 0 0 28px rgb(250 204 21 / 0.8), 0 10px 30px rgb(0 0 0 / 0.55);
+    }
+    .public-squad-card {
+      margin: 0 auto 2rem;
+      max-width: 28rem;
+      display: block;
+      text-decoration: none;
+      color: #f8fafc;
+      background: rgb(15 23 42 / 0.85);
+      border: 1px solid rgb(250 204 21 / 0.35);
+      border-radius: 12px;
+      padding: 1rem 1.15rem 1.1rem;
+    }
+    .public-squad-card strong { display: block; letter-spacing: 0.06em; text-transform: uppercase; }
+    .public-squad-card span { display: block; margin-top: 0.35rem; color: #cbd5e1; font-size: 0.95rem; }
+    .public-squad-card:hover { box-shadow: 0 0 24px rgb(250 204 21 / 0.35); }
     .splash-audio {
       margin-top: 1rem;
       padding: 1rem;
@@ -144,6 +162,12 @@
   <main class="splash-page">
     <h1 class="splash-title">BOYS OF WINTER LEAGUE UNIVERSE</h1>
     <p class="splash-lead">Choose a league site to explore. You can switch leagues anytime from the menu on each site.</p>
+    {% if perfect_squad_public_href %}
+    <a class="public-squad-card" href="{{ perfect_squad_public_href }}">
+      <strong>Public Perfect Squad</strong>
+      <span>Build a card squad from live NHL stats. Own login — not tied to a BOWL league.</span>
+    </a>
+    {% endif %}
     <p class="splash-lead" style="margin-top:-1rem;font-size:0.95rem;">
       <a href="/login" style="color:#38bdf8;">GM Log In</a>
       · <a href="/register" style="color:#38bdf8;">Register</a>

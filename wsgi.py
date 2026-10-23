@@ -17,7 +17,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from app import create_app
 from app.config import BASE_DIR, league_slugs, make_league_config
-from app.perfect_squad_mount import wrap_league_wsgi_with_perfect_squad
+from app.perfect_squad_mount import wrap_combined_with_public_perfect_squad, wrap_league_wsgi_with_perfect_squad
 from app.static_wsgi import wrap_combined_static_files
 from hub import create_hub_app
 
@@ -56,6 +56,7 @@ def create_combined_application():
     hub = create_hub_app()
     mounts = {f"/{slug}": _lazy_league_wsgi(slug) for slug in league_slugs()}
     combined = DispatcherMiddleware(hub.wsgi_app, mounts)
+    combined = wrap_combined_with_public_perfect_squad(combined)
     static_root = BASE_DIR / "app" / "static"
     return wrap_combined_static_files(
         combined,

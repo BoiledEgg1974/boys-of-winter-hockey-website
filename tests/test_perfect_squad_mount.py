@@ -13,9 +13,18 @@ from app.perfect_squad_mount import (
     _snapshot_app_modules,
     perfect_squad_home_href,
     perfect_squad_league_enabled,
+    perfect_squad_public_href,
     perfect_squad_root,
     wrap_league_wsgi_with_perfect_squad,
 )
+
+
+def test_perfect_squad_public_href_stays_off_until_opened(monkeypatch):
+    monkeypatch.setattr("app.perfect_squad_mount.perfect_squad_enabled", lambda: True)
+    monkeypatch.delenv("PS_PUBLIC_OPEN", raising=False)
+    assert perfect_squad_public_href() is None
+    monkeypatch.setenv("PS_PUBLIC_OPEN", "1")
+    assert perfect_squad_public_href() == "/perfect-squad/"
 
 
 def test_perfect_squad_home_href_format():

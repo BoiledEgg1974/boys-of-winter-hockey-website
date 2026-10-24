@@ -497,7 +497,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 495;217;Gord;Giesbrecht;;1940-1-1;Pickering;ON;Canada;;;0
 496;3;Tim;Eichler;;1939-6-1;Springfield;MO;The United States;;;0
 497;9;Samuli;Koivisto;;1939-9-2;Lohja;UUS;Finland;;;0
-498;-1;Nicolò;Cameli;;1941-12-19;Milan;LOM;Italy;;;0
+498;26;Nicolò;Cameli;;1941-12-19;Milan;LOM;Italy;;;0
 499;5;Allain;Brouwer;;1949-8-15;Moncton;NB;Canada;;;0
 500;5;Carl;Hynes;;1941-5-20;Quinte West;ON;Canada;;;0
 501;216;Jasmin;Karisik;;1947-6-7;Stanari;REP;Bosnia & Herzegovina;;;0
@@ -530,7 +530,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 528;12;Ray;Wallace;;1940-4-12;Richmond;CA;The United States;;;0
 529;-1;Dave;Vine;;1942-8-24;Bloomingdale;GA;The United States;;;0
 530;225;Dan;Blanchard;;1939-6-27;Houston;TX;The United States;;;0
-531;-1;Jon;McJannett;;1939-7-14;San Francisco;CA;The United States;;;0
+531;26;Jon;McJannett;;1939-7-14;San Francisco;CA;The United States;;;0
 532;11;Waylon;Ballard;;1939-10-25;Salcha;AK;The United States;;;0
 533;5;Jay;Myers;;1945-9-22;North Las Vegas;NV;The United States;;;0
 534;12;Michael;McLairish;;1946-7-9;Wichita;KS;The United States;;;0
@@ -559,7 +559,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 557;227;Tim;McGinn;;1940-10-4;Islip Terrace;NY;The United States;;;0
 558;225;Alan;Tarrant;;1939-6-5;Fresno;CA;The United States;;;0
 559;10;Keith;Maldonado;;1939-5-12;Paradise;CA;The United States;;;0
-560;-1;Greg;Small;;1939-11-7;Manchester;NH;The United States;;;0
+560;26;Greg;Small;;1939-11-7;Manchester;NH;The United States;;;0
 561;22;Brandon;Holland;;1948-7-10;Pinson;AL;The United States;;;0
 562;-1;Michael;Cottle;;1939-12-11;Yonkers;NY;The United States;;;0
 563;16;Randy;O'Duff;;1939-6-19;Lantana;FL;The United States;;;0
@@ -1405,7 +1405,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1403;-1;Dennis;West;;1940-11-5;Toronto;ON;Canada;;;0
 1404;26;Albert;Tuff;;1940-2-25;Vancouver;BC;Canada;;;0
 1405;-1;Stephen;Sharp;;1944-5-5;Repentigny;QC;Canada;;;0
-1406;-1;Darryl;Kovacs;;1940-10-5;Fredericton;NB;Canada;;;0
+1406;26;Darryl;Kovacs;;1940-10-5;Fredericton;NB;Canada;;;0
 1407;-1;Phil;Hardesty;;1940-12-22;Charlestown;NH;The United States;;;0
 1408;-1;Don;Miller;;1940-1-8;View Royal;BC;Canada;;;0
 1409;-1;Joe;Stanley;;1940-7-18;Vancouver;BC;Canada;;;0
@@ -1964,7 +1964,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 1962;-1;Mike;Stothers;;1962-2-22;Toronto;ON;Canada;;;0
 1963;-1;Pat;Conacher;;1959-5-1;Elk Point;AB;Canada;;;0
 1964;-1;Brian;Skrudland;;1963-7-31;Rimbey;AB;Canada;;;0
-1965;-1;Marcel;Comeau;;1952-3-1;Elk Point;AB;Canada;;;0
+1965;26;Marcel;Comeau;;1952-3-1;Elk Point;AB;Canada;;;0
 1966;0;Yevgeni;Bogdanovich;;1976-5-30;St. Petersburg;SAI;Russia;;;0
 1967;-1;Bernd;Freimüller;;1968-6-21;Bischofshofen;SAL;Austria;;;0
 1968;-1;Mark;Dobson;;1963-1-1;Stirling;ON;The United States;;;0
@@ -2218,7 +2218,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2216;-1;Barry;Smith;;1961-4-20;Union City;MI;The United States;;;0
 2217;-1;Bruce;Cassidy;;1965-5-20;Ottawa;ON;Canada;;;0
 2218;-1;Mike;Palmateer;;1954-1-13;Toronto;ON;Canada;;;0
-2219;-1;John;McMorrow;;1967-1-1;Oak Park Heights;MN;The United States;;;0
+2219;26;John;McMorrow;;1967-1-1;Oak Park Heights;MN;The United States;;;0
 2220;-1;Gilles;Lefebvre;;1967-1-1;Murdochville;QC;Canada;;;0
 2221;-1;Jari;Kekäläinen;;1971-12-30;Helsinki;UUS;Finland;;;0
 2222;-1;Keith;McKittrick;;1982-12-12;Canton;MA;The United States;;;0
@@ -2367,7 +2367,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 2365;-1;Mike;Flower;;1952-1-18;Fairfield;CT;The United States;;;0
 2366;-1;Terry;O'Bronagham;;1952-12-3;Port Barrington;IL;The United States;;;0
 2367;-1;David;Pierce;;1953-6-30;Burnaby;BC;Canada;;;0
-2368;-1;Jonathan;Powers;;1952-9-7;Brooklyn;NY;The United States;;;0
+2368;26;Jonathan;Powers;;1952-9-7;Brooklyn;NY;The United States;;;0
 2369;-1;Scott;Kagan;;1955-11-13;Toronto;ON;Canada;;;0
 2370;-1;Jody;Mulder;;1956-1-15;Hartselle;AL;The United States;;;0
 2371;-1;Tony;Hardin;;1952-12-20;Edmonton;AB;Canada;;;0

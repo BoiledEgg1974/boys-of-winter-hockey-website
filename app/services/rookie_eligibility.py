@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 from typing import Iterable
 
 from sqlalchemy import select
@@ -14,6 +15,16 @@ from app.models import (
     Team,
 )
 from app.services.all_time_records import bowl_nhl_league_ids
+
+
+def season_proxy_for_year(start_year: int) -> SimpleNamespace:
+    """Season-shaped object for eligibility when no ``seasons`` row exists."""
+    sy = int(start_year)
+    return SimpleNamespace(
+        start_year=sy,
+        end_year=sy + 1,
+        label=f"{sy}-{(sy + 1) % 100:02d}",
+    )
 
 
 def rookie_cutoff_date(season: Season) -> date | None:
@@ -64,28 +75,28 @@ def rookie_stat_team_is_bowl_nhl(team: Team | None, league_ids: tuple[int, ...])
         return False
 
 
-def prior_skater_gp_by_season_for_players(
+def career_rs_gp_by_season_year_for_players(
     session,
     *,
     player_ids: list[int],
-    before_season_year: int,
+    player_kind: str,
     league_ids: tuple[int, ...] | None = None,
-) -> dict[int, list[int]]:
+    before_season_year: int | None = None,
+) -> dict[int, dict[int, int]]:
+    """Regular-season career GP keyed by player and FHM season start year."""
     if not player_ids:
         return {}
     lids = league_ids if league_ids is not None else bowl_nhl_league_ids(session) or (0,)
-    rows = session.execute(
-        select(
-            PlayerSkaterCareerLine.player_id,
-            PlayerSkaterCareerLine.season_year,
-            PlayerSkaterCareerLine.gp,
-        ).where(
-            PlayerSkaterCareerLine.player_id.in_(player_ids),
-            PlayerSkaterCareerLine.career_source.in_(("rs", "retired_rs")),
-            PlayerSkaterCareerLine.league_fhm_id.in_(lids) if lids else True,
-            PlayerSkaterCareerLine.season_year < int(before_season_year),
-        )
-    ).all()
+    model = PlayerGoalieCareerLine if player_kind == "goalie" else PlayerSkaterCareerLine
+    filters = [
+        model.player_id.in_(player_ids),
+        model.career_source.in_(("rs", "retired_rs")),
+    ]
+    if lids:
+        filters.append(model.league_fhm_id.in_(lids))
+    if before_season_year is not None:
+        filters.append(model.season_year < int(before_season_year))
+    rows = session.execute(select(model.player_id, model.season_year, model.gp).where(*filters)).all()
     out: dict[int, dict[int, int]] = {}
     for pid, season_year, gp in rows:
         if season_year is None:
@@ -94,7 +105,24 @@ def prior_skater_gp_by_season_for_players(
         yr_i = int(season_year)
         by_year = out.setdefault(pid_i, {})
         by_year[yr_i] = by_year.get(yr_i, 0) + int(gp or 0)
-    return {pid: list(yrs.values()) for pid, yrs in out.items()}
+    return out
+
+
+def prior_skater_gp_by_season_for_players(
+    session,
+    *,
+    player_ids: list[int],
+    before_season_year: int,
+    league_ids: tuple[int, ...] | None = None,
+) -> dict[int, list[int]]:
+    by_year = career_rs_gp_by_season_year_for_players(
+        session,
+        player_ids=player_ids,
+        player_kind="skater",
+        league_ids=league_ids,
+        before_season_year=before_season_year,
+    )
+    return {pid: list(yrs.values()) for pid, yrs in by_year.items()}
 
 
 def prior_goalie_gp_by_season_for_players(
@@ -104,30 +132,26 @@ def prior_goalie_gp_by_season_for_players(
     before_season_year: int,
     league_ids: tuple[int, ...] | None = None,
 ) -> dict[int, list[int]]:
-    if not player_ids:
-        return {}
-    lids = league_ids if league_ids is not None else bowl_nhl_league_ids(session) or (0,)
-    rows = session.execute(
-        select(
-            PlayerGoalieCareerLine.player_id,
-            PlayerGoalieCareerLine.season_year,
-            PlayerGoalieCareerLine.gp,
-        ).where(
-            PlayerGoalieCareerLine.player_id.in_(player_ids),
-            PlayerGoalieCareerLine.career_source.in_(("rs", "retired_rs")),
-            PlayerGoalieCareerLine.league_fhm_id.in_(lids) if lids else True,
-            PlayerGoalieCareerLine.season_year < int(before_season_year),
-        )
-    ).all()
-    out: dict[int, dict[int, int]] = {}
-    for pid, season_year, gp in rows:
-        if season_year is None:
-            continue
-        pid_i = int(pid)
-        yr_i = int(season_year)
-        by_year = out.setdefault(pid_i, {})
-        by_year[yr_i] = by_year.get(yr_i, 0) + int(gp or 0)
-    return {pid: list(yrs.values()) for pid, yrs in out.items()}
+    by_year = career_rs_gp_by_season_year_for_players(
+        session,
+        player_ids=player_ids,
+        player_kind="goalie",
+        league_ids=league_ids,
+        before_season_year=before_season_year,
+    )
+    return {pid: list(yrs.values()) for pid, yrs in by_year.items()}
+
+
+def player_is_rookie_in_season_year(
+    *,
+    gp_by_year: dict[int, int] | None,
+    birth_date: date | None,
+    season_year: int,
+) -> bool:
+    """True when NHL-style rules say the player was a rookie in ``season_year``."""
+    year = int(season_year)
+    prior = [gp for yr, gp in (gp_by_year or {}).items() if int(yr) < year]
+    return is_nhl_style_rookie(prior, birth_date, season_proxy_for_year(year))
 
 
 def rookie_player_ids_for_season(

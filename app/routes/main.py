@@ -2895,10 +2895,22 @@ def all_time_records():
 
 @main_bp.get("/season-records")
 def league_season_records():
-    from app.services.league_season_records import build_league_season_records_bundle
+    from app.services.league_season_records import (
+        build_league_season_records_bundle,
+        rookie_season_records_from_label,
+        rookie_season_records_start_year,
+    )
     from app.services.relegation import team_fhm_ids_for_scope
 
     relegation_ctx = _relegation_template_context("main.league_season_records")
+    if relegation_ctx.get("relegation_enabled"):
+        player_scope = (request.args.get("player_scope") or "all").strip().lower()
+    else:
+        player_scope = (
+            request.args.get("scope") or request.args.get("player_scope") or "all"
+        ).strip().lower()
+    if player_scope not in ("all", "rookie"):
+        player_scope = "all"
     team_fhm_ids = None
     if relegation_ctx.get("relegation_enabled") and relegation_ctx.get("relegation_config"):
         team_fhm_ids = team_fhm_ids_for_scope(
@@ -2907,12 +2919,15 @@ def league_season_records():
             relegation_ctx["relegation_config"],  # type: ignore[arg-type]
         )
     season_records_rs_sections, season_records_po_sections = build_league_season_records_bundle(
-        db.session, team_fhm_ids=team_fhm_ids
+        db.session, team_fhm_ids=team_fhm_ids, player_scope=player_scope
     )
+    rookie_from_year = rookie_season_records_start_year(db.session)
     return render_template(
         "season_records.html",
         season_records_rs_sections=season_records_rs_sections,
         season_records_po_sections=season_records_po_sections,
+        player_scope=player_scope,
+        rookie_from_label=rookie_season_records_from_label(rookie_from_year),
         **relegation_ctx,
     )
 

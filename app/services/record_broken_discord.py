@@ -474,7 +474,7 @@ def collect_current_record_holders(session: Session, *, league_slug: str) -> dic
             seg_label = _SEGMENT_LABEL.get(segment, segment)
             for player_scope, scope_key, title_prefix in (
                 ("all", "league", "League Season Record"),
-                ("rookie", "rookie", "League Season Rookie Record"),
+                ("rookie", "rookie_era", "League Season Rookie Record"),
             ):
                 for section in build_league_season_record_sections(
                     session,
@@ -486,15 +486,16 @@ def collect_current_record_holders(session: Session, *, league_slug: str) -> dic
                         continue
                     key = f"{prefix}season:{scope_key}:{segment}:{_slug_key(section.title)}"
                     title = f"{title_prefix} — {section.title} ({seg_label})"
+                    path = f"/season-records?segment={segment}"
+                    if player_scope == "rookie":
+                        path += "&player_scope=rookie"
                     holder = _holder_from_season_row(
                         snapshot_key=key,
                         record_title=title,
-                        record_scope=scope_key,
+                        record_scope="rookie" if player_scope == "rookie" else scope_key,
                         row=section.rows[0],
                         team=None,
-                        record_path=_record_path_with_rel_scope(
-                            f"/season-records?segment={segment}", rel_scope
-                        ),
+                        record_path=_record_path_with_rel_scope(path, rel_scope),
                     )
                     if holder is not None:
                         out[key] = holder

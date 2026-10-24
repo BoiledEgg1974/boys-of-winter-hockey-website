@@ -5,7 +5,24 @@
 <div class="card">
   <h1 class="page-title">Season Records{% if relegation_enabled and relegation_scope != 'combined' %} — {{ relegation_config.upper_label if relegation_scope == 'upper' else relegation_config.lower_label }}{% endif %}</h1>
   {% include 'includes/relegation_scope_tabs.html' %}
-  <p class="muted">League-wide top 10 single-season marks.</p>
+
+  {% macro season_rec_url(pscope) -%}
+  {%- if relegation_enabled -%}
+  {{ url_for('main.league_season_records', player_scope=pscope, scope=(relegation_scope if relegation_scope != 'combined' else none)) }}
+  {%- else -%}
+  {{ url_for('main.league_season_records', scope=pscope) }}
+  {%- endif -%}
+  {%- endmacro %}
+
+  <div class="game-records-filters">
+    <div class="game-records-filters__group" role="group" aria-label="Player scope">
+      <span class="game-records-filters__label">Players</span>
+      <a class="game-records-filters__pill{% if player_scope == 'all' %} is-active{% endif %}" href="{{ season_rec_url('all') }}">All Players</a>
+      <a class="game-records-filters__pill{% if player_scope == 'rookie' %} is-active{% endif %}" href="{{ season_rec_url('rookie') }}">Rookies</a>
+    </div>
+  </div>
+
+  <p class="muted">{% if player_scope == 'rookie' %}League-wide top 10 single-season rookie marks from {{ rookie_from_label }} onward.{% else %}League-wide top 10 single-season marks.{% endif %}</p>
   <p class="muted"><a href="{{ url_for('main.all_time_records') }}">All-Time Records</a> · <a href="{{ url_for('main.milestones') }}">Milestones</a></p>
 
   <section class="league-season-records__block" aria-labelledby="league-season-records-rs">

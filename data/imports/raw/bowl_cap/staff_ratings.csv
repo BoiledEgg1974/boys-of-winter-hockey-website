@@ -48,7 +48,7 @@ StaffId;Executive;Manager;Coach;Scout;Trainer;Off Pref;Phy Pref;Line Matching;Go
 46;1;10;20;20;1;Offensive;Non-physical;Balanced;Balanced;Prefers Prospects;Innovative;Balanced;7;9;9;13;9;9;9;4;10;4;4;4;5;9;0;;13;12
 47;15;15;15;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;5;7;11;5;7;8;8;7;6;7;7;7;5;8;0;;14;14
 48;15;15;10;20;1;Standard;Balanced;Balanced;Balanced;Balanced;Balanced;Balanced;7;7;7;7;7;7;7;11;7;11;16;14;7;7;0;;16;17
-49;10;20;15;16;1;Offensive;Balanced;Aggressive;Balanced;Loves Prospects;Innovative;Balanced;3;4;5;5;5;5;4;7;3;7;7;7;5;10;0;;15;16
+49;10;20;15;15;1;Offensive;Balanced;Aggressive;Balanced;Loves Prospects;Innovative;Balanced;3;4;5;5;5;5;4;7;3;7;7;7;5;10;0;;15;16
 50;1;10;20;15;1;Standard;Balanced;Aggressive;Balanced;Balanced;Balanced;Balanced;6;13;13;20;16;16;13;4;20;18;8;6;16;16;1;;13;12
 51;1;10;15;20;1;Standard;Non-physical;Aggressive;Balanced;Prefers Prospects;Innovative;Balanced;3;4;5;5;5;5;4;3;3;3;3;3;5;9;0;;14;14
 52;10;15;20;15;1;Offensive;Balanced;Balanced;Balanced;Prefers Veterans;Balanced;Balanced;6;11;11;13;14;14;16;11;14;15;6;17;4;9;1;;14;14

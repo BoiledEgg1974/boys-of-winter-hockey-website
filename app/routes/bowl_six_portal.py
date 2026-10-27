@@ -40,7 +40,7 @@ from app.services.bowl_six import (
     last_scored_slate,
     lineup_is_editable,
     most_picked_for_slate,
-    auto_update_bowl_six_slates,
+    schedule_bowl_six_slate_refresh,
     backfill_bowl_six_season_prizes,
     backfill_bowl_six_weekly_prizes,
     ensure_past_week_bowl_six_prizes,
@@ -253,12 +253,7 @@ def _enqueue_bowl_six_discord_after_admin_score(slate: BowlSixSlate, *, force: b
 def bowl_six_hub():
     _require_bowl_six_access()
     slug = _league_slug()
-    try:
-        auto_update_bowl_six_slates(db.session, db.session, slug)
-        commit_with_sqlite_retry(db.session)
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("BOWL Six auto-update failed for %s", slug)
+    schedule_bowl_six_slate_refresh(slug)
     if not bowl_six_enabled(db.session, slug):
         flash("BOWL Six is disabled for this league.", "err")
         return redirect(url_for("main.home"))
@@ -393,12 +388,7 @@ def bowl_six_lineup():
 def bowl_six_leaders():
     _require_bowl_six_access()
     slug = _league_slug()
-    try:
-        auto_update_bowl_six_slates(db.session, db.session, slug)
-        commit_with_sqlite_retry(db.session)
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("BOWL Six leaders auto-update failed for %s", slug)
+    schedule_bowl_six_slate_refresh(slug)
     in_progress_slate = None
     in_progress_rows: list[dict] = []
     week_progress: dict | None = None

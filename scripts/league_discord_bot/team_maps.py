@@ -125,6 +125,9 @@ _HISTORICAL_SPECS: Dict[int, TeamSpec] = {
     123: team("STL", "1469123043769974915"),
     130: team("BUF", "1523803268244049930"),
     131: team("VAN", "1523803266784301056"),
+    # Expansion 1972 — same Discord emotes as cap ATL/NYI.
+    134: team("ATL", "1486767286772695171"),
+    135: team("NYI", "1468083975972196435"),
 }
 
 _FANTASY_SPECS: Dict[int, TeamSpec] = {

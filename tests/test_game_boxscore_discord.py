@@ -828,6 +828,44 @@ class FormatterTest(unittest.TestCase):
         self.assertIn("https://www.bowlhockey.com/bowl-historical/game/867", content)
         self.assertIn("bowlhockey.com", content)
 
+    def test_formatter_includes_historical_expansion_team_emotes(self) -> None:
+        event = {
+            "league_slug": "bowl-historical",
+            "event_key": GAME_BOXSCORE_EVENT_KEY,
+            "payload": {
+                "title": "Final",
+                "date": "1972-10-12",
+                "game_type_label": "RS",
+                "away_score": 0,
+                "home_score": 4,
+                "away_team": {"abbrev": "ATL", "fhm_team_id": 134},
+                "home_team": {"abbrev": "MTL", "fhm_team_id": 0},
+            },
+        }
+        bodies = format_discord_messages(event, max_parts=2)
+        content = "\n".join(str(b.get("content") or "") for b in bodies)
+        self.assertIn("<:ATL:1486767286772695171>", content)
+        self.assertIn("<:MTL:1358674505853046814>", content)
+        self.assertIn("**ATL** 0 – 4 **MTL**", content)
+
+        islanders = {
+            "league_slug": "bowl-historical",
+            "event_key": GAME_BOXSCORE_EVENT_KEY,
+            "payload": {
+                "title": "Final",
+                "away_score": 3,
+                "home_score": 2,
+                "away_team": {"abbrev": "NYI", "fhm_team_id": 135},
+                "home_team": {"abbrev": "NYR", "fhm_team_id": 10},
+            },
+        }
+        islanders_content = "\n".join(
+            str(b.get("content") or "")
+            for b in format_discord_messages(islanders, max_parts=2)
+        )
+        self.assertIn("<:NYI:1468083975972196435>", islanders_content)
+        self.assertIn("<:NYR:1543797351443857448>", islanders_content)
+
     def test_payload_builder_sets_target_team_id(self) -> None:
         home = SimpleNamespace(
             id=10,

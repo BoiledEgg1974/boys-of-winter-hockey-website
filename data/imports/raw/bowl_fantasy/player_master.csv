@@ -3447,7 +3447,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 3445;167;167;Antti;Suomela;;72;179;1994-3-17;Espoo;UUS;Finland;;;0;Left;0
 3446;166;166;Frédérik;Gauthier;;77;238;1995-4-26;Laval;QC;Canada;;;0;Left;0
 3447;157;157;Michael;Joly;;71;176;1995-5-5;Gatineau;QC;Canada;;;0;Left;0
-3448;165;165;Christian;Marti;;76;214;1993-3-29;Bülach;ZH;Switzerland;;;0;Left;0
+3448;155;155;Christian;Marti;;76;214;1993-3-29;Bülach;ZH;Switzerland;;;0;Left;0
 3449;158;158;Enzo;Corvi;;72;187;1992-12-23;Chur;GR;Switzerland;;;0;Right;0
 3450;160;160;Brendan;Perlini;;76;212;1996-4-27;Guildford;ENG;Canada;England;;0;Left;0
 3451;167;167;Fabian;Heldner;;76;209;1996-6-24;Visp;VS;Switzerland;;;0;Right;0
@@ -7933,7 +7933,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 7931;314;314;Trevor;Zins;;72;190;1998-7-23;Greenville;TX;United States;;;0;Right;0
 7932;298;298;Hudson;Schandor;;69;174;2000-9-29;Lethbridge;AB;Canada;;;0;Left;1
 7933;312;312;Ethan;Langenegger;;72;193;2000-9-10;Kamloops;BC;Canada;;;0;Left;0
-7934;-1;-1;Jesse;Lansdell;;71;183;1998-8-5;Surrey;BC;Canada;;;0;Left;0
+7934;309;309;Jesse;Lansdell;;71;183;1998-8-5;Surrey;BC;Canada;;;0;Left;0
 7935;319;319;Connor;Marritt;;74;201;1999-3-14;Kelowna;BC;Canada;;;0;Left;0
 7936;295;295;Robby;Drazner;;73;194;2000-2-13;Buffalo Grove;IL;United States;;;0;Right;1
 7937;303;303;Aiden;Hansen-Bukata;;73;194;1999-6-29;Delta;BC;Canada;;;0;Left;0
@@ -14345,7 +14345,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 14343;-1;-1;Douglas;Nordahl;;67;191;1994-5-26;Malmö;SKå;Sweden;;;1;Left;0
 14344;-1;-1;Andreas;Wall;;67;183;1995-11-5;Norrköping;ÖST;Sweden;;;1;Left;0
 14345;-1;-1;Andrey;Agakov;;70;212;1991-9-23;Novorossiysk;KRA;Russia;;;1;Left;0
-14346;-1;-1;Anton;Larsen;;72;208;2001-4-29;Stockholm;STO;Sweden;;;0;Left;0
+14346;96;96;Anton;Larsen;;72;208;2001-4-29;Stockholm;STO;Sweden;;;0;Left;1
 14347;-1;-1;Artyom;Yazykin;;71;186;2003-5-16;Petrozavodsk;KAR;Russia;;;0;Left;0
 14348;-1;-1;Pasi;Westerholm;;69;195;1996-12-9;Stockholm;STO;Sweden;;;1;Left;0
 14349;-1;-1;Vital;Ramashkin;;69;212;1995-12-11;Drogichin;BRE;Belarus;;;1;Left;0
@@ -17968,7 +17968,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 17966;-1;-1;Andreas;Karlsson;;76;200;2008-2-9;Varberg;HAL;Sweden;;;0;Right;0
 17967;-1;-1;Sebastian;Johansson;;76;207;2008-4-23;Stockholm;STO;Sweden;;;0;Left;0
 17968;-1;-1;Roland;Wallström;;70;174;2007-12-23;Sollentuna;STO;Sweden;;;0;Left;0
-17969;-1;-1;Aleksandr;Nogin;;73;178;2008-1-6;Saransk;MOR;Russia;;;0;Left;0
+17969;16;16;Aleksandr;Nogin;;73;178;2008-1-6;Saransk;MOR;Russia;;;0;Left;1
 17970;297;297;Erik;Johansson;;72;188;2007-7-4;Stockholm;STO;Sweden;;;0;Left;1
 17971;-1;-1;Martin;Toula;;72;218;2007-8-18;Ostrava;MOR;Czechia;;;0;Right;0
 17972;-1;-1;Filip;Samuelsson;;75;179;2007-10-16;Stockholm;STO;Sweden;;;0;Right;0
@@ -18619,7 +18619,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 18617;-1;-1;Antti;Håkans;;70;168;2008-4-23;Alajärvi;SOS;Finland;;;0;Left;0
 18618;-1;-1;Kevin;Mahaffy;;71;165;2008-2-9;Roseville;CA;United States;;;0;Right;0
 18619;-1;-1;J.R.;McLaughlin;;70;161;2008-6-22;Marietta;GA;United States;;;0;Left;0
-18620;-1;-1;Oleg;Kaklyugin;;71;192;2008-3-28;Riga;RIG;Latvia;;;0;Left;0
+18620;41;41;Oleg;Kaklyugin;;71;192;2008-3-28;Riga;RIG;Latvia;;;0;Left;1
 18621;-1;-1;Tim;O'Connor;;67;151;2008-2-9;Champaign;IL;United States;;;0;Right;0
 18622;46;46;Daniel;Widdows;;72;196;2007-11-30;St. Andrews;SC;United States;;;0;Left;1
 18623;-1;-1;Noah;Schuler;;74;193;2007-12-7;Ettingen;BL;Switzerland;;;0;Left;0
@@ -19192,7 +19192,7 @@ PlayerId;TeamId;FranchiseId;First Name;Last Name;Nick Name;Height;Weight;Date Of
 19190;-1;-1;Dmitry;Balashov;;72;180;2008-3-23;Saransk;MOR;Russia;;;0;Right;0
 19191;-1;-1;Johannes;Schweiger;;71;212;2008-3-11;Vienna;WIE;Austria;;;0;Right;0
 19192;-1;-1;Cecil;Clay;;67;180;2008-2-19;Villa Park;IL;United States;;;0;Left;0
-19193;-1;-1;Silvan;Wüst;;68;172;2007-11-1;Riehen;BS;Switzerland;;;0;Left;0
+19193;165;165;Silvan;Wüst;;68;172;2007-11-1;Riehen;BS;Switzerland;;;0;Left;1
 19194;-1;-1;Lukas;Balon;;73;224;2008-3-23;Marianské Lazne;KAR;Czechia;;;0;Left;0
 19195;-1;-1;Alexandre;Roy;;72;180;2007-9-18;Montreal;QC;Canada;;;0;Right;0
 19196;-1;-1;Jonathan;Guindon;;71;173;2007-7-11;Longueuil;QC;Canada;;;0;Left;0

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time as time_mod
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -52,6 +54,9 @@ BOWL_SIX_LOCK_TZ = ZoneInfo("America/New_York")
 BOWL_SIX_LOCK_TZ_LABEL = "ET"
 BOWL_SIX_REAL_WEEK_START_DOW = 0  # Monday
 BOWL_SIX_DEFAULT_LOCK_TIME_ET = "19:59"
+_SLATE_REFRESH_LOCK = threading.Lock()
+_SLATE_REFRESH_IN_FLIGHT: set[str] = set()
+_SLATE_REFRESH_LAST: dict[str, float] = {}
 SLOT_LABELS = {
     "gk": "GK",
     "def1": "DEF",
@@ -1417,14 +1422,106 @@ def score_slate(
     return finalize_slate(session, league_session, slate, notify=notify)
 
 
+def _slate_refresh_key(league_slug: str) -> str:
+    return str(league_slug or "").strip()
+
+
+def _begin_slate_refresh(league_slug: str) -> bool:
+    """True when this caller should run auto-update (not already in flight)."""
+    key = _slate_refresh_key(league_slug)
+    if not key:
+        return False
+    with _SLATE_REFRESH_LOCK:
+        if key in _SLATE_REFRESH_IN_FLIGHT:
+            return False
+        _SLATE_REFRESH_IN_FLIGHT.add(key)
+        return True
+
+
+def _end_slate_refresh(league_slug: str) -> None:
+    key = _slate_refresh_key(league_slug)
+    if not key:
+        return
+    with _SLATE_REFRESH_LOCK:
+        _SLATE_REFRESH_IN_FLIGHT.discard(key)
+
+
+def reset_bowl_six_slate_refresh_state() -> None:
+    """Test helper: drop in-flight / throttle markers."""
+    with _SLATE_REFRESH_LOCK:
+        _SLATE_REFRESH_IN_FLIGHT.clear()
+        _SLATE_REFRESH_LAST.clear()
+
+
+def _slate_refresh_interval_seconds() -> float:
+    from flask import current_app
+
+    raw = current_app.config.get("BOWL_SIX_SLATE_REFRESH_INTERVAL_SECONDS")
+    if raw is None:
+        raw = current_app.config.get("BOWL_SIX_DISCORD_REFRESH_INTERVAL_SECONDS", 60)
+    try:
+        return float(raw or 0)
+    except (TypeError, ValueError):
+        return 60.0
+
+
+def schedule_bowl_six_slate_refresh(league_slug: str) -> bool:
+    """Run ``auto_update_bowl_six_slates`` off the request thread.
+
+    Relegation's 21-day rescore regularly exceeds nginx/Cloudflare proxy
+    timeouts when it runs inline on GET /bowl-six.
+    """
+    key = _slate_refresh_key(league_slug)
+    if not key:
+        return False
+    from flask import current_app
+
+    interval = _slate_refresh_interval_seconds()
+    now = time_mod.monotonic()
+    with _SLATE_REFRESH_LOCK:
+        if key in _SLATE_REFRESH_IN_FLIGHT:
+            return False
+        last = _SLATE_REFRESH_LAST.get(key, 0.0)
+        if interval > 0 and now - last < interval:
+            return False
+        _SLATE_REFRESH_LAST[key] = now
+    app = current_app._get_current_object()
+
+    def _run() -> None:
+        from app.sqlite_retry import commit_with_sqlite_retry
+
+        with app.app_context():
+            try:
+                auto_update_bowl_six_slates(db.session, db.session, key)
+                commit_with_sqlite_retry(db.session)
+            except Exception:
+                db.session.rollback()
+                _log.exception("Background BOWL Six slate refresh failed for %s", key)
+
+    threading.Thread(target=_run, name=f"bowl-six-slate-{key}", daemon=True).start()
+    return True
+
+
 def auto_update_bowl_six_slates(
     session: Session, league_session: Session, league_slug: str
 ) -> list[str]:
     """Refresh locked/scored slates after imports or page loads. Returns log lines."""
-    from app.sqlite_retry import write_with_sqlite_retry
-
     if not bowl_six_enabled(session, league_slug):
         return []
+    if not _begin_slate_refresh(league_slug):
+        _log.debug("BOWL Six auto-update already running for %s", league_slug)
+        return []
+    try:
+        return _auto_update_bowl_six_slates_unlocked(session, league_session, league_slug)
+    finally:
+        _end_slate_refresh(league_slug)
+
+
+def _auto_update_bowl_six_slates_unlocked(
+    session: Session, league_session: Session, league_slug: str
+) -> list[str]:
+    from app.sqlite_retry import write_with_sqlite_retry
+
     lookback = date.today() - timedelta(days=21)
     slate_ids = [
         int(s.id)

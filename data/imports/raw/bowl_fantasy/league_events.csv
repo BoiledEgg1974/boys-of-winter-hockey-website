@@ -160,8 +160,6 @@ LeagueId;Date;Event
 10;2026-8-1;HOF Induction
 10;2026-9-25;Preseason Start
 10;2026-10-3;Opening Night
-11;2026-2-16;All-Star Announcement
-11;2026-2-17;All-Star Game
 11;2026-3-1;Assign Scouts
 11;2026-3-1;Set Monthly Budget
 11;2026-3-24;Award Nominees
@@ -177,8 +175,6 @@ LeagueId;Date;Event
 11;2026-8-1;HOF Induction
 11;2026-9-4;Preseason Start
 11;2026-9-18;Opening Night
-12;2026-2-16;All-Star Announcement
-12;2026-2-17;All-Star Game
 12;2026-3-1;Assign Scouts
 12;2026-3-1;Set Monthly Budget
 12;2026-3-24;Award Nominees
@@ -254,7 +250,6 @@ LeagueId;Date;Event
 16;2026-8-1;HOF Induction
 16;2026-8-26;Preseason Start
 16;2026-9-9;Opening Night
-17;2026-2-17;Award Nominees
 17;2026-2-18;UNIV Playoffs
 17;2026-3-1;Assign Scouts
 17;2026-3-1;Set Monthly Budget

@@ -7619,7 +7619,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 7617;313;Kyle;Harbin;;1964-6-5;Jarales;NM;United States;;;0
 7618;313;Ron;Stephens;;1970-11-7;Lancaster;CA;United States;;;0
 7619;313;Jeff;Ryan;;1979-2-27;Venice;FL;United States;;;0
-7620;314;Alex;Kuwano;;1963-4-17;San Rafael;CA;United States;;;0
+7620;-1;Alex;Kuwano;;1963-4-17;San Rafael;CA;United States;;;0
 7621;314;Waylon;Sparks;;1981-6-25;Fort Dodge;IA;United States;;;0
 7622;314;Rickey;Lavine;;1983-10-31;Fresno;CA;United States;;;0
 7623;314;Buck;Webb;;1972-1-4;Phillipsburg;NJ;United States;;;0
@@ -8237,7 +8237,7 @@ StaffId;TeamId;First Name;Last Name;Nick Name;Date Of Birth;Birthcity;Birthstate
 8235;-1;Craig;Vosper;;1979-7-27;Chicago;IL;United States;;;0
 8236;-1;Ben;Murray;;1978-1-23;Parkville;MD;United States;;;0
 8237;-1;Dale;Peck;;1961-1-1;Chico;CA;United States;;;0
-8238;-1;Larry;Cantillon;;1973-10-5;Surfside;FL;United States;;;0
+8238;314;Larry;Cantillon;;1973-10-5;Surfside;FL;United States;;;0
 8239;-1;Ron;Nichols;;1959-1-10;Garden Acres;CA;United States;;;0
 8240;-1;Mark;Frasier;;1975-12-30;Madison;WI;United States;;;0
 8241;-1;Danny;Blake;;1972-10-28;Roswell;NM;United States;;;0

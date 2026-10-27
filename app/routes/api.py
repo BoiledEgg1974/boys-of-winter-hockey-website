@@ -2351,16 +2351,15 @@ def bowl_six_leaders_payload():
         return jsonify({"ok": False, "message": "league slug is not configured"}), 400
     try:
         from app.services.bowl_six import (
-            auto_update_bowl_six_slates,
             bowl_six_enabled,
             get_or_create_current_slate,
+            schedule_bowl_six_slate_refresh,
         )
         from app.services.bowl_six_discord import build_bowl_six_leaders_discord_payload
 
         if not bowl_six_enabled(db.session, slug):
             return jsonify({"ok": False, "message": "BOWL Six is disabled"}), 404
-        auto_update_bowl_six_slates(db.session, db.session, slug)
-        commit_with_sqlite_retry(db.session)
+        schedule_bowl_six_slate_refresh(slug)
         slate = get_or_create_current_slate(db.session, slug)
         if slate is None or str(slate.status or "") == "skipped":
             return jsonify({"ok": False, "message": "No active BOWL Six slate"}), 404

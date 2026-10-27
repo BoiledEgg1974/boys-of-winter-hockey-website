@@ -23,6 +23,24 @@ class TeamMapsHistoricalTest(unittest.TestCase):
         self.assertEqual(HISTORICAL_TEAMS[120], ("CAL", "<:CAL:1527136600721719487>"))
         self.assertEqual(HISTORICAL_TEAMS[130], ("BUF", "<:BUF:1523803268244049930>"))
         self.assertEqual(HISTORICAL_TEAMS[131], ("VAN", "<:VAN:1523803266784301056>"))
+        self.assertEqual(HISTORICAL_TEAMS[134], ("ATL", "<:ATL:1486767286772695171>"))
+        self.assertEqual(HISTORICAL_TEAMS[135], ("NYI", "<:NYI:1468083975972196435>"))
+        self.assertEqual(
+            emoji_for_abbrev("bowl-historical", "ATL"),
+            "<:ATL:1486767286772695171>",
+        )
+        self.assertEqual(
+            emoji_for_abbrev("bowl-historical", "NYI"),
+            "<:NYI:1468083975972196435>",
+        )
+        self.assertEqual(
+            entry_for_fhm_team_id("bowl-historical", 134),
+            ("ATL", "<:ATL:1486767286772695171>"),
+        )
+        self.assertEqual(
+            entry_for_fhm_team_id("bowl-historical", 135),
+            ("NYI", "<:NYI:1468083975972196435>"),
+        )
 
     def test_oak_alias_resolves_to_california(self) -> None:
         self.assertEqual(fhm_team_id_for_abbrev("bowl-historical", "OAK"), 120)

@@ -5796,9 +5796,9 @@ def admin_control_center():
     snap = build_control_center_snapshot(db.session, raw_dir)
     schedule_frozen = rule_bool(db.session, slug, "schedule_frozen", default=False)
     from app.services.bowl_six import (
-        auto_update_bowl_six_slates,
         bowl_six_enabled,
         get_or_create_current_slate,
+        schedule_bowl_six_slate_refresh,
         list_slates,
         lock_at_display_eastern,
         lock_at_eastern_form_values,
@@ -5807,11 +5807,7 @@ def admin_control_center():
         slate_week_rs_games_complete,
     )
 
-    try:
-        auto_update_bowl_six_slates(db.session, db.session, slug)
-        commit_with_sqlite_retry(db.session)
-    except Exception:
-        db.session.rollback()
+    schedule_bowl_six_slate_refresh(slug)
     bowl_six_on = bowl_six_enabled(db.session, slug)
     bowl_six_current = get_or_create_current_slate(db.session, slug) if bowl_six_on else None
     bowl_six_slates = list_slates(db.session, slug, limit=12) if bowl_six_on else []
